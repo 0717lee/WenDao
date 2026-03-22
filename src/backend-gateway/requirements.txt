@@ -15,6 +15,7 @@ jieba>=0.42
 opencc-python-reimplemented>=0.1.7
 # paddleocr>=2.9.0  # Optional fallback for Baidu OCR — too heavy for cloud deploy (~500MB)
 Pillow>=10.0.0
+aiosqlite>=0.19.0
 asyncpg>=0.29.0
 fpdf2>=2.8.0
 pydub>=0.25.1
