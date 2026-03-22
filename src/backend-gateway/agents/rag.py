@@ -22,11 +22,13 @@ class RAGAgent:
     def __init__(self):
         api_key = os.getenv("MOONSHOT_API_KEY", "")
         if not api_key:
-            raise ValueError("MOONSHOT_API_KEY 未配置，请检查 .env 文件")
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.moonshot.cn/v1"
-        )
+            logger.warning("MOONSHOT_API_KEY 未配置，RAG功能将降级")
+            self.client = None
+        else:
+            self.client = OpenAI(
+                api_key=api_key,
+                base_url="https://api.moonshot.cn/v1"
+            )
         self._init_vectorstore()
         self._entity_extractor = None
 
@@ -76,6 +78,13 @@ class RAGAgent:
             context = "\n---\n".join(context_parts) if context_parts else ""
 
             # 3. 构建prompt并调用Kimi
+            if self.client is None:
+                return {
+                    "answer": "RAG功能暂时不可用（缺少API密钥），请联系管理员配置MOONSHOT_API_KEY",
+                    "citations": citations,
+                    "related_entities": []
+                }
+
             user_prompt = f"""用户提问：{user_query}
 
 以下是从古籍知识库检索到的相关原文片段：
