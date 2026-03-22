@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source + data files
 COPY src/backend-gateway/ .
 
+# Make start script executable
+RUN chmod +x start.sh
+
 # Railway sets PORT dynamically, expose it
 EXPOSE 8000
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --log-level info
+CMD ["bash", "start.sh"]
