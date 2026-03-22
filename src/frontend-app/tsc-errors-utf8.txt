@@ -1,0 +1,4 @@
+﻿src/components/ArchModel.tsx(203,30): error TS2322: Type '{ skyColor: string; groundColor: string; intensity: number; }' is not assignable to type 'Mutable<Overwrite<Partial<Overwrite<HemisphereLight, MathProps<HemisphereLight> & ReactProps<HemisphereLight> & Partial<EventHandlers>>>, Omit<...>>>'.
+  Property 'skyColor' does not exist on type 'Mutable<Overwrite<Partial<Overwrite<HemisphereLight, MathProps<HemisphereLight> & ReactProps<HemisphereLight> & Partial<EventHandlers>>>, Omit<...>>>'.
+src/components/ArchModel.tsx(245,21): error TS2322: Type 'string' is not assignable to type 'Color'.
+src/components/ParametricBuilding.tsx(1,38): error TS6133: 'useState' is declared but its value is never read.

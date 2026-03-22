@@ -1,0 +1,2590 @@
+{
+  "nodes": [
+    {
+      "id": "rujia",
+      "label": "儒家",
+      "group": "思想流派",
+      "desc": "以仁义礼智信为核心的思想体系，影响中国两千余年"
+    },
+    {
+      "id": "daojia",
+      "label": "道家",
+      "group": "思想流派",
+      "desc": "以道法自然、无为而治为核心理念"
+    },
+    {
+      "id": "fajia",
+      "label": "法家",
+      "group": "思想流派",
+      "desc": "主张以法治国、富国强兵"
+    },
+    {
+      "id": "mojia",
+      "label": "墨家",
+      "group": "思想流派",
+      "desc": "主张兼爱非攻、尚贤尚同"
+    },
+    {
+      "id": "bingjia",
+      "label": "兵家",
+      "group": "思想流派",
+      "desc": "研究军事战略与战术的学派"
+    },
+    {
+      "id": "mingjia",
+      "label": "名家",
+      "group": "思想流派",
+      "desc": "研究名实关系与逻辑辩论"
+    },
+    {
+      "id": "zongheng",
+      "label": "纵横家",
+      "group": "思想流派",
+      "desc": "以合纵连横之术游说诸侯"
+    },
+    {
+      "id": "yinyang",
+      "label": "阴阳家",
+      "group": "思想流派",
+      "desc": "以阴阳五行解释宇宙万物变化"
+    },
+    {
+      "id": "zajia",
+      "label": "杂家",
+      "group": "思想流派",
+      "desc": "兼采各家之长的综合学派"
+    },
+    {
+      "id": "nongjia",
+      "label": "农家",
+      "group": "思想流派",
+      "desc": "主张重农，君民并耕"
+    },
+    {
+      "id": "foxue",
+      "label": "佛学",
+      "group": "思想流派",
+      "desc": "东汉传入中国，与本土文化深度融合"
+    },
+    {
+      "id": "lixue",
+      "label": "理学",
+      "group": "思想流派",
+      "desc": "宋代儒学新发展，融合佛道思想"
+    },
+    {
+      "id": "xinxue",
+      "label": "心学",
+      "group": "思想流派",
+      "desc": "王阳明创立，致良知、知行合一"
+    },
+    {
+      "id": "kaoju",
+      "label": "考据学",
+      "group": "思想流派",
+      "desc": "清代乾嘉学派，注重文献考证与校勘"
+    },
+    {
+      "id": "kongzi",
+      "label": "孔子",
+      "group": "人物",
+      "desc": "名丘字仲尼，儒家创始人，万世师表"
+    },
+    {
+      "id": "mengzi",
+      "label": "孟子",
+      "group": "人物",
+      "desc": "名轲，儒家亚圣，主张性善论与仁政"
+    },
+    {
+      "id": "xunzi",
+      "label": "荀子",
+      "group": "人物",
+      "desc": "名况，主张性恶论与礼法并重"
+    },
+    {
+      "id": "laozi",
+      "label": "老子",
+      "group": "人物",
+      "desc": "姓李名耳，道家创始人，著《道德经》"
+    },
+    {
+      "id": "zhuangzi",
+      "label": "庄子",
+      "group": "人物",
+      "desc": "名周，道家代表，著《庄子》，逍遥齐物"
+    },
+    {
+      "id": "hanfeizi",
+      "label": "韩非子",
+      "group": "人物",
+      "desc": "法家集大成者，著《韩非子》"
+    },
+    {
+      "id": "mozi",
+      "label": "墨子",
+      "group": "人物",
+      "desc": "名翟，墨家创始人，主张兼爱非攻"
+    },
+    {
+      "id": "sunzi",
+      "label": "孙子",
+      "group": "人物",
+      "desc": "名武，兵家始祖，著《孙子兵法》"
+    },
+    {
+      "id": "sunbin",
+      "label": "孙膑",
+      "group": "人物",
+      "desc": "兵家代表，著《孙膑兵法》"
+    },
+    {
+      "id": "guiguzi",
+      "label": "鬼谷子",
+      "group": "人物",
+      "desc": "纵横家始祖，苏秦张仪之师"
+    },
+    {
+      "id": "liezi",
+      "label": "列子",
+      "group": "人物",
+      "desc": "道家代表人物，著《列子》"
+    },
+    {
+      "id": "yanzi",
+      "label": "晏子",
+      "group": "人物",
+      "desc": "齐国名相晏婴，以谏闻名"
+    },
+    {
+      "id": "gongsunlong",
+      "label": "公孙龙",
+      "group": "人物",
+      "desc": "名家代表，白马非马论"
+    },
+    {
+      "id": "huishi",
+      "label": "惠施",
+      "group": "人物",
+      "desc": "名家代表，善辩论，与庄子为友"
+    },
+    {
+      "id": "lvbuwei",
+      "label": "吕不韦",
+      "group": "人物",
+      "desc": "秦相，主编《吕氏春秋》"
+    },
+    {
+      "id": "quyu",
+      "label": "屈原",
+      "group": "人物",
+      "desc": "战国楚国诗人，著《离骚》《九歌》，楚辞之祖"
+    },
+    {
+      "id": "songyu",
+      "label": "宋玉",
+      "group": "人物",
+      "desc": "屈原弟子，楚辞重要作家"
+    },
+    {
+      "id": "zuoqiuming",
+      "label": "左丘明",
+      "group": "人物",
+      "desc": "鲁国太史，相传著《左传》《国语》"
+    },
+    {
+      "id": "zisi",
+      "label": "子思",
+      "group": "人物",
+      "desc": "孔子之孙，著《中庸》，传承儒学"
+    },
+    {
+      "id": "zengzi",
+      "label": "曾子",
+      "group": "人物",
+      "desc": "名参，孔子弟子，著《大学》，以孝闻名"
+    },
+    {
+      "id": "zilu",
+      "label": "子路",
+      "group": "人物",
+      "desc": "名仲由，孔子弟子，以勇闻名"
+    },
+    {
+      "id": "zigong",
+      "label": "子贡",
+      "group": "人物",
+      "desc": "名端木赐，孔子弟子，善辩善商"
+    },
+    {
+      "id": "zixia",
+      "label": "子夏",
+      "group": "人物",
+      "desc": "名卜商，孔子弟子，重视礼乐文献"
+    },
+    {
+      "id": "shangyang",
+      "label": "商鞅",
+      "group": "人物",
+      "desc": "法家代表，秦国变法改革家"
+    },
+    {
+      "id": "lisi",
+      "label": "李斯",
+      "group": "人物",
+      "desc": "秦相，推行郡县制和书同文"
+    },
+    {
+      "id": "simaqian",
+      "label": "司马迁",
+      "group": "人物",
+      "desc": "字子长，著《史记》，史家之绝唱"
+    },
+    {
+      "id": "bangu",
+      "label": "班固",
+      "group": "人物",
+      "desc": "字孟坚，著《汉书》，断代史鼻祖"
+    },
+    {
+      "id": "dongzhongshu",
+      "label": "董仲舒",
+      "group": "人物",
+      "desc": "提出罢黜百家独尊儒术"
+    },
+    {
+      "id": "sima_xiangru",
+      "label": "司马相如",
+      "group": "人物",
+      "desc": "汉赋大家，著《子虚赋》《上林赋》"
+    },
+    {
+      "id": "jiayi",
+      "label": "贾谊",
+      "group": "人物",
+      "desc": "西汉政论家，著《过秦论》《治安策》"
+    },
+    {
+      "id": "liuxiang",
+      "label": "刘向",
+      "group": "人物",
+      "desc": "西汉学者，编校《战国策》《楚辞》《列女传》"
+    },
+    {
+      "id": "liuxin",
+      "label": "刘歆",
+      "group": "人物",
+      "desc": "刘向之子，古文经学开创者"
+    },
+    {
+      "id": "wangchong",
+      "label": "王充",
+      "group": "人物",
+      "desc": "东汉思想家，著《论衡》，批判迷信"
+    },
+    {
+      "id": "zhangzhongjing",
+      "label": "张仲景",
+      "group": "人物",
+      "desc": "医圣，著《伤寒杂病论》"
+    },
+    {
+      "id": "caocao",
+      "label": "曹操",
+      "group": "人物",
+      "desc": "政治家兼诗人，建安文学领袖"
+    },
+    {
+      "id": "caozhi",
+      "label": "曹植",
+      "group": "人物",
+      "desc": "曹操之子，才高八斗，著《洛神赋》"
+    },
+    {
+      "id": "caopi",
+      "label": "曹丕",
+      "group": "人物",
+      "desc": "曹操之子，著《典论·论文》，文学批评先驱"
+    },
+    {
+      "id": "taoqian",
+      "label": "陶渊明",
+      "group": "人物",
+      "desc": "田园诗之祖，著《桃花源记》《归去来兮辞》"
+    },
+    {
+      "id": "xie_lingyun",
+      "label": "谢灵运",
+      "group": "人物",
+      "desc": "山水诗派开创者"
+    },
+    {
+      "id": "liuyi_qing",
+      "label": "刘义庆",
+      "group": "人物",
+      "desc": "编撰《世说新语》"
+    },
+    {
+      "id": "liuxie",
+      "label": "刘勰",
+      "group": "人物",
+      "desc": "著《文心雕龙》，中国文论巅峰之作"
+    },
+    {
+      "id": "zhongr",
+      "label": "钟嵘",
+      "group": "人物",
+      "desc": "著《诗品》，品评汉魏六朝诗人"
+    },
+    {
+      "id": "xiao_tong",
+      "label": "萧统",
+      "group": "人物",
+      "desc": "编《昭明文选》，中国现存最早总集"
+    },
+    {
+      "id": "gan_bao",
+      "label": "干宝",
+      "group": "人物",
+      "desc": "著《搜神记》，志怪小说集大成者"
+    },
+    {
+      "id": "fan_ye",
+      "label": "范晔",
+      "group": "人物",
+      "desc": "著《后汉书》"
+    },
+    {
+      "id": "libai",
+      "label": "李白",
+      "group": "人物",
+      "desc": "诗仙，浪漫主义诗歌巅峰"
+    },
+    {
+      "id": "dufu",
+      "label": "杜甫",
+      "group": "人物",
+      "desc": "诗圣，现实主义诗歌集大成者"
+    },
+    {
+      "id": "baijiuyi",
+      "label": "白居易",
+      "group": "人物",
+      "desc": "字乐天，新乐府运动倡导者"
+    },
+    {
+      "id": "wangwei",
+      "label": "王维",
+      "group": "人物",
+      "desc": "诗佛，诗画合一的山水田园诗人"
+    },
+    {
+      "id": "lihe",
+      "label": "李贺",
+      "group": "人物",
+      "desc": "诗鬼，想象瑰奇，词采诡丽"
+    },
+    {
+      "id": "hanyu",
+      "label": "韩愈",
+      "group": "人物",
+      "desc": "唐宋八大家之首，古文运动领袖"
+    },
+    {
+      "id": "liuzongyuan",
+      "label": "柳宗元",
+      "group": "人物",
+      "desc": "唐宋八大家，山水游记大师"
+    },
+    {
+      "id": "dumy",
+      "label": "杜牧",
+      "group": "人物",
+      "desc": "晚唐诗人，善咏史抒怀"
+    },
+    {
+      "id": "lishangyin",
+      "label": "李商隐",
+      "group": "人物",
+      "desc": "晚唐诗人，工于用典，辞采华美"
+    },
+    {
+      "id": "liuyu",
+      "label": "刘禹锡",
+      "group": "人物",
+      "desc": "诗豪，著《陋室铭》"
+    },
+    {
+      "id": "meng_haoran",
+      "label": "孟浩然",
+      "group": "人物",
+      "desc": "山水田园诗代表，与王维并称'王孟'"
+    },
+    {
+      "id": "wangchangling",
+      "label": "王昌龄",
+      "group": "人物",
+      "desc": "七绝圣手，边塞诗代表"
+    },
+    {
+      "id": "sushi",
+      "label": "苏轼",
+      "group": "人物",
+      "desc": "字子瞻号东坡，文学全才，唐宋八大家"
+    },
+    {
+      "id": "ouyangxiu",
+      "label": "欧阳修",
+      "group": "人物",
+      "desc": "唐宋八大家，北宋文坛领袖"
+    },
+    {
+      "id": "wanganshi",
+      "label": "王安石",
+      "group": "人物",
+      "desc": "唐宋八大家，变法改革家"
+    },
+    {
+      "id": "liqingzhao",
+      "label": "李清照",
+      "group": "人物",
+      "desc": "千古第一才女，婉约词宗"
+    },
+    {
+      "id": "xinqiji",
+      "label": "辛弃疾",
+      "group": "人物",
+      "desc": "豪放词代表，文武兼备"
+    },
+    {
+      "id": "liuyong",
+      "label": "柳永",
+      "group": "人物",
+      "desc": "婉约词代表，俚词开创者"
+    },
+    {
+      "id": "zhuxi",
+      "label": "朱熹",
+      "group": "人物",
+      "desc": "理学集大成者，著《四书章句集注》"
+    },
+    {
+      "id": "luyoou",
+      "label": "陆游",
+      "group": "人物",
+      "desc": "爱国诗人，一生诗作近万首"
+    },
+    {
+      "id": "fankuangyan",
+      "label": "范仲淹",
+      "group": "人物",
+      "desc": "著《岳阳楼记》，先忧后乐"
+    },
+    {
+      "id": "simaguang",
+      "label": "司马光",
+      "group": "人物",
+      "desc": "著《资治通鉴》，编年体通史巨著"
+    },
+    {
+      "id": "sushi_che",
+      "label": "苏辙",
+      "group": "人物",
+      "desc": "苏轼之弟，唐宋八大家之一"
+    },
+    {
+      "id": "zengggong",
+      "label": "曾巩",
+      "group": "人物",
+      "desc": "唐宋八大家之一，文风质朴"
+    },
+    {
+      "id": "guanhanqing",
+      "label": "关汉卿",
+      "group": "人物",
+      "desc": "元杂剧奠基人，著《窦娥冤》"
+    },
+    {
+      "id": "doueyuan",
+      "label": "窦娥冤",
+      "group": "典籍",
+      "desc": "关汉卿著，元杂剧悲剧代表作"
+    },
+    {
+      "id": "xixiangji",
+      "label": "西厢记",
+      "group": "典籍",
+      "desc": "王实甫著，元杂剧爱情喜剧巅峰"
+    },
+    {
+      "id": "wangshipu",
+      "label": "王实甫",
+      "group": "人物",
+      "desc": "著《西厢记》，元杂剧巅峰"
+    },
+    {
+      "id": "luoguanzhong",
+      "label": "罗贯中",
+      "group": "人物",
+      "desc": "著《三国演义》，章回小说开山"
+    },
+    {
+      "id": "shinaian",
+      "label": "施耐庵",
+      "group": "人物",
+      "desc": "著《水浒传》"
+    },
+    {
+      "id": "wuchengen",
+      "label": "吴承恩",
+      "group": "人物",
+      "desc": "著《西游记》，神魔小说巅峰"
+    },
+    {
+      "id": "caoxueqin",
+      "label": "曹雪芹",
+      "group": "人物",
+      "desc": "著《红楼梦》，中国小说最高成就"
+    },
+    {
+      "id": "psongling",
+      "label": "蒲松龄",
+      "group": "人物",
+      "desc": "著《聊斋志异》，文言短篇小说集"
+    },
+    {
+      "id": "wujingzi",
+      "label": "吴敬梓",
+      "group": "人物",
+      "desc": "著《儒林外史》，讽刺小说代表"
+    },
+    {
+      "id": "tangxianzu",
+      "label": "汤显祖",
+      "group": "人物",
+      "desc": "著《牡丹亭》，明传奇巅峰"
+    },
+    {
+      "id": "wangyangming",
+      "label": "王阳明",
+      "group": "人物",
+      "desc": "心学创始人，致良知、知行合一"
+    },
+    {
+      "id": "guyanwu",
+      "label": "顾炎武",
+      "group": "人物",
+      "desc": "清初大儒，经世致用，著《日知录》"
+    },
+    {
+      "id": "jixiaolan",
+      "label": "纪昀",
+      "group": "人物",
+      "desc": "纪晓岚，主编《四库全书》，著《阅微草堂笔记》"
+    },
+    {
+      "id": "lunyu",
+      "label": "论语",
+      "group": "典籍",
+      "desc": "孔子及弟子言行录，儒家核心经典"
+    },
+    {
+      "id": "mengzi_shu",
+      "label": "孟子",
+      "group": "典籍",
+      "desc": "孟子及弟子政治学说，四书之一"
+    },
+    {
+      "id": "daxue",
+      "label": "大学",
+      "group": "典籍",
+      "desc": "四书之一，儒学入门纲领"
+    },
+    {
+      "id": "zhongyong",
+      "label": "中庸",
+      "group": "典籍",
+      "desc": "四书之一，论述中和之道"
+    },
+    {
+      "id": "shijing",
+      "label": "诗经",
+      "group": "典籍",
+      "desc": "中国最早诗歌总集，风雅颂三体"
+    },
+    {
+      "id": "shangshu",
+      "label": "尚书",
+      "group": "典籍",
+      "desc": "上古政治文献汇编，最早史书"
+    },
+    {
+      "id": "yijing",
+      "label": "周易",
+      "group": "典籍",
+      "desc": "群经之首，阐述阴阳变化之道"
+    },
+    {
+      "id": "liji",
+      "label": "礼记",
+      "group": "典籍",
+      "desc": "礼仪制度与儒家哲学论文集"
+    },
+    {
+      "id": "chunqiu",
+      "label": "春秋",
+      "group": "典籍",
+      "desc": "鲁国编年史，孔子所修"
+    },
+    {
+      "id": "zuozhuan",
+      "label": "左传",
+      "group": "典籍",
+      "desc": "春秋三传之一，叙事详备，文辞优美"
+    },
+    {
+      "id": "guliang",
+      "label": "谷梁传",
+      "group": "典籍",
+      "desc": "春秋三传之一，重义理阐发"
+    },
+    {
+      "id": "gongyang",
+      "label": "公羊传",
+      "group": "典籍",
+      "desc": "春秋三传之一，重微言大义"
+    },
+    {
+      "id": "erya",
+      "label": "尔雅",
+      "group": "典籍",
+      "desc": "中国最早的辞书，训诂学之祖"
+    },
+    {
+      "id": "xiaojing",
+      "label": "孝经",
+      "group": "典籍",
+      "desc": "论述孝道的儒家经典"
+    },
+    {
+      "id": "sishuwujing",
+      "label": "四书五经",
+      "group": "典籍",
+      "desc": "儒家核心典籍体系，科举考试依据"
+    },
+    {
+      "id": "shiji",
+      "label": "史记",
+      "group": "典籍",
+      "desc": "司马迁著，纪传体通史之祖，史家之绝唱"
+    },
+    {
+      "id": "hanshu",
+      "label": "汉书",
+      "group": "典籍",
+      "desc": "班固著，断代史开创之作"
+    },
+    {
+      "id": "houhanshu",
+      "label": "后汉书",
+      "group": "典籍",
+      "desc": "范晔著，记东汉历史"
+    },
+    {
+      "id": "sanguozhi",
+      "label": "三国志",
+      "group": "典籍",
+      "desc": "陈寿著，记魏蜀吴三国史"
+    },
+    {
+      "id": "zztj",
+      "label": "资治通鉴",
+      "group": "典籍",
+      "desc": "司马光编，编年体通史巨著，共294卷"
+    },
+    {
+      "id": "zhanguoce",
+      "label": "战国策",
+      "group": "典籍",
+      "desc": "记战国纵横家言行，文辞雄辩"
+    },
+    {
+      "id": "guoyu",
+      "label": "国语",
+      "group": "典籍",
+      "desc": "国别体史书之祖，记各国言论"
+    },
+    {
+      "id": "shanhaijing",
+      "label": "山海经",
+      "group": "典籍",
+      "desc": "先秦奇书，记地理博物神话传说"
+    },
+    {
+      "id": "shuijingzhu",
+      "label": "水经注",
+      "group": "典籍",
+      "desc": "郦道元著，综合性地理名著"
+    },
+    {
+      "id": "ershisishi",
+      "label": "二十四史",
+      "group": "典籍",
+      "desc": "中国官方正史总称，纪传体史书集合"
+    },
+    {
+      "id": "tongdian",
+      "label": "通典",
+      "group": "典籍",
+      "desc": "杜佑著，中国第一部典制体通史"
+    },
+    {
+      "id": "wenxiantongkao",
+      "label": "文献通考",
+      "group": "典籍",
+      "desc": "马端临著，典制体通史集大成"
+    },
+    {
+      "id": "daodejing",
+      "label": "道德经",
+      "group": "典籍",
+      "desc": "老子著，道家根本经典，五千言"
+    },
+    {
+      "id": "zhuangzi_shu",
+      "label": "庄子",
+      "group": "典籍",
+      "desc": "庄周著，道家重要经典，文学性极强"
+    },
+    {
+      "id": "hanfeizi_shu",
+      "label": "韩非子",
+      "group": "典籍",
+      "desc": "法家集大成著作"
+    },
+    {
+      "id": "mozi_shu",
+      "label": "墨子",
+      "group": "典籍",
+      "desc": "墨家学说总集，含逻辑学与自然科学"
+    },
+    {
+      "id": "sunzi_shu",
+      "label": "孙子兵法",
+      "group": "典籍",
+      "desc": "世界最早军事理论著作"
+    },
+    {
+      "id": "lvshi_chunqiu",
+      "label": "吕氏春秋",
+      "group": "典籍",
+      "desc": "吕不韦主编，杂家代表作"
+    },
+    {
+      "id": "huainanzi",
+      "label": "淮南子",
+      "group": "典籍",
+      "desc": "西汉刘安编，杂糅百家"
+    },
+    {
+      "id": "lunheng",
+      "label": "论衡",
+      "group": "典籍",
+      "desc": "王充著，批判迷信的唯物论著作"
+    },
+    {
+      "id": "xunzi_shu",
+      "label": "荀子",
+      "group": "典籍",
+      "desc": "荀况著作，论性恶与礼法"
+    },
+    {
+      "id": "liezi_shu",
+      "label": "列子",
+      "group": "典籍",
+      "desc": "道家著作，含愚公移山等名篇"
+    },
+    {
+      "id": "guanzi",
+      "label": "管子",
+      "group": "典籍",
+      "desc": "托名管仲的政治经济学著作"
+    },
+    {
+      "id": "sikuquanshu",
+      "label": "四库全书",
+      "group": "典籍",
+      "desc": "清乾隆敕编，中国最大丛书，收书3400余种"
+    },
+    {
+      "id": "chuci",
+      "label": "楚辞",
+      "group": "典籍",
+      "desc": "屈原为主的浪漫主义诗歌总集"
+    },
+    {
+      "id": "wenxuan",
+      "label": "昭明文选",
+      "group": "典籍",
+      "desc": "萧统编，中国现存最早诗文总集"
+    },
+    {
+      "id": "wenxindiaolong",
+      "label": "文心雕龙",
+      "group": "典籍",
+      "desc": "刘勰著，中国文学理论批评巅峰"
+    },
+    {
+      "id": "shipin",
+      "label": "诗品",
+      "group": "典籍",
+      "desc": "钟嵘著，品评汉魏六朝诗人120家"
+    },
+    {
+      "id": "tangshi300",
+      "label": "唐诗三百首",
+      "group": "典籍",
+      "desc": "清人编选唐诗精华，流传最广的唐诗选本"
+    },
+    {
+      "id": "songci300",
+      "label": "宋词三百首",
+      "group": "典籍",
+      "desc": "清末朱孝臧编选宋词精华"
+    },
+    {
+      "id": "guwenguanzhi",
+      "label": "古文观止",
+      "group": "典籍",
+      "desc": "清人编选散文名篇，从先秦到明末"
+    },
+    {
+      "id": "soushenji",
+      "label": "搜神记",
+      "group": "典籍",
+      "desc": "干宝著，志怪小说集大成之作"
+    },
+    {
+      "id": "shishuoxinyu",
+      "label": "世说新语",
+      "group": "典籍",
+      "desc": "刘义庆编，记魏晋名士逸闻"
+    },
+    {
+      "id": "hongloumeng",
+      "label": "红楼梦",
+      "group": "典籍",
+      "desc": "曹雪芹著，中国古典小说巅峰"
+    },
+    {
+      "id": "sanguoyanyi",
+      "label": "三国演义",
+      "group": "典籍",
+      "desc": "罗贯中著，历史演义小说开山之作"
+    },
+    {
+      "id": "shuihuzhuan",
+      "label": "水浒传",
+      "group": "典籍",
+      "desc": "施耐庵著，英雄传奇小说代表"
+    },
+    {
+      "id": "xiyouji",
+      "label": "西游记",
+      "group": "典籍",
+      "desc": "吴承恩著，神魔小说巅峰之作"
+    },
+    {
+      "id": "liaozhai",
+      "label": "聊斋志异",
+      "group": "典籍",
+      "desc": "蒲松龄著，文言短篇小说集"
+    },
+    {
+      "id": "mudanting",
+      "label": "牡丹亭",
+      "group": "典籍",
+      "desc": "汤显祖著，明传奇巅峰，至情至性"
+    },
+    {
+      "id": "baijia_zhengming",
+      "label": "百家争鸣",
+      "group": "历史事件",
+      "desc": "春秋战国时期思想文化大繁荣，诸子百家各抒己见"
+    },
+    {
+      "id": "fenshu_kengru",
+      "label": "焚书坑儒",
+      "group": "历史事件",
+      "desc": "秦始皇统一思想，焚毁民间藏书，坑杀术士儒生"
+    },
+    {
+      "id": "duchun_rushu",
+      "label": "罢黜百家独尊儒术",
+      "group": "历史事件",
+      "desc": "汉武帝采纳董仲舒建议，确立儒学正统地位"
+    },
+    {
+      "id": "jingxue_fenzheng",
+      "label": "今古文经之争",
+      "group": "历史事件",
+      "desc": "两汉经学分歧，今文重义理，古文重训诂"
+    },
+    {
+      "id": "jian_an_wenxue",
+      "label": "建安文学",
+      "group": "历史事件",
+      "desc": "曹操父子主导的文学繁荣，风骨遒劲"
+    },
+    {
+      "id": "zhulin_qixian",
+      "label": "竹林七贤",
+      "group": "历史事件",
+      "desc": "魏晋名士避世隐逸，崇尚清谈老庄"
+    },
+    {
+      "id": "yongjia_nandu",
+      "label": "永嘉南渡",
+      "group": "历史事件",
+      "desc": "西晋灭亡，中原文化南迁，影响文学格局"
+    },
+    {
+      "id": "kaiyuan_shengshi",
+      "label": "开元盛世",
+      "group": "历史事件",
+      "desc": "唐玄宗治下的文化鼎盛，诗歌黄金时代"
+    },
+    {
+      "id": "guwen_yundong",
+      "label": "古文运动",
+      "group": "历史事件",
+      "desc": "韩愈柳宗元倡导，反对骈文，复兴散文"
+    },
+    {
+      "id": "keju_zhidu",
+      "label": "科举制度",
+      "group": "历史事件",
+      "desc": "隋唐创立的选官制度，延续1300年，深刻影响文学"
+    },
+    {
+      "id": "jingkang_zhibian",
+      "label": "靖康之变",
+      "group": "历史事件",
+      "desc": "北宋灭亡，文人南渡，催生爱国文学"
+    },
+    {
+      "id": "siku_bianzuan",
+      "label": "四库全书编纂",
+      "group": "历史事件",
+      "desc": "清乾隆敕修，系统整理中国古籍，兼有文字狱背景"
+    },
+    {
+      "id": "wenziyu",
+      "label": "文字狱",
+      "group": "历史事件",
+      "desc": "清代因文字获罪的思想控制，压制学术自由"
+    },
+    {
+      "id": "yinshua_faming",
+      "label": "活字印刷术发明",
+      "group": "历史事件",
+      "desc": "北宋毕昇发明，推动书籍传播与文化普及"
+    },
+    {
+      "id": "zhinan_faming",
+      "label": "造纸术改良",
+      "group": "历史事件",
+      "desc": "东汉蔡伦改良造纸术，使书写载体廉价普及"
+    },
+    {
+      "id": "xuanhe_shupu",
+      "label": "宣和书谱",
+      "group": "历史事件",
+      "desc": "北宋官方书法著录，记录历代书法名作"
+    },
+    {
+      "id": "qianjia_xp",
+      "label": "乾嘉学派",
+      "group": "历史事件",
+      "desc": "清代考据学全盛期，段玉裁王念孙等人精研文字训诂"
+    },
+    {
+      "id": "xinwenhua",
+      "label": "新文化运动",
+      "group": "历史事件",
+      "desc": "提倡白话文、反对文言文，古籍传统面临变革"
+    },
+    {
+      "id": "dunhuang_faxian",
+      "label": "敦煌文献发现",
+      "group": "历史事件",
+      "desc": "1900年发现莫高窟藏经洞，大量古籍写本重见天日"
+    },
+    {
+      "id": "jiaguwen_faxian",
+      "label": "甲骨文发现",
+      "group": "历史事件",
+      "desc": "1899年发现殷墟甲骨，中国最早文字实物，改写上古史"
+    },
+    {
+      "id": "bishen",
+      "label": "毕昇",
+      "group": "人物",
+      "desc": "北宋发明家，发明活字印刷术"
+    },
+    {
+      "id": "cailun",
+      "label": "蔡伦",
+      "group": "人物",
+      "desc": "东汉宦官，改良造纸术"
+    },
+    {
+      "id": "duanyucai",
+      "label": "段玉裁",
+      "group": "人物",
+      "desc": "清代训诂学家，著《说文解字注》"
+    },
+    {
+      "id": "wangniansun",
+      "label": "王念孙",
+      "group": "人物",
+      "desc": "清代训诂学家，著《广雅疏证》"
+    },
+    {
+      "id": "zhengxuan",
+      "label": "郑玄",
+      "group": "人物",
+      "desc": "东汉经学大师，遍注群经"
+    },
+    {
+      "id": "gao_shi",
+      "label": "高适",
+      "group": "人物",
+      "desc": "唐代边塞诗人，与岑参并称'高岑'"
+    },
+    {
+      "id": "cen_shen",
+      "label": "岑参",
+      "group": "人物",
+      "desc": "唐代边塞诗人，善写西域风光"
+    },
+    {
+      "id": "jia_dao",
+      "label": "贾岛",
+      "group": "人物",
+      "desc": "唐代苦吟诗人，推敲典故之主"
+    },
+    {
+      "id": "wentyun",
+      "label": "温庭筠",
+      "group": "人物",
+      "desc": "花间词派鼻祖，词风秾艳"
+    },
+    {
+      "id": "liyu",
+      "label": "李煜",
+      "group": "人物",
+      "desc": "南唐后主，词中帝王，亡国词凄美"
+    },
+    {
+      "id": "yansh",
+      "label": "晏殊",
+      "group": "人物",
+      "desc": "北宋词人，词风闲雅清婉"
+    },
+    {
+      "id": "yanjidao",
+      "label": "晏几道",
+      "group": "人物",
+      "desc": "晏殊之子，工小令，情深语婉"
+    },
+    {
+      "id": "zhoubangyan",
+      "label": "周邦彦",
+      "group": "人物",
+      "desc": "北宋词家正宗，格律精严"
+    },
+    {
+      "id": "jiangkui",
+      "label": "姜夔",
+      "group": "人物",
+      "desc": "南宋词人兼音乐家，词风清空骚雅"
+    },
+    {
+      "id": "yuanhaowen",
+      "label": "元好问",
+      "group": "人物",
+      "desc": "金代文学家，著《论诗三十首》"
+    },
+    {
+      "id": "nalan",
+      "label": "纳兰性德",
+      "group": "人物",
+      "desc": "清初词人，以真挚著称，王国维誉为'北宋以来一人'"
+    },
+    {
+      "id": "yuanmei",
+      "label": "袁枚",
+      "group": "人物",
+      "desc": "清代诗人，著《随园诗话》，倡性灵说"
+    },
+    {
+      "id": "gongzizhen",
+      "label": "龚自珍",
+      "group": "人物",
+      "desc": "晚清思想家，著《己亥杂诗》"
+    },
+    {
+      "id": "liangqichao",
+      "label": "梁启超",
+      "group": "人物",
+      "desc": "近代学者，著《饮冰室合集》，推动古籍整理"
+    },
+    {
+      "id": "wangguowei",
+      "label": "王国维",
+      "group": "人物",
+      "desc": "近代学者，著《人间词话》，融通中西学术"
+    },
+    {
+      "id": "shuowen",
+      "label": "说文解字",
+      "group": "典籍",
+      "desc": "许慎著，中国最早字典，分析字形探究本义"
+    },
+    {
+      "id": "qieyun",
+      "label": "切韵",
+      "group": "典籍",
+      "desc": "陆法言著，中国最早韵书，音韵学基础"
+    },
+    {
+      "id": "guangyun",
+      "label": "广韵",
+      "group": "典籍",
+      "desc": "宋代官修韵书，在切韵基础上增补"
+    },
+    {
+      "id": "kangxi_zidian",
+      "label": "康熙字典",
+      "group": "典籍",
+      "desc": "清代官修字典，收字47035个"
+    },
+    {
+      "id": "yupian",
+      "label": "玉篇",
+      "group": "典籍",
+      "desc": "顾野王著，南朝字书"
+    },
+    {
+      "id": "yongle_dadian",
+      "label": "永乐大典",
+      "group": "典籍",
+      "desc": "明永乐年间编纂的类书，中国古代最大百科全书"
+    },
+    {
+      "id": "taiping_yulan",
+      "label": "太平御览",
+      "group": "典籍",
+      "desc": "宋代类书，引用古籍1690种"
+    },
+    {
+      "id": "renjiancihua",
+      "label": "人间词话",
+      "group": "典籍",
+      "desc": "王国维著，融通中西的词学批评经典"
+    },
+    {
+      "id": "suiyuanshiphua",
+      "label": "随园诗话",
+      "group": "典籍",
+      "desc": "袁枚著，倡性灵说，清代诗话代表"
+    },
+    {
+      "id": "yilin",
+      "label": "儒林外史",
+      "group": "典籍",
+      "desc": "吴敬梓著，讽刺科举与士人，中国讽刺小说经典"
+    },
+    {
+      "id": "jinpingmei",
+      "label": "金瓶梅",
+      "group": "典籍",
+      "desc": "中国第一部文人独创长篇小说，世情小说先驱"
+    },
+    {
+      "id": "taohuashan",
+      "label": "桃花扇",
+      "group": "典籍",
+      "desc": "孔尚任著，清代传奇巅峰，以离合之情写兴亡之感"
+    },
+    {
+      "id": "changshengdian",
+      "label": "长生殿",
+      "group": "典籍",
+      "desc": "洪昇著，清代传奇名作，写李杨爱情"
+    },
+    {
+      "id": "guwen_cixue",
+      "label": "古文辞类纂",
+      "group": "典籍",
+      "desc": "姚鼐编，桐城派古文选本"
+    },
+    {
+      "id": "wenzhangguifan",
+      "label": "文章轨范",
+      "group": "典籍",
+      "desc": "谢枋得编，宋代古文选本"
+    },
+    {
+      "id": "liuchao_pianwen",
+      "label": "六朝骈文",
+      "group": "历史事件",
+      "desc": "魏晋南北朝骈文盛行，追求声律对偶"
+    },
+    {
+      "id": "cishi_fuxing",
+      "label": "词的兴起",
+      "group": "历史事件",
+      "desc": "唐五代词体兴起，由民间曲子词发展为文人词"
+    },
+    {
+      "id": "yuanqu_xingqi",
+      "label": "元曲兴起",
+      "group": "历史事件",
+      "desc": "元代戏曲繁荣，杂剧散曲成为主流文学形式"
+    },
+    {
+      "id": "mingqing_xiaoshuo",
+      "label": "明清小说繁荣",
+      "group": "历史事件",
+      "desc": "长篇章回小说发展成熟，四大名著诞生"
+    },
+    {
+      "id": "tongcheng_pai",
+      "label": "桐城派",
+      "group": "历史事件",
+      "desc": "清代散文流派，方苞姚鼐为代表，讲究义法"
+    },
+    {
+      "id": "changzhou_cipai",
+      "label": "常州词派",
+      "group": "历史事件",
+      "desc": "清代词学流派，主张词须有寄托"
+    },
+    {
+      "id": "wusi_baihua",
+      "label": "五四白话文运动",
+      "group": "历史事件",
+      "desc": "1919年后白话文取代文言文成为书面语"
+    },
+    {
+      "id": "jiajing_dali",
+      "label": "嘉靖大礼议",
+      "group": "历史事件",
+      "desc": "明代政治事件，影响文人创作与心态"
+    },
+    {
+      "id": "taiping_tianguo",
+      "label": "太平天国运动",
+      "group": "历史事件",
+      "desc": "近代战乱导致大量古籍损毁"
+    },
+    {
+      "id": "guji_zhengli",
+      "label": "古籍整理运动",
+      "group": "历史事件",
+      "desc": "近现代学者系统整理校勘出版古籍"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "kongzi",
+      "to": "rujia",
+      "label": "创立"
+    },
+    {
+      "id": "e2",
+      "from": "mengzi",
+      "to": "rujia",
+      "label": "属于"
+    },
+    {
+      "id": "e3",
+      "from": "xunzi",
+      "to": "rujia",
+      "label": "属于"
+    },
+    {
+      "id": "e4",
+      "from": "zisi",
+      "to": "rujia",
+      "label": "属于"
+    },
+    {
+      "id": "e5",
+      "from": "zengzi",
+      "to": "rujia",
+      "label": "属于"
+    },
+    {
+      "id": "e6",
+      "from": "dongzhongshu",
+      "to": "rujia",
+      "label": "属于"
+    },
+    {
+      "id": "e7",
+      "from": "zhuxi",
+      "to": "lixue",
+      "label": "创立"
+    },
+    {
+      "id": "e8",
+      "from": "wangyangming",
+      "to": "xinxue",
+      "label": "创立"
+    },
+    {
+      "id": "e9",
+      "from": "laozi",
+      "to": "daojia",
+      "label": "创立"
+    },
+    {
+      "id": "e10",
+      "from": "zhuangzi",
+      "to": "daojia",
+      "label": "属于"
+    },
+    {
+      "id": "e11",
+      "from": "liezi",
+      "to": "daojia",
+      "label": "属于"
+    },
+    {
+      "id": "e12",
+      "from": "hanfeizi",
+      "to": "fajia",
+      "label": "属于"
+    },
+    {
+      "id": "e13",
+      "from": "shangyang",
+      "to": "fajia",
+      "label": "属于"
+    },
+    {
+      "id": "e14",
+      "from": "lisi",
+      "to": "fajia",
+      "label": "属于"
+    },
+    {
+      "id": "e15",
+      "from": "mozi",
+      "to": "mojia",
+      "label": "创立"
+    },
+    {
+      "id": "e16",
+      "from": "sunzi",
+      "to": "bingjia",
+      "label": "属于"
+    },
+    {
+      "id": "e17",
+      "from": "sunbin",
+      "to": "bingjia",
+      "label": "属于"
+    },
+    {
+      "id": "e18",
+      "from": "gongsunlong",
+      "to": "mingjia",
+      "label": "属于"
+    },
+    {
+      "id": "e19",
+      "from": "huishi",
+      "to": "mingjia",
+      "label": "属于"
+    },
+    {
+      "id": "e20",
+      "from": "guiguzi",
+      "to": "zongheng",
+      "label": "属于"
+    },
+    {
+      "id": "e21",
+      "from": "lvbuwei",
+      "to": "zajia",
+      "label": "属于"
+    },
+    {
+      "id": "e22",
+      "from": "duanyucai",
+      "to": "kaoju",
+      "label": "属于"
+    },
+    {
+      "id": "e23",
+      "from": "wangniansun",
+      "to": "kaoju",
+      "label": "属于"
+    },
+    {
+      "id": "e24",
+      "from": "guyanwu",
+      "to": "kaoju",
+      "label": "影响"
+    },
+    {
+      "id": "e25",
+      "from": "kongzi",
+      "to": "lunyu",
+      "label": "言行录于"
+    },
+    {
+      "id": "e26",
+      "from": "kongzi",
+      "to": "chunqiu",
+      "label": "编修"
+    },
+    {
+      "id": "e27",
+      "from": "mengzi",
+      "to": "mengzi_shu",
+      "label": "著"
+    },
+    {
+      "id": "e28",
+      "from": "laozi",
+      "to": "daodejing",
+      "label": "著"
+    },
+    {
+      "id": "e29",
+      "from": "zhuangzi",
+      "to": "zhuangzi_shu",
+      "label": "著"
+    },
+    {
+      "id": "e30",
+      "from": "hanfeizi",
+      "to": "hanfeizi_shu",
+      "label": "著"
+    },
+    {
+      "id": "e31",
+      "from": "mozi",
+      "to": "mozi_shu",
+      "label": "著"
+    },
+    {
+      "id": "e32",
+      "from": "sunzi",
+      "to": "sunzi_shu",
+      "label": "著"
+    },
+    {
+      "id": "e33",
+      "from": "xunzi",
+      "to": "xunzi_shu",
+      "label": "著"
+    },
+    {
+      "id": "e34",
+      "from": "liezi",
+      "to": "liezi_shu",
+      "label": "著"
+    },
+    {
+      "id": "e35",
+      "from": "lvbuwei",
+      "to": "lvshi_chunqiu",
+      "label": "主编"
+    },
+    {
+      "id": "e36",
+      "from": "simaqian",
+      "to": "shiji",
+      "label": "著"
+    },
+    {
+      "id": "e37",
+      "from": "bangu",
+      "to": "hanshu",
+      "label": "著"
+    },
+    {
+      "id": "e38",
+      "from": "fan_ye",
+      "to": "houhanshu",
+      "label": "著"
+    },
+    {
+      "id": "e39",
+      "from": "simaguang",
+      "to": "zztj",
+      "label": "著"
+    },
+    {
+      "id": "e40",
+      "from": "liuxiang",
+      "to": "zhanguoce",
+      "label": "编校"
+    },
+    {
+      "id": "e41",
+      "from": "liuxiang",
+      "to": "chuci",
+      "label": "编校"
+    },
+    {
+      "id": "e42",
+      "from": "wangchong",
+      "to": "lunheng",
+      "label": "著"
+    },
+    {
+      "id": "e43",
+      "from": "quyu",
+      "to": "chuci",
+      "label": "著"
+    },
+    {
+      "id": "e44",
+      "from": "xiao_tong",
+      "to": "wenxuan",
+      "label": "编"
+    },
+    {
+      "id": "e45",
+      "from": "liuxie",
+      "to": "wenxindiaolong",
+      "label": "著"
+    },
+    {
+      "id": "e46",
+      "from": "zhongr",
+      "to": "shipin",
+      "label": "著"
+    },
+    {
+      "id": "e47",
+      "from": "liuyi_qing",
+      "to": "shishuoxinyu",
+      "label": "编"
+    },
+    {
+      "id": "e48",
+      "from": "gan_bao",
+      "to": "soushenji",
+      "label": "著"
+    },
+    {
+      "id": "e49",
+      "from": "luoguanzhong",
+      "to": "sanguoyanyi",
+      "label": "著"
+    },
+    {
+      "id": "e50",
+      "from": "shinaian",
+      "to": "shuihuzhuan",
+      "label": "著"
+    },
+    {
+      "id": "e51",
+      "from": "wuchengen",
+      "to": "xiyouji",
+      "label": "著"
+    },
+    {
+      "id": "e52",
+      "from": "caoxueqin",
+      "to": "hongloumeng",
+      "label": "著"
+    },
+    {
+      "id": "e53",
+      "from": "psongling",
+      "to": "liaozhai",
+      "label": "著"
+    },
+    {
+      "id": "e54",
+      "from": "tangxianzu",
+      "to": "mudanting",
+      "label": "著"
+    },
+    {
+      "id": "e55",
+      "from": "guanhanqing",
+      "to": "doueyuan",
+      "label": "著"
+    },
+    {
+      "id": "e56",
+      "from": "wangshipu",
+      "to": "xixiangji",
+      "label": "著"
+    },
+    {
+      "id": "e57",
+      "from": "zisi",
+      "to": "zhongyong",
+      "label": "著"
+    },
+    {
+      "id": "e58",
+      "from": "zengzi",
+      "to": "daxue",
+      "label": "著"
+    },
+    {
+      "id": "e59",
+      "from": "zuoqiuming",
+      "to": "zuozhuan",
+      "label": "著"
+    },
+    {
+      "id": "e60",
+      "from": "zuoqiuming",
+      "to": "guoyu",
+      "label": "著"
+    },
+    {
+      "id": "e61",
+      "from": "zhuxi",
+      "to": "sishuwujing",
+      "label": "注释"
+    },
+    {
+      "id": "e62",
+      "from": "zhengxuan",
+      "to": "liji",
+      "label": "注"
+    },
+    {
+      "id": "e63",
+      "from": "jixiaolan",
+      "to": "sikuquanshu",
+      "label": "主编"
+    },
+    {
+      "id": "e64",
+      "from": "bishen",
+      "to": "yinshua_faming",
+      "label": "发明"
+    },
+    {
+      "id": "e65",
+      "from": "cailun",
+      "to": "zhinan_faming",
+      "label": "改良"
+    },
+    {
+      "id": "e66",
+      "from": "kongzi",
+      "to": "zengzi",
+      "label": "师承"
+    },
+    {
+      "id": "e67",
+      "from": "kongzi",
+      "to": "zilu",
+      "label": "师承"
+    },
+    {
+      "id": "e68",
+      "from": "kongzi",
+      "to": "zigong",
+      "label": "师承"
+    },
+    {
+      "id": "e69",
+      "from": "kongzi",
+      "to": "zixia",
+      "label": "师承"
+    },
+    {
+      "id": "e70",
+      "from": "zengzi",
+      "to": "zisi",
+      "label": "师承"
+    },
+    {
+      "id": "e71",
+      "from": "zisi",
+      "to": "mengzi",
+      "label": "影响"
+    },
+    {
+      "id": "e72",
+      "from": "guiguzi",
+      "to": "sunbin",
+      "label": "师承"
+    },
+    {
+      "id": "e73",
+      "from": "quyu",
+      "to": "songyu",
+      "label": "师承"
+    },
+    {
+      "id": "e74",
+      "from": "xunzi",
+      "to": "hanfeizi",
+      "label": "师承"
+    },
+    {
+      "id": "e75",
+      "from": "xunzi",
+      "to": "lisi",
+      "label": "师承"
+    },
+    {
+      "id": "e76",
+      "from": "zhuangzi",
+      "to": "huishi",
+      "label": "论辩"
+    },
+    {
+      "id": "e77",
+      "from": "libai",
+      "to": "dufu",
+      "label": "交游"
+    },
+    {
+      "id": "e78",
+      "from": "sushi",
+      "to": "ouyangxiu",
+      "label": "师承"
+    },
+    {
+      "id": "e79",
+      "from": "sushi",
+      "to": "sushi_che",
+      "label": "兄弟"
+    },
+    {
+      "id": "e80",
+      "from": "hanyu",
+      "to": "liuzongyuan",
+      "label": "同倡古文运动"
+    },
+    {
+      "id": "e81",
+      "from": "caocao",
+      "to": "caozhi",
+      "label": "父子"
+    },
+    {
+      "id": "e82",
+      "from": "caocao",
+      "to": "caopi",
+      "label": "父子"
+    },
+    {
+      "id": "e83",
+      "from": "liuxiang",
+      "to": "liuxin",
+      "label": "父子"
+    },
+    {
+      "id": "e84",
+      "from": "wangwei",
+      "to": "meng_haoran",
+      "label": "交游"
+    },
+    {
+      "id": "e85",
+      "from": "lunyu",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e86",
+      "from": "mengzi_shu",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e87",
+      "from": "daxue",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e88",
+      "from": "zhongyong",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e89",
+      "from": "shijing",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e90",
+      "from": "shangshu",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e91",
+      "from": "yijing",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e92",
+      "from": "liji",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e93",
+      "from": "chunqiu",
+      "to": "sishuwujing",
+      "label": "属于"
+    },
+    {
+      "id": "e94",
+      "from": "zuozhuan",
+      "to": "chunqiu",
+      "label": "注解"
+    },
+    {
+      "id": "e95",
+      "from": "guliang",
+      "to": "chunqiu",
+      "label": "注解"
+    },
+    {
+      "id": "e96",
+      "from": "gongyang",
+      "to": "chunqiu",
+      "label": "注解"
+    },
+    {
+      "id": "e97",
+      "from": "shiji",
+      "to": "ershisishi",
+      "label": "属于"
+    },
+    {
+      "id": "e98",
+      "from": "hanshu",
+      "to": "ershisishi",
+      "label": "属于"
+    },
+    {
+      "id": "e99",
+      "from": "houhanshu",
+      "to": "ershisishi",
+      "label": "属于"
+    },
+    {
+      "id": "e100",
+      "from": "sanguozhi",
+      "to": "ershisishi",
+      "label": "属于"
+    },
+    {
+      "id": "e101",
+      "from": "chuci",
+      "to": "shijing",
+      "label": "继承"
+    },
+    {
+      "id": "e102",
+      "from": "wenxuan",
+      "to": "chuci",
+      "label": "收录"
+    },
+    {
+      "id": "e103",
+      "from": "wenxuan",
+      "to": "shijing",
+      "label": "收录"
+    },
+    {
+      "id": "e104",
+      "from": "tangshi300",
+      "to": "libai",
+      "label": "收录"
+    },
+    {
+      "id": "e105",
+      "from": "tangshi300",
+      "to": "dufu",
+      "label": "收录"
+    },
+    {
+      "id": "e106",
+      "from": "tangshi300",
+      "to": "wangwei",
+      "label": "收录"
+    },
+    {
+      "id": "e107",
+      "from": "tangshi300",
+      "to": "baijiuyi",
+      "label": "收录"
+    },
+    {
+      "id": "e108",
+      "from": "tangshi300",
+      "to": "meng_haoran",
+      "label": "收录"
+    },
+    {
+      "id": "e109",
+      "from": "tangshi300",
+      "to": "wangchangling",
+      "label": "收录"
+    },
+    {
+      "id": "e110",
+      "from": "songci300",
+      "to": "sushi",
+      "label": "收录"
+    },
+    {
+      "id": "e111",
+      "from": "songci300",
+      "to": "liqingzhao",
+      "label": "收录"
+    },
+    {
+      "id": "e112",
+      "from": "songci300",
+      "to": "xinqiji",
+      "label": "收录"
+    },
+    {
+      "id": "e113",
+      "from": "songci300",
+      "to": "liuyong",
+      "label": "收录"
+    },
+    {
+      "id": "e114",
+      "from": "rujia",
+      "to": "daojia",
+      "label": "对立互补"
+    },
+    {
+      "id": "e115",
+      "from": "rujia",
+      "to": "fajia",
+      "label": "论争"
+    },
+    {
+      "id": "e116",
+      "from": "rujia",
+      "to": "mojia",
+      "label": "论争"
+    },
+    {
+      "id": "e117",
+      "from": "rujia",
+      "to": "lixue",
+      "label": "发展为"
+    },
+    {
+      "id": "e118",
+      "from": "lixue",
+      "to": "xinxue",
+      "label": "发展为"
+    },
+    {
+      "id": "e119",
+      "from": "daojia",
+      "to": "foxue",
+      "label": "互相影响"
+    },
+    {
+      "id": "e120",
+      "from": "rujia",
+      "to": "foxue",
+      "label": "融合"
+    },
+    {
+      "id": "e121",
+      "from": "kaoju",
+      "to": "lixue",
+      "label": "反思"
+    },
+    {
+      "id": "e122",
+      "from": "baijia_zhengming",
+      "to": "rujia",
+      "label": "催生"
+    },
+    {
+      "id": "e123",
+      "from": "baijia_zhengming",
+      "to": "daojia",
+      "label": "催生"
+    },
+    {
+      "id": "e124",
+      "from": "baijia_zhengming",
+      "to": "fajia",
+      "label": "催生"
+    },
+    {
+      "id": "e125",
+      "from": "baijia_zhengming",
+      "to": "mojia",
+      "label": "催生"
+    },
+    {
+      "id": "e126",
+      "from": "fenshu_kengru",
+      "to": "rujia",
+      "label": "打击"
+    },
+    {
+      "id": "e127",
+      "from": "fenshu_kengru",
+      "to": "fajia",
+      "label": "推行"
+    },
+    {
+      "id": "e128",
+      "from": "duchun_rushu",
+      "to": "rujia",
+      "label": "确立正统"
+    },
+    {
+      "id": "e129",
+      "from": "duchun_rushu",
+      "to": "dongzhongshu",
+      "label": "提出者"
+    },
+    {
+      "id": "e130",
+      "from": "guwen_yundong",
+      "to": "hanyu",
+      "label": "倡导者"
+    },
+    {
+      "id": "e131",
+      "from": "guwen_yundong",
+      "to": "liuzongyuan",
+      "label": "倡导者"
+    },
+    {
+      "id": "e132",
+      "from": "jian_an_wenxue",
+      "to": "caocao",
+      "label": "领袖"
+    },
+    {
+      "id": "e133",
+      "from": "jian_an_wenxue",
+      "to": "caozhi",
+      "label": "代表"
+    },
+    {
+      "id": "e134",
+      "from": "jian_an_wenxue",
+      "to": "caopi",
+      "label": "代表"
+    },
+    {
+      "id": "e135",
+      "from": "kaiyuan_shengshi",
+      "to": "libai",
+      "label": "活跃于"
+    },
+    {
+      "id": "e136",
+      "from": "kaiyuan_shengshi",
+      "to": "dufu",
+      "label": "活跃于"
+    },
+    {
+      "id": "e137",
+      "from": "kaiyuan_shengshi",
+      "to": "wangwei",
+      "label": "活跃于"
+    },
+    {
+      "id": "e138",
+      "from": "keju_zhidu",
+      "to": "lunyu",
+      "label": "考试用"
+    },
+    {
+      "id": "e139",
+      "from": "keju_zhidu",
+      "to": "sishuwujing",
+      "label": "考试用"
+    },
+    {
+      "id": "e140",
+      "from": "jingkang_zhibian",
+      "to": "liqingzhao",
+      "label": "影响"
+    },
+    {
+      "id": "e141",
+      "from": "jingkang_zhibian",
+      "to": "xinqiji",
+      "label": "影响"
+    },
+    {
+      "id": "e142",
+      "from": "jingkang_zhibian",
+      "to": "luyoou",
+      "label": "影响"
+    },
+    {
+      "id": "e143",
+      "from": "siku_bianzuan",
+      "to": "sikuquanshu",
+      "label": "产出"
+    },
+    {
+      "id": "e144",
+      "from": "siku_bianzuan",
+      "to": "jixiaolan",
+      "label": "主持者"
+    },
+    {
+      "id": "e145",
+      "from": "wenziyu",
+      "to": "siku_bianzuan",
+      "label": "伴随"
+    },
+    {
+      "id": "e146",
+      "from": "jingxue_fenzheng",
+      "to": "liuxin",
+      "label": "古文派"
+    },
+    {
+      "id": "e147",
+      "from": "jingxue_fenzheng",
+      "to": "dongzhongshu",
+      "label": "今文派"
+    },
+    {
+      "id": "e148",
+      "from": "jingxue_fenzheng",
+      "to": "zhengxuan",
+      "label": "调和者"
+    },
+    {
+      "id": "e149",
+      "from": "qianjia_xp",
+      "to": "duanyucai",
+      "label": "代表"
+    },
+    {
+      "id": "e150",
+      "from": "qianjia_xp",
+      "to": "wangniansun",
+      "label": "代表"
+    },
+    {
+      "id": "e151",
+      "from": "qianjia_xp",
+      "to": "kaoju",
+      "label": "属于"
+    },
+    {
+      "id": "e152",
+      "from": "zhulin_qixian",
+      "to": "daojia",
+      "label": "崇尚"
+    },
+    {
+      "id": "e153",
+      "from": "zhulin_qixian",
+      "to": "taoqian",
+      "label": "影响"
+    },
+    {
+      "id": "e154",
+      "from": "yongjia_nandu",
+      "to": "xie_lingyun",
+      "label": "影响"
+    },
+    {
+      "id": "e155",
+      "from": "dunhuang_faxian",
+      "to": "shanhaijing",
+      "label": "发现写本"
+    },
+    {
+      "id": "e156",
+      "from": "yinshua_faming",
+      "to": "bishen",
+      "label": "发明者"
+    },
+    {
+      "id": "e157",
+      "from": "zhinan_faming",
+      "to": "cailun",
+      "label": "改良者"
+    },
+    {
+      "id": "e158",
+      "from": "lunyu",
+      "to": "rujia",
+      "label": "核心经典"
+    },
+    {
+      "id": "e159",
+      "from": "daodejing",
+      "to": "daojia",
+      "label": "核心经典"
+    },
+    {
+      "id": "e160",
+      "from": "zhuangzi_shu",
+      "to": "daojia",
+      "label": "核心经典"
+    },
+    {
+      "id": "e161",
+      "from": "hanfeizi_shu",
+      "to": "fajia",
+      "label": "核心经典"
+    },
+    {
+      "id": "e162",
+      "from": "mozi_shu",
+      "to": "mojia",
+      "label": "核心经典"
+    },
+    {
+      "id": "e163",
+      "from": "sunzi_shu",
+      "to": "bingjia",
+      "label": "核心经典"
+    },
+    {
+      "id": "e164",
+      "from": "guanzi",
+      "to": "fajia",
+      "label": "属于"
+    },
+    {
+      "id": "e165",
+      "from": "wentyun",
+      "to": "cishi_fuxing",
+      "label": "代表"
+    },
+    {
+      "id": "e166",
+      "from": "liyu",
+      "to": "cishi_fuxing",
+      "label": "代表"
+    },
+    {
+      "id": "e167",
+      "from": "yansh",
+      "to": "songci300",
+      "label": "收录"
+    },
+    {
+      "id": "e168",
+      "from": "yanjidao",
+      "to": "songci300",
+      "label": "收录"
+    },
+    {
+      "id": "e169",
+      "from": "zhoubangyan",
+      "to": "songci300",
+      "label": "收录"
+    },
+    {
+      "id": "e170",
+      "from": "jiangkui",
+      "to": "songci300",
+      "label": "收录"
+    },
+    {
+      "id": "e171",
+      "from": "nalan",
+      "to": "songci300",
+      "label": "收录"
+    },
+    {
+      "id": "e172",
+      "from": "wangguowei",
+      "to": "renjiancihua",
+      "label": "著"
+    },
+    {
+      "id": "e173",
+      "from": "yuanmei",
+      "to": "suiyuanshiphua",
+      "label": "著"
+    },
+    {
+      "id": "e174",
+      "from": "duanyucai",
+      "to": "shuowen",
+      "label": "注释"
+    },
+    {
+      "id": "e175",
+      "from": "guanhanqing",
+      "to": "yuanqu_xingqi",
+      "label": "代表"
+    },
+    {
+      "id": "e176",
+      "from": "wangshipu",
+      "to": "yuanqu_xingqi",
+      "label": "代表"
+    },
+    {
+      "id": "e177",
+      "from": "yuanhaowen",
+      "to": "jingkang_zhibian",
+      "label": "影响"
+    },
+    {
+      "id": "e178",
+      "from": "gongzizhen",
+      "to": "guji_zhengli",
+      "label": "推动"
+    },
+    {
+      "id": "e179",
+      "from": "liangqichao",
+      "to": "guji_zhengli",
+      "label": "推动"
+    },
+    {
+      "id": "e180",
+      "from": "wujingzi",
+      "to": "yilin",
+      "label": "著"
+    },
+    {
+      "id": "e181",
+      "from": "gao_shi",
+      "to": "tangshi300",
+      "label": "收录"
+    },
+    {
+      "id": "e182",
+      "from": "cen_shen",
+      "to": "tangshi300",
+      "label": "收录"
+    },
+    {
+      "id": "e183",
+      "from": "lihe",
+      "to": "tangshi300",
+      "label": "收录"
+    },
+    {
+      "id": "e184",
+      "from": "dumy",
+      "to": "tangshi300",
+      "label": "收录"
+    },
+    {
+      "id": "e185",
+      "from": "lishangyin",
+      "to": "tangshi300",
+      "label": "收录"
+    },
+    {
+      "id": "e186",
+      "from": "liuyu",
+      "to": "tangshi300",
+      "label": "收录"
+    },
+    {
+      "id": "e187",
+      "from": "jia_dao",
+      "to": "tangshi300",
+      "label": "收录"
+    },
+    {
+      "id": "e188",
+      "from": "mingqing_xiaoshuo",
+      "to": "hongloumeng",
+      "label": "代表"
+    },
+    {
+      "id": "e189",
+      "from": "mingqing_xiaoshuo",
+      "to": "sanguoyanyi",
+      "label": "代表"
+    },
+    {
+      "id": "e190",
+      "from": "mingqing_xiaoshuo",
+      "to": "shuihuzhuan",
+      "label": "代表"
+    },
+    {
+      "id": "e191",
+      "from": "mingqing_xiaoshuo",
+      "to": "xiyouji",
+      "label": "代表"
+    },
+    {
+      "id": "e192",
+      "from": "tongcheng_pai",
+      "to": "guwen_cixue",
+      "label": "产出"
+    },
+    {
+      "id": "e193",
+      "from": "changzhou_cipai",
+      "to": "songci300",
+      "label": "影响"
+    },
+    {
+      "id": "e194",
+      "from": "liuchao_pianwen",
+      "to": "wenxuan",
+      "label": "收录于"
+    },
+    {
+      "id": "e195",
+      "from": "sikuquanshu",
+      "to": "yongle_dadian",
+      "label": "参考"
+    },
+    {
+      "id": "e196",
+      "from": "sikuquanshu",
+      "to": "kangxi_zidian",
+      "label": "收录"
+    },
+    {
+      "id": "e197",
+      "from": "guangyun",
+      "to": "qieyun",
+      "label": "增补"
+    },
+    {
+      "id": "e198",
+      "from": "taiping_yulan",
+      "to": "shanhaijing",
+      "label": "引用"
+    },
+    {
+      "id": "e199",
+      "from": "taiping_yulan",
+      "to": "shuijingzhu",
+      "label": "引用"
+    },
+    {
+      "id": "e200",
+      "from": "lunyu",
+      "to": "shijing",
+      "label": "引用"
+    },
+    {
+      "id": "e201",
+      "from": "mengzi_shu",
+      "to": "lunyu",
+      "label": "引用"
+    },
+    {
+      "id": "e202",
+      "from": "mengzi_shu",
+      "to": "shijing",
+      "label": "引用"
+    },
+    {
+      "id": "e203",
+      "from": "mengzi_shu",
+      "to": "shangshu",
+      "label": "引用"
+    },
+    {
+      "id": "e204",
+      "from": "hanfeizi_shu",
+      "to": "lunyu",
+      "label": "引用"
+    },
+    {
+      "id": "e205",
+      "from": "hanfeizi_shu",
+      "to": "daodejing",
+      "label": "引用"
+    },
+    {
+      "id": "e206",
+      "from": "xunzi_shu",
+      "to": "shijing",
+      "label": "引用"
+    },
+    {
+      "id": "e207",
+      "from": "shiji",
+      "to": "chunqiu",
+      "label": "引用"
+    },
+    {
+      "id": "e208",
+      "from": "shiji",
+      "to": "zuozhuan",
+      "label": "引用"
+    },
+    {
+      "id": "e209",
+      "from": "zztj",
+      "to": "shiji",
+      "label": "参考"
+    },
+    {
+      "id": "e210",
+      "from": "zztj",
+      "to": "hanshu",
+      "label": "参考"
+    },
+    {
+      "id": "e211",
+      "from": "wenxindiaolong",
+      "to": "shijing",
+      "label": "引用"
+    },
+    {
+      "id": "e212",
+      "from": "wenxindiaolong",
+      "to": "chuci",
+      "label": "引用"
+    },
+    {
+      "id": "e213",
+      "from": "renjiancihua",
+      "to": "shijing",
+      "label": "引用"
+    }
+  ],
+  "stats": {
+    "node_count": 216,
+    "edge_count": 213,
+    "groups": [
+      "人物",
+      "典籍",
+      "历史事件",
+      "思想流派"
+    ]
+  }
+}

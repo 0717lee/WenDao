@@ -1,0 +1,227 @@
+/**
+ * ThreeColumnReader & WordPopover Tests
+ * Coverage: Three-column layout, mobile/desktop mode, word popover
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act } from 'react'
+import { useDocumentStore } from '../store/useDocumentStore'
+
+// Mock react-scroll-sync since it requires actual DOM scroll behavior
+vi.mock('react-scroll-sync', () => ({
+  ScrollSync: ({ children }: { children: React.ReactNode }) => <div data-testid="scroll-sync">{children}</div>,
+  ScrollSyncPane: ({ children }: { children: React.ReactNode }) => <div data-testid="scroll-sync-pane">{children}</div>,
+}))
+
+describe('ThreeColumnReader', () => {
+  let originalInnerWidth: number
+
+  beforeEach(() => {
+    originalInnerWidth = window.innerWidth
+    useDocumentStore.getState().reset()
+    vi.mocked(global.fetch).mockReset()
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: originalInnerWidth,
+    })
+  })
+
+  it('returns null when no document is loaded', async () => {
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    const { container } = render(<ThreeColumnReader />)
+    expect(container.innerHTML).toBe('')
+  })
+
+  it('renders three columns on desktop (>=768px)', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-1',
+      title: 'test',
+      originalText: 'original text here',
+      punctuatedText: 'punctuated text here',
+      translatedText: 'translated text here',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    const { container } = render(<ThreeColumnReader />)
+
+    // Text is split into individual characters, so check for presence in DOM
+    expect(container.textContent).toContain('original text here')
+    expect(container.textContent).toContain('punctuated text here')
+    expect(container.textContent).toContain('translated text here')
+
+    // Verify three-column layout exists
+    expect(screen.getByText('原文')).toBeTruthy()
+    expect(screen.getByText('标点文')).toBeTruthy()
+    expect(screen.getByText('白话译')).toBeTruthy()
+  })
+
+  it('renders tab interface on mobile (<768px)', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 375,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-1',
+      title: 'test',
+      originalText: 'mobile original text',
+      punctuatedText: 'mobile punctuated text',
+      translatedText: 'mobile translated text',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+
+    // Trigger resize event so component picks up new innerWidth
+    render(<ThreeColumnReader />)
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+
+    // Tab buttons should be present
+    const tabButtons = screen.getAllByRole('button')
+    const tabTexts = tabButtons.map(b => b.textContent)
+    expect(tabTexts).toContain('原文')
+    expect(tabTexts).toContain('标点文')
+    expect(tabTexts).toContain('白话译')
+  })
+
+  it('renders empty container when document has empty text fields', async () => {
+    useDocumentStore.getState().setDocument({
+      id: 'doc-empty',
+      title: 'empty doc',
+      originalText: '',
+      punctuatedText: '',
+      translatedText: '',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    const { container } = render(<ThreeColumnReader />)
+
+    // Should render the layout with placeholder text for empty columns
+    expect(screen.getByText('原文')).toBeTruthy()
+    expect(screen.getByText('暂无标点文')).toBeTruthy()
+    expect(screen.getByText('暂无白话译')).toBeTruthy()
+  })
+
+  it('switches tabs on mobile viewport', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 375,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-tab',
+      title: 'tab test',
+      originalText: 'original tab content',
+      punctuatedText: 'punctuated tab content',
+      translatedText: 'translated tab content',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    const { container } = render(<ThreeColumnReader />)
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+
+    // Click the second tab (标点文)
+    const tabButtons = screen.getAllByRole('button')
+    const punctuatedTab = tabButtons.find(b => b.textContent === '标点文')
+    if (punctuatedTab) {
+      fireEvent.click(punctuatedTab)
+    }
+
+    // After clicking tab, the punctuated content should be visible
+    expect(container.textContent).toContain('punctuated tab content')
+  })
+})
+
+describe('WordPopover', () => {
+  beforeEach(() => {
+    vi.mocked(global.fetch).mockReset()
+  })
+
+  it('fetches and displays word explanation', async () => {
+    vi.mocked(global.fetch).mockImplementation((input: any) => {
+      const url = typeof input === 'string' ? input : input.url
+      if (url.includes('/knowledge-graph/search')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ nodes: [] }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          meaning: 'the meaning of the word',
+          allusion: 'a famous allusion',
+          citations: [
+            { title: 'Classic Text', source: 'Chapter 1' },
+          ],
+        }),
+      } as Response)
+    })
+
+    const { WordPopover } = await import('../components/WordPopover')
+    const onClose = vi.fn()
+    render(<WordPopover word="test-word" onClose={onClose} position={{ x: 100, y: 200 }} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('the meaning of the word')).toBeTruthy()
+      expect(screen.getByText('a famous allusion')).toBeTruthy()
+      expect(screen.getByText(/Classic Text/)).toBeTruthy()
+    })
+  })
+
+  it('shows loading state', async () => {
+    vi.mocked(global.fetch).mockImplementation(() => new Promise(() => {})) // never resolves
+
+    const { WordPopover } = await import('../components/WordPopover')
+    render(<WordPopover word="test" onClose={() => {}} position={{ x: 100, y: 200 }} />)
+
+    expect(screen.getByText('加载中...')).toBeTruthy()
+  })
+
+  it('calls onClose when close button is clicked', async () => {
+    vi.mocked(global.fetch).mockImplementation((input: any) => {
+      const url = typeof input === 'string' ? input : input.url
+      if (url.includes('/knowledge-graph/search')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ nodes: [] }),
+        } as Response)
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          meaning: 'meaning',
+          allusion: '',
+          citations: [],
+        }),
+      } as Response)
+    })
+
+    const { WordPopover } = await import('../components/WordPopover')
+    const onClose = vi.fn()
+    render(<WordPopover word="test" onClose={onClose} position={{ x: 100, y: 200 }} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('meaning')).toBeTruthy()
+    })
+
+    const closeButton = screen.getByRole('button', { name: /关闭/ })
+    fireEvent.click(closeButton)
+    expect(onClose).toHaveBeenCalled()
+  })
+})

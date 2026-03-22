@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* 核心国风色系 - 营造法式 */
+    --gf-red: #ab1f22;      /* 朱砂 */
+    --gf-gugong-red: #8c1a11; /* 故宫红/深殷红 */
+    --gf-bg: #f7f6f3;       /* 月白/米白 */
+    --gf-bg-paper: #f4f1e1; /* 泛黄古纸 */
+    --gf-text: #1a1e23;     /* 黛蓝/玄青 */
+    --gf-gold: #c9a063;     /* 秋香 */
+    --gf-glass: rgba(247, 246, 243, 0.6);
+  }
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--gf-bg-paper);
+  color: var(--gf-text);
+  /* 优先使用优雅的国风宋体/楷体系列 */
+  font-family: "Noto Serif SC", "Source Han Serif SC", STZhongsong, "Microsoft YaHei", serif;
+  user-select: none;
+}
+
+/* 程序化生成的宣纸噪点 overlay */
+.bg-xuan-paper {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* 在背景和3D画布之间 */
+  pointer-events: none;
+  opacity: 0.4;
+  /* 使用 SVG filter 制造极为细腻自然的宣纸纤维/噪点感 */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' fill='%23f4f1e1'/%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply; /* 融入底色 */
+}
+
+/* Welcome overlay animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content-enter {
+  animation: tabFadeIn 0.25s ease-out;
+}

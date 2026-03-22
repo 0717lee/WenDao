@@ -1,0 +1,24 @@
+{
+  "咱们来建一座面阔七间、进深四间的庑殿顶大殿吧": {
+    "action": "instantiate",
+    "need_rag": false,
+    "width_bays": 7,
+    "depth_bays": 4,
+    "roof": "wudian"
+  },
+  "把这个斗拱给我拆开看看内部构造": {
+    "action": "explode",
+    "need_rag": true,
+    "target": "dougong"
+  },
+  "这座建筑受力是怎么样的": {
+    "action": "stress",
+    "need_rag": true,
+    "target": "dougong"
+  },
+  "给我恢复原样": {
+    "action": "idle",
+    "need_rag": true,
+    "target": "dougong"
+  }
+}

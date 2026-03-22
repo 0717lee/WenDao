@@ -1,0 +1,91 @@
+# 依赖目录
+node_modules/
+.pnp
+.pnp.js
+
+# Python 虚拟环境
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 环境变量文件（敏感信息）
+.env
+.env.local
+.env.*.local
+*.env
+
+# 构建输出
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 测试覆盖率
+coverage/
+.coverage
+.nyc_output/
+*.lcov
+.pytest_cache/
+
+# 临时文件
+*.tmp
+*.temp
+.cache/
+
+# ChromaDB data
+chroma_data/
+chroma_db/
+# faiss_db/ is intentionally tracked (only 40KB, needed for deployment)
+.embedding_cache/
+.embedding_cache_test/
+*.db
+*.sqlite
+
+# 前端辅助与编译
+tsconfig.tsbuildinfo
+*-errors.txt
+.vite/
+
+# 3D 资源缓存（仅排除本地临时缓存，生产模型建议保留）
+# *.glb
+# *.gltf
+
+# Docker 卷数据
+volumes/
+
+# Claude Code / Agent 本地配置
+.claude/
+.agent/
+genesis/
+
+# 内部文档（非项目源码）
+2026年*.md
+观木知微*.md
+
+# 备份文件
+*.bak
+
+# 操作系统文件
+Thumbs.db
+Desktop.ini
