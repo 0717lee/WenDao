@@ -59,10 +59,8 @@ function App() {
         { key: 'chat' as const, label: '对话' },
         { key: 'search' as const, label: '搜索' },
         { key: 'reader' as const, label: '阅读' },
-        { key: 'graph' as const, label: '图谱' },
         { key: 'history' as const, label: '历史' },
         { key: 'favorites' as const, label: '收藏' },
-        { key: 'analytics' as const, label: '洞察' },
     ];
 
     return (
@@ -141,10 +139,8 @@ function App() {
                                     {getReaderView() === 'reader' && <ThreeColumnReader />}
                                 </>
                             )}
-                            {activeTab === 'graph' && <KnowledgeGraphPanel />}
                             {activeTab === 'history' && <ReadingHistory onNavigate={() => setActiveTab('reader')} />}
                             {activeTab === 'favorites' && <FavoritesList onNavigate={() => setActiveTab('reader')} />}
-                            {activeTab === 'analytics' && <AnalyticsDashboard />}
                         </div>
                     </div>
 

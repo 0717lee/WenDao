@@ -107,11 +107,11 @@ const SearchPanel: React.FC = () => {
         {/* Search Mode Selection */}
         <div className="flex gap-4">
           {[
-            { value: 'FULLTEXT' as SearchMode, label: '全文搜索' },
-            { value: 'VECTOR' as SearchMode, label: '向量搜索' },
-            { value: 'HYBRID' as SearchMode, label: '混合搜索' },
+            { value: 'FULLTEXT' as SearchMode, label: '精确匹配', desc: '按关键词精确查找' },
+            { value: 'VECTOR' as SearchMode, label: '智能理解', desc: '理解语义相关内容' },
+            { value: 'HYBRID' as SearchMode, label: '智能搜索', desc: '推荐使用' },
           ].map(opt => (
-            <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm" style={{ color: 'rgba(26,30,35,0.55)' }}>
+            <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer group" style={{ color: 'rgba(26,30,35,0.55)' }}>
               <input
                 type="radio"
                 value={opt.value}
@@ -120,7 +120,10 @@ const SearchPanel: React.FC = () => {
                 className="w-3.5 h-3.5"
                 style={{ accentColor: 'var(--gf-gugong-red)' }}
               />
-              <span>{opt.label}</span>
+              <div className="flex flex-col">
+                <span className="text-sm" style={{ fontFamily: '"Noto Serif SC", serif' }}>{opt.label}</span>
+                <span className="text-xs opacity-60">{opt.desc}</span>
+              </div>
             </label>
           ))}
         </div>

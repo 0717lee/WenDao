@@ -158,7 +158,7 @@ export function ForgotPasswordPage({ onSwitchToLogin }: ForgotPasswordPageProps)
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center">
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        以AI之力 · 穿越时空对话先贤
+                        探索古籍智慧 · 传承千年文化
                     </p>
                 </div>
             </div>
