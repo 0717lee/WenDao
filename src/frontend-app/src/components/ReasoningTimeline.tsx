@@ -113,17 +113,6 @@ export function ReasoningTimeline({ steps, defaultCollapsed = true }: ReasoningT
                                         <span className="text-xs leading-4" style={{ color: 'var(--gf-text)' }}>
                                             {s.label}
                                         </span>
-                                        {s.model && (
-                                            <span
-                                                className="text-xs px-1.5 py-0.5 rounded-full"
-                                                style={{
-                                                    backgroundColor: s.fallback ? 'rgba(234,179,8,0.15)' : 'rgba(26,30,35,0.08)',
-                                                    color: s.fallback ? '#b45309' : 'rgba(26,30,35,0.6)',
-                                                }}
-                                            >
-                                                {s.fallback ? `已降级 → ${s.model}` : s.model}
-                                            </span>
-                                        )}
                                     </div>
                                     {s.status === 'complete' && s.duration != null && (
                                         <span className="ml-2 text-[10px] opacity-50">

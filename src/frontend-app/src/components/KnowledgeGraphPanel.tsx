@@ -84,6 +84,8 @@ export function KnowledgeGraphPanel() {
     const [showExportDialog, setShowExportDialog] = useState(false);
     const [stabilizing, setStabilizing] = useState(true);
     const [stabilizationProgress, setStabilizationProgress] = useState(0);
+    const [filterGroups, setFilterGroups] = useState<Set<string>>(new Set(['人物', '典籍', '历史事件', '思想流派']));
+    const [showFilters, setShowFilters] = useState(false);
 
     // Cross-tab highlighting from useGraphStore
     const highlightedEntityIds = useGraphStore(s => s.highlightedEntityIds);
@@ -219,7 +221,7 @@ export function KnowledgeGraphPanel() {
                 };
             });
         setGraphData({ nodes: visNodes as any, edges: visEdges });
-    }, [allNodes, allEdges, highlightedEntityIds, pendingNodes, entityFrequencies]);
+    }, [allNodes, allEdges, highlightedEntityIds, pendingNodes, entityFrequencies, filterGroups]);
 
     /* ── 当数据或焦点变化时重建子图 ──────────────── */
     useEffect(() => {
@@ -394,16 +396,25 @@ export function KnowledgeGraphPanel() {
             {/* 标题栏 */}
             <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
                 <h3
-                    className="text-lg font-medium text-[var(--gf-text)] tracking-widest flex items-center gap-2"
+                    className="text-lg font-medium text-[var(--gf-text)] tracking-widest"
                     style={{ fontFamily: '"ZCOOL XiaoWei", serif' }}
                 >
-                    <span className="w-1.5 h-1.5 bg-[var(--gf-gugong-red)] rounded-full" />
                     古籍知识图谱
                 </h3>
                 <div className="flex items-center gap-3">
                     <span className="text-[10px] text-[var(--gf-text)]/40 tracking-wider">
                         {stats.nodes} 节点 / {stats.edges} 关系
                     </span>
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[11px] text-[var(--gf-text)]/60 hover:text-[var(--gf-text)] bg-white/40 hover:bg-white/70 border border-white/40 rounded-lg transition-all"
+                        title="过滤选项"
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        过滤
+                    </button>
                     <button
                         onClick={() => setShowExportDialog(true)}
                         className="flex items-center gap-1 px-2.5 py-1 text-[11px] text-[var(--gf-text)]/60 hover:text-[var(--gf-text)] bg-white/40 hover:bg-white/70 border border-white/40 rounded-lg transition-all"
@@ -416,6 +427,43 @@ export function KnowledgeGraphPanel() {
                     </button>
                 </div>
             </div>
+
+            {/* 过滤面板 */}
+            {showFilters && (
+                <div className="px-5 py-3 border-b flex flex-wrap items-center gap-2" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.3)' }}>
+                    <span className="text-xs text-[var(--gf-text)]/50 mr-1">显示类型:</span>
+                    {Object.keys(GROUP_COLORS).map(group => {
+                        const isActive = filterGroups.has(group);
+                        const colors = GROUP_COLORS[group];
+                        return (
+                            <button
+                                key={group}
+                                onClick={() => {
+                                    const newFilters = new Set(filterGroups);
+                                    if (isActive) {
+                                        newFilters.delete(group);
+                                    } else {
+                                        newFilters.add(group);
+                                    }
+                                    setFilterGroups(newFilters);
+                                }}
+                                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full transition-all"
+                                style={{
+                                    backgroundColor: isActive ? colors.bg : 'rgba(255,255,255,0.5)',
+                                    borderWidth: '1.5px',
+                                    borderStyle: 'solid',
+                                    borderColor: isActive ? colors.border : 'rgba(26,30,35,0.15)',
+                                    color: isActive ? colors.border : 'rgba(26,30,35,0.4)',
+                                    opacity: isActive ? 1 : 0.6,
+                                }}
+                            >
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.border }} />
+                                {group}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* 面包屑导航 */}
             {focusNode && !citationChainMode && (

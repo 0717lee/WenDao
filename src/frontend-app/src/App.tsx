@@ -66,7 +66,6 @@ function App() {
                 {/* App title */}
                 <div className="flex items-center justify-between px-4 md:px-6 pt-3 pb-1">
                     <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--gf-gugong-red)' }} />
                         <h1
                             className="text-lg md:text-xl tracking-widest"
                             style={{ fontFamily: '"ZCOOL XiaoWei", "Noto Serif SC", serif', color: 'var(--gf-text)' }}
@@ -102,30 +101,26 @@ function App() {
                     </div>
                 </div>
 
-                {/* Tab bar */}
-                <nav className="flex px-2 md:px-4 overflow-x-auto scrollbar-hide">
+                {/* Tab bar - Modern pill style */}
+                <nav className="flex gap-1.5 px-2 md:px-4 py-2 overflow-x-auto scrollbar-hide">
                     {tabs.map(tab => {
                         const isActive = activeTab === tab.key;
                         return (
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
-                                className="relative flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-sm shrink-0 transition-colors"
+                                className="relative flex items-center gap-1.5 px-3 md:px-4 py-2 text-sm shrink-0 rounded-full transition-all duration-200"
                                 style={{
-                                    color: isActive ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.45)',
+                                    color: isActive ? '#fff' : 'rgba(26,30,35,0.55)',
                                     fontWeight: isActive ? 500 : 400,
+                                    backgroundColor: isActive ? 'var(--gf-gugong-red)' : 'transparent',
+                                    transform: isActive ? 'scale(1.02)' : 'scale(1)',
                                 }}
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive ? 2 : 1.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d={TAB_ICONS[tab.key]} />
                                 </svg>
                                 <span>{tab.label}</span>
-                                {isActive && (
-                                    <span
-                                        className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
-                                        style={{ backgroundColor: 'var(--gf-gugong-red)' }}
-                                    />
-                                )}
                             </button>
                         );
                     })}
@@ -134,21 +129,71 @@ function App() {
 
             {/* Content Area */}
             <div className="flex-1 overflow-hidden">
-                <div key={activeTab} className="h-full tab-content-enter">
-                    {activeTab === 'chat' && <ChatInterface />}
-                    {activeTab === 'search' && <SearchPanel />}
-                    {activeTab === 'reader' && (
-                        <>
-                            {getReaderView() === 'upload' && <DocumentUpload />}
-                            {getReaderView() === 'preview' && <OCRPreview />}
-                            {getReaderView() === 'reader' && <ThreeColumnReader />}
-                        </>
-                    )}
-                    {activeTab === 'graph' && <KnowledgeGraphPanel />}
-                    {activeTab === 'history' && <ReadingHistory onNavigate={() => setActiveTab('reader')} />}
-                    {activeTab === 'favorites' && <FavoritesList onNavigate={() => setActiveTab('reader')} />}
-                    {activeTab === 'analytics' && <AnalyticsDashboard />}
-                </div>
+                {!username ? (
+                    // 未登录引导页
+                    <div className="h-full flex items-center justify-center bg-xuan-paper">
+                        <div className="max-w-md text-center px-6">
+                            <div className="mb-6">
+                                <div className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--gf-gugong-red)' }}>
+                                    <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                                <h2 className="text-2xl mb-3" style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}>
+                                    欢迎使用古籍智解
+                                </h2>
+                                <p className="text-sm mb-6" style={{ color: 'rgba(26,30,35,0.6)', lineHeight: '1.6' }}>
+                                    探索古籍知识，与AI对话解读经典<br/>
+                                    请先登录以使用完整功能
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setAuthOpen(true)}
+                                className="px-6 py-3 rounded-lg text-white font-medium transition-all hover:shadow-lg"
+                                style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                            >
+                                立即登录 / 注册
+                            </button>
+                            <div className="mt-8 pt-6 border-t" style={{ borderColor: 'rgba(26,30,35,0.1)' }}>
+                                <p className="text-xs mb-3" style={{ color: 'rgba(26,30,35,0.5)' }}>核心功能</p>
+                                <div className="grid grid-cols-2 gap-3 text-xs" style={{ color: 'rgba(26,30,35,0.6)' }}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--gf-gold)' }} />
+                                        AI古籍对话
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--gf-gold)' }} />
+                                        知识图谱探索
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--gf-gold)' }} />
+                                        智能搜索
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--gf-gold)' }} />
+                                        古籍阅读
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div key={activeTab} className="h-full tab-content-enter">
+                        {activeTab === 'chat' && <ChatInterface />}
+                        {activeTab === 'search' && <SearchPanel />}
+                        {activeTab === 'reader' && (
+                            <>
+                                {getReaderView() === 'upload' && <DocumentUpload />}
+                                {getReaderView() === 'preview' && <OCRPreview />}
+                                {getReaderView() === 'reader' && <ThreeColumnReader />}
+                            </>
+                        )}
+                        {activeTab === 'graph' && <KnowledgeGraphPanel />}
+                        {activeTab === 'history' && <ReadingHistory onNavigate={() => setActiveTab('reader')} />}
+                        {activeTab === 'favorites' && <FavoritesList onNavigate={() => setActiveTab('reader')} />}
+                        {activeTab === 'analytics' && <AnalyticsDashboard />}
+                    </div>
+                )}
             </div>
 
             {/* Auth Modal */}

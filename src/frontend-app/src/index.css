@@ -26,6 +26,10 @@ html, body, #root {
   /* 优先使用优雅的国风宋体/楷体系列 */
   font-family: "Noto Serif SC", "Source Han Serif SC", STZhongsong, "Microsoft YaHei", serif;
   user-select: none;
+  /* 移动端优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* 程序化生成的宣纸噪点 overlay */
@@ -48,6 +52,28 @@ html, body, #root {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* 移动端滚动优化 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 移动端触摸优化 */
+@media (max-width: 768px) {
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  input, textarea {
+    font-size: 16px; /* 防止iOS自动缩放 */
+  }
+}
 }
 
 @keyframes tabFadeIn {

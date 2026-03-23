@@ -141,12 +141,12 @@ async def vector_search(query: str, limit: int = 10) -> List[SearchResult]:
 
 
 async def hybrid_search(query: str, limit: int = 10) -> List[SearchResult]:
-    """混合检索：BM25 + Embedding"""
+    """混合检索：BM25 + Embedding，优化相关性"""
     # Execute both searches in parallel
-    fulltext_results = await fulltext_search(query, limit=limit * 2)
+    fulltext_results = await fulltext_search(query, limit=limit * 3)
 
     try:
-        vector_results = await vector_search(query, limit=limit * 2)
+        vector_results = await vector_search(query, limit=limit * 3)
     except HTTPException:
         # Fallback to fulltext only if vector search fails
         return fulltext_results[:limit]
@@ -165,23 +165,37 @@ async def hybrid_search(query: str, limit: int = 10) -> List[SearchResult]:
     for i, result in enumerate(vector_results):
         result.score = norm_vector[i]
 
-    # Merge results by ID
+    # Merge results by ID with adjusted weights
     merged = {}
     for result in fulltext_results:
         merged[result.id] = result
-        result.score *= 0.4  # BM25 weight
+        result.score *= 0.5  # BM25 weight increased from 0.4
 
     for result in vector_results:
         if result.id in merged:
-            merged[result.id].score += result.score * 0.6  # Embedding weight
+            merged[result.id].score += result.score * 0.5  # Embedding weight decreased from 0.6
         else:
-            result.score *= 0.6
+            result.score *= 0.5
             merged[result.id] = result
+
+    # Boost results that contain query keywords in title
+    query_lower = query.lower()
+    for result in merged.values():
+        if query_lower in result.title.lower():
+            result.score *= 1.3  # Title match boost
+        # Boost if query appears multiple times in content
+        content_lower = result.content.lower()
+        query_count = content_lower.count(query_lower)
+        if query_count > 1:
+            result.score *= (1 + min(query_count * 0.1, 0.5))  # Max 50% boost
 
     # Sort by combined score
     sorted_results = sorted(merged.values(), key=lambda x: x.score, reverse=True)
 
-    return sorted_results[:limit]
+    # Filter out very low relevance results (score < 0.1)
+    filtered_results = [r for r in sorted_results if r.score >= 0.1]
+
+    return filtered_results[:limit]
 
 
 @router.get("/search", response_model=SearchResponse)
