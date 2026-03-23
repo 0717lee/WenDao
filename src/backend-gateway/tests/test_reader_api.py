@@ -37,7 +37,8 @@ class TestGetHistoryEmpty:
         from routers.reader import get_reading_history
 
         mock_cm, _ = _make_mock_connection(fetch_return=[])
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             result = await get_reading_history()
 
         assert result == []
@@ -55,7 +56,8 @@ class TestGetHistoryWithRecords:
              "total_paragraphs": 10, "last_read_at": "2026-03-19T10:00:00"},
         ]
         mock_cm, _ = _make_mock_connection(fetch_return=fake_rows)
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             result = await get_reading_history()
 
         assert len(result) == 1
@@ -71,7 +73,8 @@ class TestUpdateProgress:
         from routers.reader import update_progress, ProgressUpdate
 
         mock_cm, mock_conn = _make_mock_connection(execute_return="UPDATE 1")
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             body = ProgressUpdate(document_id="uuid-1", current_paragraph=5, total_paragraphs=10)
             result = await update_progress(body)
 
@@ -83,7 +86,8 @@ class TestUpdateProgress:
         from routers.reader import update_progress, ProgressUpdate
 
         mock_cm, mock_conn = _make_mock_connection(execute_return="UPDATE 0")
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             body = ProgressUpdate(document_id="uuid-new", current_paragraph=1, total_paragraphs=20)
             result = await update_progress(body)
 
@@ -99,7 +103,8 @@ class TestCreateFolder:
         from routers.reader import create_folder, FolderCreate
 
         mock_cm, _ = _make_mock_connection(fetchrow_return={"id": "folder-uuid-1"})
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             body = FolderCreate(name="My Favorites")
             result = await create_folder(body)
 
@@ -115,7 +120,8 @@ class TestCreateFolder:
         mock_cm.__aenter__ = AsyncMock(side_effect=RuntimeError("DB down"))
         mock_cm.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             with pytest.raises(HTTPException) as exc_info:
                 body = FolderCreate(name="Broken")
                 await create_folder(body)
@@ -130,7 +136,8 @@ class TestAddFavorite:
         from routers.reader import add_favorite, FavoriteAdd
 
         mock_cm, mock_conn = _make_mock_connection()
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             body = FavoriteAdd(document_id="doc-uuid", folder_id="folder-uuid")
             result = await add_favorite(body)
 
@@ -146,7 +153,8 @@ class TestGetFavorites:
         from routers.reader import get_favorites
 
         mock_cm, _ = _make_mock_connection(fetch_return=[])
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             result = await get_favorites("folder-uuid")
 
         assert result == []
@@ -159,7 +167,8 @@ class TestGetFavorites:
             {"id": "doc-1", "title": "Ancient Text", "created_at": "2026-03-19T10:00:00"},
         ]
         mock_cm, _ = _make_mock_connection(fetch_return=fake_rows)
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             result = await get_favorites("folder-uuid")
 
         assert len(result) == 1
@@ -174,7 +183,8 @@ class TestGetFolders:
         from routers.reader import get_folders
 
         mock_cm, _ = _make_mock_connection(fetch_return=[])
-        with patch("routers.reader.get_connection", return_value=mock_cm):
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             result = await get_folders()
 
         assert result == []

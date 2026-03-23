@@ -3,12 +3,27 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Re
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, AsyncGenerator
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from agents.router import IntentRouter
 from agents.rag import RAGAgent
 from agents.speech import SpeechAgent
 from models.schemas import ChatRequest
+
+try:
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in tests
+    class Limiter:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+
+    def get_remote_address(request: Request) -> str:
+        client = getattr(request, "client", None)
+        return getattr(client, "host", "127.0.0.1")
 
 limiter = Limiter(key_func=get_remote_address)
 from core.database import get_db

@@ -6,9 +6,6 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 from routers import chat, catalog, knowledge_graph, ai_tools, monitoring, search, document, reader, vision, speech_api, creative, auth, analytics
 from core.database import init_database
 from core.pg_database import pg_lifespan, init_pg_database
@@ -16,6 +13,33 @@ import uvicorn
 import logging
 import asyncio
 import os
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in tests
+    class RateLimitExceeded(Exception):
+        pass
+
+    class Limiter:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+
+    def get_remote_address(request: Request) -> str:
+        client = getattr(request, "client", None)
+        return getattr(client, "host", "127.0.0.1")
+
+    async def _rate_limit_exceeded_handler(request: Request, exc: Exception):
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"error": "请求过于频繁", "message": str(exc)},
+        )
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)

@@ -1,8 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Loader2, Volume2, VolumeX } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { useGraphStore } from '../store/useGraphStore'
-import type { PendingNode } from '../store/useGraphStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { ImageUploadPreview } from './ImageUploadPreview'
@@ -322,7 +320,6 @@ export function ChatInterface() {
             let buffer = ''
             let assistantContent = ''
             let currentEventType = ''
-            let collectedEntityIds: string[] = []
             let reasoningSteps: ReasoningStep[] = INITIAL_REASONING_STEPS.map((s) => ({ ...s }))
 
             // Initialize reasoning steps on the assistant message
@@ -379,50 +376,7 @@ export function ChatInterface() {
                             continue
                         }
 
-                        // Handle named SSE events (e.g., "event: entities")
-                        if (currentEventType === 'entities') {
-                            if (event.entity_ids && event.entity_ids.length > 0) {
-                                collectedEntityIds = event.entity_ids
-                                const currentMessages = useStore.getState().messages
-                                const lastMessage = currentMessages[currentMessages.length - 1]
-                                if (lastMessage && lastMessage.role === 'assistant') {
-                                    lastMessage.entityIds = collectedEntityIds
-                                }
-                            }
-                            currentEventType = ''
-                            continue
-                        }
-
-                        // Handle new_entities SSE event (dynamic entity discovery)
-                        if (currentEventType === 'new_entities') {
-                            if (event.entities && event.entities.length > 0) {
-                                // Store on message for rendering PendingEntitiesCard
-                                const currentMessages = useStore.getState().messages
-                                const lastMessage = currentMessages[currentMessages.length - 1]
-                                if (lastMessage && lastMessage.role === 'assistant') {
-                                    lastMessage.pendingEntities = event.entities
-                                }
-                                // Add to pending nodes via API, then store
-                                const pendingWithIds: PendingNode[] = []
-                                for (const entity of event.entities) {
-                                    try {
-                                        const resp = await fetch(`${API_BASE}/api/v1/knowledge-graph/nodes`, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify(entity),
-                                        })
-                                        const result = await resp.json()
-                                        pendingWithIds.push({
-                                            ...entity,
-                                            id: result.id,
-                                            status: 'pending' as const,
-                                        })
-                                    } catch {
-                                        pendingWithIds.push({ ...entity, status: 'pending' as const })
-                                    }
-                                }
-                                useGraphStore.getState().addPendingNodes(pendingWithIds)
-                            }
+                        if (currentEventType === 'entities' || currentEventType === 'new_entities') {
                             currentEventType = ''
                             continue
                         }
@@ -465,11 +419,6 @@ export function ChatInterface() {
         }
     }
 
-    const handleViewGraph = (entityIds: string[]) => {
-        useGraphStore.getState().setHighlightedEntityIds(entityIds)
-        useGraphStore.getState().setActiveTab('graph')
-    }
-
     return (
         <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
             {/* TTS auto-read toggle in top-right corner */}
@@ -502,7 +451,7 @@ export function ChatInterface() {
             />
 
             {/* Messages */}
-            <MessageList messages={messages} onViewGraph={handleViewGraph} />
+            <MessageList messages={messages} />
 
             {/* Loading indicator */}
             {isLoading && currentProgress && (

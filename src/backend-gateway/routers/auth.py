@@ -1,36 +1,58 @@
 # -*- coding: utf-8 -*-
 """
-认证路由 — 用户注册/登录
+认证路由 — 用户注册/登录/找回密码。
 """
 import logging
+from uuid import uuid4
+
 from fastapi import APIRouter, HTTPException, status
-from models.schemas import UserRegister, UserLogin, TokenResponse
-from core.auth import hash_password, verify_password, create_token
-from core.pg_database import get_connection, pool
+
+from core import pg_database
+from core.auth import create_token, hash_password, verify_password
+from core.database import get_db
+from models.schemas import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    TokenResponse,
+    UserLogin,
+    UserRegister,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
-# In-memory fallback when PostgreSQL is unavailable (demo/dev mode)
-_memory_users: dict[str, dict] = {}
+
+def _username_or_email_conflict_message(existing_username: str | None, username: str, email: str) -> str:
+    if existing_username == username:
+        return "用户名已存在"
+    return "邮箱已被注册"
 
 
-async def _register_pg(username: str, password: str) -> str:
-    """Register user in PostgreSQL, return user id."""
-    async with get_connection() as conn:
-        existing = await conn.fetchrow("SELECT id FROM users WHERE username = $1", username)
+async def _register_pg(username: str, email: str, password: str) -> str:
+    """Register user in PostgreSQL and return user id."""
+    async with pg_database.get_connection() as conn:
+        existing = await conn.fetchrow(
+            "SELECT username, email FROM users WHERE username = $1 OR email = $2",
+            username,
+            email,
+        )
         if existing:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="用户名已存在")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=_username_or_email_conflict_message(existing["username"], username, email),
+            )
         row = await conn.fetchrow(
-            "INSERT INTO users (username, hashed_password) VALUES ($1, $2) RETURNING id",
-            username, hash_password(password),
+            "INSERT INTO users (username, email, hashed_password) VALUES ($1, $2, $3) RETURNING id",
+            username,
+            email,
+            hash_password(password),
         )
         return str(row["id"])
 
 
 async def _login_pg(username: str, password: str) -> tuple[str, str]:
     """Login via PostgreSQL, return (user_id, username)."""
-    async with get_connection() as conn:
+    async with pg_database.get_connection() as conn:
         row = await conn.fetchrow(
             "SELECT id, username, hashed_password FROM users WHERE username = $1",
             username,
@@ -40,40 +62,86 @@ async def _login_pg(username: str, password: str) -> tuple[str, str]:
         return str(row["id"]), row["username"]
 
 
-def _register_memory(username: str, password: str) -> str:
-    """Fallback: register in memory dict."""
-    if username in _memory_users:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="用户名已存在")
-    user_id = f"mem-{len(_memory_users) + 1}"
-    _memory_users[username] = {"id": user_id, "hashed_password": hash_password(password)}
-    return user_id
+async def _register_sqlite(username: str, email: str, password: str) -> str:
+    """Fallback: register user in SQLite for local/demo environments."""
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT username, email FROM users WHERE username = ? OR email = ?",
+            (username, email),
+        )
+        existing = await cursor.fetchone()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=_username_or_email_conflict_message(existing["username"], username, email),
+            )
+        user_id = str(uuid4())
+        await db.execute(
+            "INSERT INTO users (id, username, email, hashed_password) VALUES (?, ?, ?, ?)",
+            (user_id, username, email, hash_password(password)),
+        )
+        await db.commit()
+        return user_id
 
 
-def _login_memory(username: str, password: str) -> tuple[str, str]:
-    """Fallback: login from memory dict."""
-    user = _memory_users.get(username)
-    if not user or not verify_password(password, user["hashed_password"]):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
-    return user["id"], username
+async def _login_sqlite(username: str, password: str) -> tuple[str, str]:
+    """Fallback: login from SQLite."""
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT id, username, hashed_password FROM users WHERE username = ?",
+            (username,),
+        )
+        row = await cursor.fetchone()
+        if not row or not verify_password(password, row["hashed_password"]):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
+        return str(row["id"]), row["username"]
+
+
+async def _email_exists_pg(email: str) -> bool:
+    async with pg_database.get_connection() as conn:
+        row = await conn.fetchrow("SELECT id FROM users WHERE email = $1", email)
+        return bool(row)
+
+
+async def _email_exists_sqlite(email: str) -> bool:
+    async with get_db() as db:
+        cursor = await db.execute("SELECT id FROM users WHERE email = ?", (email,))
+        row = await cursor.fetchone()
+        return bool(row)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: UserRegister):
-    """用户注册"""
-    if pool:
-        user_id = await _register_pg(body.username, body.password)
+    """用户注册。"""
+    if pg_database.pool:
+        user_id = await _register_pg(body.username, body.email, body.password)
     else:
-        user_id = _register_memory(body.username, body.password)
+        user_id = await _register_sqlite(body.username, body.email, body.password)
     token = create_token(user_id, body.username)
     return TokenResponse(token=token, username=body.username)
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(body: UserLogin):
-    """用户登录"""
-    if pool:
+    """用户登录。"""
+    if pg_database.pool:
         user_id, username = await _login_pg(body.username, body.password)
     else:
-        user_id, username = _login_memory(body.username, body.password)
+        user_id, username = await _login_sqlite(body.username, body.password)
     token = create_token(user_id, username)
     return TokenResponse(token=token, username=username)
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(body: ForgotPasswordRequest):
+    """
+    找回密码占位接口。
+    当前版本不直接发送邮件，但会校验邮箱是否存在，并返回统一提示文案。
+    """
+    email_exists = await (_email_exists_pg(body.email) if pg_database.pool else _email_exists_sqlite(body.email))
+    if email_exists:
+        logger.info("收到找回密码请求: %s", body.email)
+    else:
+        logger.info("收到未注册邮箱的找回密码请求: %s", body.email)
+
+    return ForgotPasswordResponse(message="如果该邮箱已注册，我们会向您发送重置密码指引。")

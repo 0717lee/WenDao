@@ -2,7 +2,6 @@ import type { VisionResult } from '../store/useStore'
 
 interface VisionResultCardProps {
     result: VisionResult
-    onViewGraph?: (nodeIds: string[]) => void
 }
 
 const FIELD_LABELS = [
@@ -11,9 +10,7 @@ const FIELD_LABELS = [
     { key: 'era', label: '年代风格' },
 ] as const
 
-export function VisionResultCard({ result, onViewGraph }: VisionResultCardProps) {
-    const nodeIds = result.matchedGraphNodes.map((n) => n.id)
-
+export function VisionResultCard({ result }: VisionResultCardProps) {
     return (
         <div
             className="mt-2 rounded-xl overflow-hidden"
@@ -90,37 +87,18 @@ export function VisionResultCard({ result, onViewGraph }: VisionResultCardProps)
                 )}
             </div>
 
-            {/* Graph linking section */}
+            {/* Follow-up hint */}
             <div className="px-3 pb-3">
-                {nodeIds.length > 0 ? (
-                    <button
-                        onClick={() => onViewGraph?.(nodeIds)}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg transition-colors hover:opacity-90"
-                        style={{
-                            backgroundColor: 'var(--gf-gugong-red, #8c1a11)',
-                            color: '#fff',
-                        }}
-                    >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                            />
-                        </svg>
-                        查看相关图谱 ({nodeIds.length} 个关联节点)
-                    </button>
-                ) : (
-                    <div className="text-center space-y-1">
-                        <p className="text-[11px]" style={{ color: 'rgba(26,30,35,0.4)' }}>
-                            暂无相关图谱节点
-                        </p>
-                        <p className="text-[10px]" style={{ color: 'var(--gf-gold, #b8860b)' }}>
-                            在古籍中搜索相关记载
-                        </p>
-                    </div>
-                )}
+                <div className="text-center space-y-1">
+                    <p className="text-[11px]" style={{ color: 'rgba(26,30,35,0.4)' }}>
+                        {result.matchedGraphNodes.length > 0
+                            ? `识别到 ${result.matchedGraphNodes.length} 个相关术语，可继续在搜索或对话中追问`
+                            : '可继续在搜索或对话中追问相关建筑背景'}
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--gf-gold, #b8860b)' }}>
+                        例如：这种屋顶常见于什么年代？
+                    </p>
+                </div>
             </div>
         </div>
     )

@@ -1,19 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { Message } from '../store/useStore'
-import { useGraphStore } from '../store/useGraphStore'
 import { CitationCard } from './CitationCard'
 import { ReasoningTimeline } from './ReasoningTimeline'
-import { PendingEntitiesCard } from './PendingEntitiesCard'
 import { VisionResultCard } from './VisionResultCard'
 import { PoemScrollCard } from './PoemScrollCard'
-import type { PendingEntity } from './PendingEntitiesCard'
 
 interface MessageListProps {
     messages: Message[]
-    onViewGraph?: (entityIds: string[]) => void
 }
 
-export function MessageList({ messages, onViewGraph }: MessageListProps) {
+export function MessageList({ messages }: MessageListProps) {
     const endRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -78,36 +74,9 @@ export function MessageList({ messages, onViewGraph }: MessageListProps) {
                             </div>
                         )}
 
-                        {/* Entity graph link */}
-                        {message.entityIds && message.entityIds.length > 0 && onViewGraph && (
-                            <button
-                                onClick={() => onViewGraph(message.entityIds!)}
-                                className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors"
-                                style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)', border: '1px solid rgba(201,160,99,0.25)' }}
-                            >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                </svg>
-                                查看相关图谱
-                            </button>
-                        )}
-
-                        {/* Pending entities card */}
-                        {message.role === 'assistant' && message.pendingEntities && message.pendingEntities.length > 0 && (
-                            <PendingEntitiesCard
-                                entities={message.pendingEntities as PendingEntity[]}
-                                onApprove={(entity) => useGraphStore.getState().approveNode(entity.label)}
-                                onReject={(entity) => useGraphStore.getState().rejectNode(entity.label)}
-                                onApproveAll={() => useGraphStore.getState().approveAllPending()}
-                            />
-                        )}
-
                         {/* Vision result card */}
                         {message.role === 'assistant' && message.visionResult && (
-                            <VisionResultCard
-                                result={message.visionResult}
-                                onViewGraph={onViewGraph}
-                            />
+                            <VisionResultCard result={message.visionResult} />
                         )}
                     </div>
                 </div>

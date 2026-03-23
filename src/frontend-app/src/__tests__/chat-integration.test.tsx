@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import App from '../App'
 import { useStore } from '../store/useStore'
+import { useAuthStore } from '../store/useAuthStore'
 
 // Mock fetch with URL-based routing
 global.fetch = vi.fn()
@@ -26,6 +27,7 @@ describe('Chat Integration E2E', () => {
     beforeEach(() => {
         const state = useStore.getState()
         state.clearMessages()
+        useAuthStore.setState({ token: 'test-token', username: 'tester' })
         vi.clearAllMocks()
         ;(global.fetch as any).mockImplementation(() =>
             Promise.resolve({

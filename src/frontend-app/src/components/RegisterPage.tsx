@@ -7,6 +7,7 @@ interface RegisterPageProps {
 
 export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
     const [username, setUsername] = useState('')
+    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirmPassword, setConfirmPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
@@ -26,8 +27,9 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
 
         setLoading(true)
         try {
-            await register(username, password)
+            await register(username, email, password)
             setUsername('')
+            setEmail('')
             setPassword('')
             setConfirmPassword('')
         } catch (err: any) {
@@ -89,6 +91,25 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                 required
                                 minLength={2}
                                 maxLength={20}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
+                                邮箱
+                            </label>
+                            <input
+                                type="email"
+                                placeholder="请输入常用邮箱（用于找回密码）"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                style={{
+                                    borderColor: 'rgba(26,30,35,0.12)',
+                                    backgroundColor: '#fff',
+                                    fontFamily: '"Noto Serif SC", serif',
+                                }}
+                                required
+                                maxLength={120}
                             />
                         </div>
                         <div>

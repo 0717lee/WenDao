@@ -41,15 +41,15 @@ class TestUploadDocumentSuccess:
         mock_file.filename = "ancient_text.jpg"
         mock_file.read = AsyncMock(return_value=b"fake_image_bytes")
 
-        # Mock DB to raise (triggers pass branch)
-        with patch("routers.document.get_connection") as mock_gc:
-            mock_gc.side_effect = RuntimeError("no db")
+        with patch("routers.document._create_document", new_callable=AsyncMock) as mock_create:
             result = await upload_document(file=mock_file)
 
         assert result["text"] == "斗拱之制，出一跳曰华拱"
         assert result["confidence"] == 0.95
         assert "document_id" in result
+        assert result["image_url"].startswith("data:image/jpeg;base64,")
         ocr_agent.recognize.assert_awaited_once()
+        mock_create.assert_awaited_once()
 
 
 class TestUploadInvalidFormat:
@@ -90,8 +90,7 @@ class TestUploadReturnsDocumentId:
         mock_file.filename = "test.png"
         mock_file.read = AsyncMock(return_value=b"fake_image")
 
-        with patch("routers.document.get_connection") as mock_gc:
-            mock_gc.side_effect = RuntimeError("no db")
+        with patch("routers.document._create_document", new_callable=AsyncMock):
             result = await upload_document(file=mock_file)
 
         uuid_pattern = re.compile(
@@ -109,24 +108,22 @@ class TestProcessDocumentSSE:
     @pytest.mark.asyncio
     async def test_process_returns_sse_events(self):
         """Process endpoint generates progress + done SSE events."""
-        from routers.document import stream_process, translator_agent
+        from routers.document import entity_extractor, stream_process, translator_agent
 
         translator_agent.punctuate_and_translate = AsyncMock(return_value={
             "punctuated": "斗拱之制，出一跳曰华拱。",
             "translated": "斗拱的构造规制，伸出一跳称为华拱。",
         })
+        entity_extractor.extract_entities = MagicMock(return_value=["dougong"])
 
-        mock_conn = AsyncMock()
-        mock_conn.fetchrow = AsyncMock(return_value={
+        mock_document = {
+            "id": "test-doc-id",
+            "title": "测试文档",
             "original_text": "斗拱之制出一跳曰华拱"
-        })
-        mock_conn.execute = AsyncMock()
+        }
 
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_cm.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("routers.document.get_connection", return_value=mock_cm):
+        with patch("routers.document._get_document", new=AsyncMock(return_value=mock_document)), \
+             patch("routers.document._update_document_results", new=AsyncMock()):
             events = []
             async for event in stream_process("test-doc-id"):
                 events.append(event)
@@ -142,14 +139,7 @@ class TestProcessDocumentSSE:
         """Process with unknown doc_id returns error event."""
         from routers.document import stream_process
 
-        mock_conn = AsyncMock()
-        mock_conn.fetchrow = AsyncMock(return_value=None)
-
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_cm.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("routers.document.get_connection", return_value=mock_cm):
+        with patch("routers.document._get_document", new=AsyncMock(return_value=None)):
             events = []
             async for event in stream_process("nonexistent-id"):
                 events.append(event)
@@ -167,16 +157,13 @@ class TestProcessDocumentSSE:
             side_effect=RuntimeError("API timeout")
         )
 
-        mock_conn = AsyncMock()
-        mock_conn.fetchrow = AsyncMock(return_value={
+        mock_document = {
+            "id": "test-doc-id",
+            "title": "测试文档",
             "original_text": "测试文本"
-        })
+        }
 
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_cm.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("routers.document.get_connection", return_value=mock_cm):
+        with patch("routers.document._get_document", new=AsyncMock(return_value=mock_document)):
             events = []
             async for event in stream_process("test-doc-id"):
                 events.append(event)
@@ -194,9 +181,10 @@ class TestDocumentSchemas:
     def test_document_upload_response(self):
         from models.schemas import DocumentUploadResponse
         resp = DocumentUploadResponse(
-            document_id="abc-123", text="测试文字", confidence=0.95
+            document_id="abc-123", text="测试文字", confidence=0.95, image_url="data:image/png;base64,ZmFrZQ=="
         )
         assert resp.document_id == "abc-123"
+        assert resp.image_url is not None
 
     def test_document_process_response(self):
         from models.schemas import DocumentProcessResponse

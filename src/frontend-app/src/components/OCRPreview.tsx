@@ -20,6 +20,16 @@ export function OCRPreview() {
     setProcessProgress('正在断句标点...');
 
     try {
+      const saveResponse = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/text`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: editedText.trim() }),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error('保存校对文本失败');
+      }
+
       const eventSource = new EventSource(`${API_BASE}/api/v1/documents/process/${currentDocument.id}`);
 
       eventSource.addEventListener('progress', (e) => {

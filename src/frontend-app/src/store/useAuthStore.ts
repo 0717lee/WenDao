@@ -5,7 +5,8 @@ interface AuthState {
     token: string | null
     username: string | null
     login: (username: string, password: string) => Promise<void>
-    register: (username: string, password: string) => Promise<void>
+    register: (username: string, email: string, password: string) => Promise<void>
+    forgotPassword: (email: string) => Promise<string>
     logout: () => void
 }
 
@@ -29,11 +30,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ token: data.token, username: data.username })
     },
 
-    register: async (username: string, password: string) => {
+    register: async (username: string, email: string, password: string) => {
         const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ username, email, password }),
         })
         if (!res.ok) {
             const err = await res.json()
@@ -43,6 +44,20 @@ export const useAuthStore = create<AuthState>((set) => ({
         localStorage.setItem('texttwin_token', data.token)
         localStorage.setItem('texttwin_username', data.username)
         set({ token: data.token, username: data.username })
+    },
+
+    forgotPassword: async (email: string) => {
+        const res = await fetch(`${API_BASE}/api/v1/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        })
+        if (!res.ok) {
+            const err = await res.json()
+            throw new Error(err.detail || '发送失败')
+        }
+        const data = await res.json()
+        return data.message || '如果该邮箱已注册，我们会向您发送重置密码指引。'
     },
 
     logout: () => {

@@ -9,6 +9,7 @@ interface AuthModalProps {
 export function AuthModal({ open, onClose }: AuthModalProps) {
     const [mode, setMode] = useState<'login' | 'register'>('login')
     const [username, setUsername] = useState('')
+    const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
@@ -24,10 +25,11 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
             if (mode === 'login') {
                 await login(username, password)
             } else {
-                await register(username, password)
+                await register(username, email, password)
             }
             onClose()
             setUsername('')
+            setEmail('')
             setPassword('')
         } catch (err: any) {
             setError(err.message || '操作失败')
@@ -68,6 +70,18 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
                         minLength={2}
                         maxLength={20}
                     />
+                    {mode === 'register' && (
+                        <input
+                            type="email"
+                            placeholder="邮箱（用于找回密码）"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            className="w-full px-3 py-2 rounded text-sm border outline-none focus:ring-1"
+                            style={{ borderColor: 'rgba(26,30,35,0.15)', backgroundColor: 'var(--gf-bg-paper)' }}
+                            required
+                            maxLength={120}
+                        />
+                    )}
                     <input
                         type="password"
                         placeholder="密码"

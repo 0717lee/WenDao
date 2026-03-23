@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, FolderPlus, Star, ChevronRight, ChevronDown } from 'lucide-react';
 import { API_BASE } from '../lib/api';
+import { authHeaders } from '../store/useAuthStore';
 
 interface FolderItem {
   id: string;
@@ -74,7 +75,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/reader/folders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ name }),
       });
       if (!response.ok) throw new Error('Failed to create folder');

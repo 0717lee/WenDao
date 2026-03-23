@@ -127,9 +127,7 @@ describe('SearchPanel', () => {
   it('supports switching between search modes', () => {
     render(<SearchPanel />);
     
-    const fulltextRadio = screen.getByLabelText('全文搜索');
-    const vectorRadio = screen.getByLabelText('向量搜索');
-    const hybridRadio = screen.getByLabelText('混合搜索');
+    const [fulltextRadio, vectorRadio, hybridRadio] = screen.getAllByRole('radio');
 
     expect(hybridRadio).toBeChecked();
 

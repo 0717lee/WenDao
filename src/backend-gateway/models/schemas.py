@@ -13,6 +13,9 @@ def _strip_html(text: str) -> str:
     return re.sub(r'<[^>]+>', '', text)
 
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 class Citation(BaseModel):
     """引用来源模型"""
     title: str = Field(..., description="古籍标题")
@@ -71,6 +74,7 @@ class DocumentUploadResponse(BaseModel):
     document_id: str = Field(..., description="文档唯一ID")
     text: str = Field(..., description="OCR识别的文本")
     confidence: float = Field(..., description="OCR置信度")
+    image_url: Optional[str] = Field(default=None, description="原图预览地址或 data URL")
 
 
 class DocumentProcessResponse(BaseModel):
@@ -97,12 +101,55 @@ class WordExplainResponse(BaseModel):
 class UserRegister(BaseModel):
     """用户注册请求"""
     username: str = Field(..., min_length=2, max_length=20, description="用户名")
+    email: str = Field(..., min_length=5, max_length=120, description="邮箱地址")
     password: str = Field(..., min_length=6, max_length=64, description="密码")
+
+    @field_validator('username', 'email', 'password')
+    @classmethod
+    def strip_auth_fields(cls, value: str) -> str:
+        cleaned = _strip_html(value.strip())
+        if not cleaned:
+            raise ValueError("字段不能为空")
+        return cleaned
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        lowered = value.lower()
+        if not EMAIL_RE.match(lowered):
+            raise ValueError("邮箱格式不正确")
+        return lowered
 
 class UserLogin(BaseModel):
     """用户登录请求"""
     username: str = Field(..., description="用户名")
     password: str = Field(..., description="密码")
+
+    @field_validator('username', 'password')
+    @classmethod
+    def strip_login_fields(cls, value: str) -> str:
+        cleaned = _strip_html(value.strip())
+        if not cleaned:
+            raise ValueError("字段不能为空")
+        return cleaned
+
+
+class ForgotPasswordRequest(BaseModel):
+    """找回密码请求"""
+    email: str = Field(..., min_length=5, max_length=120, description="注册邮箱")
+
+    @field_validator('email')
+    @classmethod
+    def validate_forgot_email(cls, value: str) -> str:
+        cleaned = _strip_html(value.strip()).lower()
+        if not EMAIL_RE.match(cleaned):
+            raise ValueError("邮箱格式不正确")
+        return cleaned
+
+
+class ForgotPasswordResponse(BaseModel):
+    """找回密码响应"""
+    message: str = Field(..., description="找回密码结果提示")
 
 class TokenResponse(BaseModel):
     """登录成功响应"""

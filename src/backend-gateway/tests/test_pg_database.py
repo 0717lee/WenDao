@@ -31,7 +31,7 @@ async def test_get_connection_raises_without_pool(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
-    """init_pg_database() should execute CREATE TABLE for all 4 tables + ALTER TABLE."""
+    """init_pg_database() should execute CREATE/ALTER statements for documents, reader tables, and users."""
     monkeypatch.setattr(pg_database, "pool", mock_asyncpg_pool)
 
     await pg_database.init_pg_database()
@@ -40,8 +40,9 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     acm = mock_asyncpg_pool.acquire.return_value
     mock_conn = acm.__aenter__.return_value
 
-    # Should have 4 CREATE TABLE calls + 1 ALTER TABLE (entity_ids column)
-    assert mock_conn.execute.call_count == 5
+    # documents / reading_history / favorite_folders / favorites / users
+    # plus ALTER statements for entity_ids, image_data, email
+    assert mock_conn.execute.call_count == 8
 
     # Verify table names are in the SQL
     calls = [str(c) for c in mock_conn.execute.call_args_list]
@@ -50,6 +51,9 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     assert "reading_history" in all_sql
     assert "favorite_folders" in all_sql
     assert "favorites" in all_sql
+    assert "users" in all_sql
+    assert "image_data" in all_sql
+    assert "email" in all_sql
 
 
 @pytest.mark.asyncio

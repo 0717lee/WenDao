@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuthStore } from '../store/useAuthStore'
 
 interface ForgotPasswordPageProps {
     onSwitchToLogin: () => void
@@ -7,8 +8,10 @@ interface ForgotPasswordPageProps {
 export function ForgotPasswordPage({ onSwitchToLogin }: ForgotPasswordPageProps) {
     const [email, setEmail] = useState('')
     const [error, setError] = useState('')
+    const [successMessage, setSuccessMessage] = useState('')
     const [success, setSuccess] = useState(false)
     const [loading, setLoading] = useState(false)
+    const { forgotPassword } = useAuthStore()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -16,11 +19,8 @@ export function ForgotPasswordPage({ onSwitchToLogin }: ForgotPasswordPageProps)
         setLoading(true)
 
         try {
-            // TODO: 调用后端API发送重置密码邮件
-            // await fetch('/api/v1/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) })
-
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            const message = await forgotPassword(email)
+            setSuccessMessage(message)
             setSuccess(true)
         } catch (err: any) {
             setError(err.message || '发送失败，请稍后重试')
@@ -71,11 +71,10 @@ export function ForgotPasswordPage({ onSwitchToLogin }: ForgotPasswordPageProps)
                             </div>
                             <div>
                                 <h3 className="text-lg mb-2" style={{ fontFamily: '"Noto Serif SC", serif', color: '#1a1e23' }}>
-                                    邮件已发送
+                                    请求已提交
                                 </h3>
                                 <p className="text-xs leading-relaxed" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
-                                    我们已向您的邮箱发送了重置密码的链接<br/>
-                                    请查收邮件并按照指引操作
+                                    {successMessage || '如果该邮箱已注册，我们会向您发送重置密码指引。'}
                                 </p>
                             </div>
                             <button

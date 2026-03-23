@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useDocumentStore } from '../store/useDocumentStore'
 import { DocumentUpload } from '../components/DocumentUpload'
+import { API_BASE } from '../lib/api'
 
 describe('useDocumentStore', () => {
   beforeEach(() => {
@@ -84,6 +85,7 @@ describe('DocumentUpload', () => {
         document_id: 'doc-123',
         text: 'OCR recognized text',
         confidence: 0.92,
+        image_url: 'data:image/png;base64,ZmFrZQ==',
       }),
     } as Response)
 
@@ -100,11 +102,12 @@ describe('DocumentUpload', () => {
       expect(state.currentDocument).not.toBeNull()
       expect(state.currentDocument?.id).toBe('doc-123')
       expect(state.currentDocument?.originalText).toBe('OCR recognized text')
+      expect(state.currentDocument?.imageUrl).toContain('data:image/png;base64')
       expect(state.uploadStatus).toBe('done')
     })
 
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/v1/documents/upload',
+      `${API_BASE}/api/v1/documents/upload`,
       expect.objectContaining({ method: 'POST' })
     )
   })

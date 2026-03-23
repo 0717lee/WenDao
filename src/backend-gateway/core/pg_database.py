@@ -65,7 +65,7 @@ async def get_connection() -> AsyncGenerator[asyncpg.Connection, None]:
 async def init_pg_database() -> None:
     """
     Create Phase 2 tables if they don't exist.
-    Tables: documents, reading_history, favorite_folders, favorites.
+    Tables: documents, reading_history, favorite_folders, favorites, users.
     """
     if pool is None:
         logger.warning("PostgreSQL pool not available, skipping table creation")
@@ -81,6 +81,7 @@ async def init_pg_database() -> None:
                 translated_text TEXT,
                 ocr_confidence FLOAT,
                 image_path TEXT,
+                image_data TEXT,
                 status TEXT DEFAULT 'ocr_complete',
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -121,14 +122,25 @@ async def init_pg_database() -> None:
             ADD COLUMN IF NOT EXISTS entity_ids JSONB DEFAULT '[]'::jsonb
         """)
 
+        await conn.execute("""
+            ALTER TABLE documents
+            ADD COLUMN IF NOT EXISTS image_data TEXT
+        """)
+
         # Users table for JWT auth
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE,
                 hashed_password TEXT NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             )
+        """)
+
+        await conn.execute("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
         """)
 
     logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users)")

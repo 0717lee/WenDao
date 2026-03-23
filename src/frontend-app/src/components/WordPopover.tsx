@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { useGraphStore } from '../store/useGraphStore';
 import { API_BASE } from '../lib/api';
 
 interface WordExplanation {
@@ -18,7 +17,6 @@ interface WordPopoverProps {
 export function WordPopover({ word, position, onClose }: WordPopoverProps) {
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [matchedEntity, setMatchedEntity] = useState<{id: string; label: string} | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -32,21 +30,6 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
         console.error('Failed to fetch word explanation:', err);
         setLoading(false);
       });
-  }, [word]);
-
-  // Check if word matches a KG entity
-  useEffect(() => {
-    fetch(`${API_BASE}/api/v1/knowledge-graph/search?q=${encodeURIComponent(word)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.nodes?.length > 0) {
-          const exact = data.nodes.find((n: any) => n.label === word) || data.nodes[0];
-          setMatchedEntity({ id: exact.id, label: exact.label });
-        } else {
-          setMatchedEntity(null);
-        }
-      })
-      .catch(() => setMatchedEntity(null));
   }, [word]);
 
   // Position popover near click position, but keep it on screen
@@ -119,30 +102,6 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
             </>
           ) : (
             <p className="text-gray-500">无法加载释义</p>
-          )}
-
-          {matchedEntity && (
-            <div className="pt-2 border-t" style={{ borderColor: 'rgba(26,30,35,0.08)' }}>
-              <button
-                onClick={() => {
-                  useGraphStore.getState().focusEntityInGraph(matchedEntity.id);
-                  useGraphStore.getState().setActiveTab('graph');
-                  onClose();
-                }}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-all"
-                style={{
-                  color: 'var(--gf-gugong-red, #8c1a11)',
-                  backgroundColor: 'rgba(140,26,17,0.06)',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(140,26,17,0.12)')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(140,26,17,0.06)')}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                在知识图谱中查看「{matchedEntity.label}」
-              </button>
-            </div>
           )}
         </div>
       </div>
