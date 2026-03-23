@@ -7,6 +7,7 @@ from .schemas import (
     DocumentUploadResponse, DocumentProcessResponse,
     WordExplainRequest, WordExplainResponse,
     ForgotPasswordRequest, ForgotPasswordResponse,
+    ResetPasswordRequest, ResetPasswordResponse,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "DocumentUploadResponse", "DocumentProcessResponse",
     "WordExplainRequest", "WordExplainResponse",
     "ForgotPasswordRequest", "ForgotPasswordResponse",
+    "ResetPasswordRequest", "ResetPasswordResponse",
 ]

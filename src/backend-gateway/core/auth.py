@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 JWT_SECRET = os.getenv("JWT_SECRET", "texttwin-dev-secret-change-in-production")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_HOURS = 24
+JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
 
 security = HTTPBearer(auto_error=False)
 
@@ -41,6 +41,18 @@ def create_token(user_id: str, username: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+def create_password_reset_token(email: str) -> str:
+    """Create a short-lived JWT token used for password reset links."""
+    expire_minutes = int(os.getenv("JWT_PASSWORD_RESET_EXPIRE_MINUTES", "30"))
+    payload = {
+        "sub": email,
+        "purpose": "password_reset",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=expire_minutes),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
 def decode_token(token: str) -> dict:
     """Decode and validate a JWT token."""
     try:
@@ -49,6 +61,20 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="令牌已过期")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效令牌")
+
+
+def decode_password_reset_token(token: str) -> dict:
+    """Decode and validate a password reset token."""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="重置链接已过期")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的重置链接")
+
+    if payload.get("purpose") != "password_reset":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的重置链接")
+    return payload
 
 
 async def require_auth(

@@ -151,6 +151,26 @@ class ForgotPasswordResponse(BaseModel):
     """找回密码响应"""
     message: str = Field(..., description="找回密码结果提示")
 
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求"""
+    token: str = Field(..., min_length=20, description="邮件中的重置 token")
+    password: str = Field(..., min_length=6, max_length=64, description="新密码")
+
+    @field_validator('token', 'password')
+    @classmethod
+    def strip_reset_fields(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("字段不能为空")
+        return cleaned
+
+
+class ResetPasswordResponse(BaseModel):
+    """重置密码响应"""
+    message: str = Field(..., description="重置密码结果提示")
+
+
 class TokenResponse(BaseModel):
     """登录成功响应"""
     token: str = Field(..., description="JWT令牌")
