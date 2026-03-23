@@ -1,28 +1,35 @@
 import { useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 
-interface LoginPageProps {
-    onSwitchToRegister: () => void
-    onSwitchToForgotPassword: () => void
+interface RegisterPageProps {
+    onSwitchToLogin: () => void
 }
 
-export function LoginPage({ onSwitchToRegister, onSwitchToForgotPassword }: LoginPageProps) {
+export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
+    const [confirmPassword, setConfirmPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
-    const { login } = useAuthStore()
+    const { register } = useAuthStore()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
+
+        if (password !== confirmPassword) {
+            setError('两次输入的密码不一致')
+            return
+        }
+
         setLoading(true)
         try {
-            await login(username, password)
+            await register(username, password)
             setUsername('')
             setPassword('')
+            setConfirmPassword('')
         } catch (err: any) {
-            setError(err.message || '登录失败')
+            setError(err.message || '注册失败')
         } finally {
             setLoading(false)
         }
@@ -52,11 +59,11 @@ export function LoginPage({ onSwitchToRegister, onSwitchToForgotPassword }: Logi
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        典籍浩瀚，智解千年
+                        注册账号
                     </p>
                 </div>
 
-                {/* 登录表单 */}
+                {/* 注册表单 */}
                 <div
                     className="rounded-2xl shadow-xl p-8 backdrop-blur-sm"
                     style={{ backgroundColor: 'rgba(247,246,243,0.9)', border: '1px solid rgba(26,30,35,0.08)' }}
@@ -68,7 +75,7 @@ export function LoginPage({ onSwitchToRegister, onSwitchToForgotPassword }: Logi
                             </label>
                             <input
                                 type="text"
-                                placeholder="请输入用户名"
+                                placeholder="请输入用户名（2-20个字符）"
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
@@ -88,9 +95,29 @@ export function LoginPage({ onSwitchToRegister, onSwitchToForgotPassword }: Logi
                             </label>
                             <input
                                 type="password"
-                                placeholder="请输入密码"
+                                placeholder="请输入密码（至少6个字符）"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                style={{
+                                    borderColor: 'rgba(26,30,35,0.12)',
+                                    backgroundColor: '#fff',
+                                    fontFamily: '"Noto Serif SC", serif',
+                                }}
+                                required
+                                minLength={6}
+                                maxLength={64}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
+                                确认密码
+                            </label>
+                            <input
+                                type="password"
+                                placeholder="请再次输入密码"
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
                                 style={{
                                     borderColor: 'rgba(26,30,35,0.12)',
@@ -119,26 +146,18 @@ export function LoginPage({ onSwitchToRegister, onSwitchToForgotPassword }: Logi
                                 fontWeight: 500,
                             }}
                         >
-                            {loading ? '登录中...' : '登录'}
+                            {loading ? '注册中...' : '注册'}
                         </button>
                     </form>
 
                     {/* 底部链接 */}
                     <div className="mt-6 text-center space-y-2">
                         <button
-                            onClick={onSwitchToRegister}
+                            onClick={onSwitchToLogin}
                             className="text-xs hover:underline transition-colors"
                             style={{ color: '#ab1f22' }}
                         >
-                            还没有账号？立即注册
-                        </button>
-                        <div className="text-xs" style={{ color: 'rgba(26,30,35,0.3)' }}>|</div>
-                        <button
-                            onClick={onSwitchToForgotPassword}
-                            className="text-xs hover:underline transition-colors"
-                            style={{ color: 'rgba(26,30,35,0.5)' }}
-                        >
-                            忘记密码？
+                            已有账号？立即登录
                         </button>
                     </div>
                 </div>

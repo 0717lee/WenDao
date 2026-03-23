@@ -9,6 +9,8 @@ import { ThreeColumnReader } from './components/ThreeColumnReader';
 import { KnowledgeGraphPanel } from './components/KnowledgeGraphPanel';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { LoginPage } from './components/LoginPage';
+import { RegisterPage } from './components/RegisterPage';
+import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 import { Drawer } from './components/Drawer';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useDocumentStore } from './store/useDocumentStore';
@@ -26,6 +28,8 @@ const TAB_ICONS: Record<string, string> = {
     analytics: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
 };
 
+type AuthPage = 'login' | 'register' | 'forgot-password';
+
 function App() {
     // WebSocket connection (backward compat, not used in current phase)
     useWebSocket();
@@ -35,6 +39,7 @@ function App() {
     const pendingGraphFocus = useGraphStore(s => s.pendingGraphFocus);
     const { username, logout } = useAuthStore();
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [authPage, setAuthPage] = useState<AuthPage>('login');
 
     // Auto-switch to graph tab when pendingGraphFocus is set
     useEffect(() => {
@@ -62,9 +67,26 @@ function App() {
 
     return (
         <div className="w-full h-screen flex flex-col" style={{ backgroundColor: 'var(--gf-bg)' }}>
-            {/* 未登录：显示登录页面 */}
+            {/* 未登录：显示认证页面 */}
             {!username ? (
-                <LoginPage />
+                <>
+                    {authPage === 'login' && (
+                        <LoginPage
+                            onSwitchToRegister={() => setAuthPage('register')}
+                            onSwitchToForgotPassword={() => setAuthPage('forgot-password')}
+                        />
+                    )}
+                    {authPage === 'register' && (
+                        <RegisterPage
+                            onSwitchToLogin={() => setAuthPage('login')}
+                        />
+                    )}
+                    {authPage === 'forgot-password' && (
+                        <ForgotPasswordPage
+                            onSwitchToLogin={() => setAuthPage('login')}
+                        />
+                    )}
+                </>
             ) : (
                 <>
                     {/* Header with title + menu trigger */}
