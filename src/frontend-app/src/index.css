@@ -74,7 +74,6 @@ html, body, #root {
     font-size: 16px; /* 防止iOS自动缩放 */
   }
 }
-}
 
 @keyframes tabFadeIn {
   from { opacity: 0; transform: translateY(8px); }
