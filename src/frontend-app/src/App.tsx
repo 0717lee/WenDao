@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChatInterface } from './components/ChatInterface';
 import SearchPanel from './components/SearchPanel';
 import ReadingHistory from './components/ReadingHistory';
@@ -8,8 +8,6 @@ import { OCRPreview } from './components/OCRPreview';
 import { ThreeColumnReader } from './components/ThreeColumnReader';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
-import { ForgotPasswordPage } from './components/ForgotPasswordPage';
-import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { Drawer } from './components/Drawer';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useDocumentStore } from './store/useDocumentStore';
@@ -25,11 +23,7 @@ const TAB_ICONS: Record<string, string> = {
     favorites: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
 };
 
-type AuthPage = 'login' | 'register' | 'forgot-password' | 'reset-password';
-
-function getResetTokenFromUrl(): string | null {
-    return new URLSearchParams(window.location.search).get('reset_token');
-}
+type AuthPage = 'login' | 'register';
 
 function App() {
     // WebSocket connection (backward compat, not used in current phase)
@@ -39,34 +33,7 @@ function App() {
     const { currentDocument, uploadStatus } = useDocumentStore();
     const { username, logout } = useAuthStore();
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [resetToken, setResetToken] = useState<string | null>(() => getResetTokenFromUrl());
-    const [authPage, setAuthPage] = useState<AuthPage>(() => (getResetTokenFromUrl() ? 'reset-password' : 'login'));
-
-    const clearResetTokenFromUrl = () => {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('reset_token');
-        window.history.replaceState({}, '', url.toString());
-    };
-
-    const openAuthPage = (page: Exclude<AuthPage, 'reset-password'>) => {
-        clearResetTokenFromUrl();
-        setResetToken(null);
-        setAuthPage(page);
-    };
-
-    useEffect(() => {
-        const syncResetToken = () => {
-            const token = getResetTokenFromUrl();
-            setResetToken(token);
-            if (token) {
-                setAuthPage('reset-password');
-            }
-        };
-
-        syncResetToken();
-        window.addEventListener('popstate', syncResetToken);
-        return () => window.removeEventListener('popstate', syncResetToken);
-    }, []);
+    const [authPage, setAuthPage] = useState<AuthPage>('login');
 
     // Reader view state machine
     const getReaderView = () => {
@@ -86,27 +53,14 @@ function App() {
     return (
         <div className="w-full h-screen flex flex-col" style={{ backgroundColor: 'var(--gf-bg)' }}>
             {/* 未登录：显示认证页面 */}
-            {resetToken ? (
-                <ResetPasswordPage
-                    token={resetToken}
-                    onSwitchToLogin={() => openAuthPage('login')}
-                />
-            ) : !username ? (
+            {!username ? (
                 <>
                     {authPage === 'login' && (
-                        <LoginPage
-                            onSwitchToRegister={() => openAuthPage('register')}
-                            onSwitchToForgotPassword={() => openAuthPage('forgot-password')}
-                        />
+                        <LoginPage onSwitchToRegister={() => setAuthPage('register')} />
                     )}
                     {authPage === 'register' && (
                         <RegisterPage
-                            onSwitchToLogin={() => openAuthPage('login')}
-                        />
-                    )}
-                    {authPage === 'forgot-password' && (
-                        <ForgotPasswordPage
-                            onSwitchToLogin={() => openAuthPage('login')}
+                            onSwitchToLogin={() => setAuthPage('login')}
                         />
                     )}
                 </>

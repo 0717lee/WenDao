@@ -6,14 +6,12 @@ from .schemas import (
     ChatRequest, ChatResponse, Citation,
     DocumentUploadResponse, DocumentProcessResponse,
     WordExplainRequest, WordExplainResponse,
-    ForgotPasswordRequest, ForgotPasswordResponse,
-    ResetPasswordRequest, ResetPasswordResponse,
+    TokenResponse, UserLogin, UserRegister,
 )
 
 __all__ = [
     "ChatRequest", "ChatResponse", "Citation",
     "DocumentUploadResponse", "DocumentProcessResponse",
     "WordExplainRequest", "WordExplainResponse",
-    "ForgotPasswordRequest", "ForgotPasswordResponse",
-    "ResetPasswordRequest", "ResetPasswordResponse",
+    "TokenResponse", "UserLogin", "UserRegister",
 ]

@@ -3,10 +3,9 @@ import { useAuthStore } from '../store/useAuthStore'
 
 interface LoginPageProps {
     onSwitchToRegister: () => void
-    onSwitchToForgotPassword: () => void
 }
 
-export function LoginPage({ onSwitchToRegister, onSwitchToForgotPassword }: LoginPageProps) {
+export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
@@ -144,21 +143,13 @@ export function LoginPage({ onSwitchToRegister, onSwitchToForgotPassword }: Logi
                     </form>
 
                     {/* 底部链接 */}
-                    <div className="mt-6 text-center space-y-2">
+                    <div className="mt-6 text-center">
                         <button
                             onClick={onSwitchToRegister}
                             className="text-xs hover:underline transition-colors"
                             style={{ color: '#ab1f22' }}
                         >
                             还没有账号？立即注册
-                        </button>
-                        <div className="text-xs" style={{ color: 'rgba(26,30,35,0.3)' }}>|</div>
-                        <button
-                            onClick={onSwitchToForgotPassword}
-                            className="text-xs hover:underline transition-colors"
-                            style={{ color: 'rgba(26,30,35,0.5)' }}
-                        >
-                            忘记密码？
                         </button>
                     </div>
                 </div>
