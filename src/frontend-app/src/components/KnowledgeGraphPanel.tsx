@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Graph from 'react-graph-vis';
-import { useStore } from '../store/useStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { Network, Edge, Node } from 'vis-network';
 import { EntityDetailPanel } from './EntityDetailPanel';
@@ -70,8 +69,6 @@ const FALLBACK_EDGES: KGEdge[] = [
 
 /* ── 主组件 ──────────────────────────────────────── */
 export function KnowledgeGraphPanel() {
-    const selectedNode = useStore(state => state.selectedNode);
-    const setHighlightedType = useStore(state => state.setHighlightedType);
     const networkRef = useRef<Network | null>(null);
     const graphContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -225,8 +222,8 @@ export function KnowledgeGraphPanel() {
 
     /* ── 当数据或焦点变化时重建子图 ──────────────── */
     useEffect(() => {
-        buildSubgraph(focusNode || selectedNode || null);
-    }, [focusNode, selectedNode, buildSubgraph]);
+        buildSubgraph(focusNode || null);
+    }, [focusNode, buildSubgraph]);
 
     /* ── 处理 pendingGraphFocus（从其他 Tab 导航过来时聚焦） */
     useEffect(() => {
@@ -314,7 +311,7 @@ export function KnowledgeGraphPanel() {
             }, 100);
         } else if (!citationChainMode) {
             // Restore full graph when exiting chain mode
-            buildSubgraph(focusNode || selectedNode || null);
+            buildSubgraph(focusNode || null);
         }
     }, [citationChainMode, citationChainRoot, citationChain]);
 
@@ -367,15 +364,12 @@ export function KnowledgeGraphPanel() {
                 const nodeId = event.nodes[0];
                 const nodeData = allNodes.find(n => n.id === nodeId);
                 setSelectedNodeDetail(nodeData || null);
-                setHighlightedType(nodeId);
             } else {
                 setSelectedNodeDetail(null);
-                setHighlightedType(null);
             }
         },
         deselectNode: () => {
             setSelectedNodeDetail(null);
-            setHighlightedType(null);
         },
         stabilizationProgress: (params: { iterations: number; total: number }) => {
             setStabilizationProgress(params.iterations / params.total);

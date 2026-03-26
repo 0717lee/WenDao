@@ -1,11 +1,8 @@
-import asyncio, base64, json, logging, time
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request
+import asyncio, json, logging, time
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import Optional, List, AsyncGenerator
-from agents.router import IntentRouter
+from typing import AsyncGenerator
 from agents.rag import RAGAgent
-from agents.speech import SpeechAgent
 from core.lazy_proxy import LazyProxy
 from models.schemas import ChatRequest
 
@@ -32,109 +29,10 @@ from core.database import get_db
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-
-def _create_intent_agent() -> IntentRouter:
-    return IntentRouter()
-
-
 def _create_rag_agent() -> RAGAgent:
     return RAGAgent()
 
-
-def _create_speech_agent() -> SpeechAgent:
-    return SpeechAgent()
-
-
-intent_agent = LazyProxy(_create_intent_agent)
 rag_agent = LazyProxy(_create_rag_agent)
-speech_agent = LazyProxy(_create_speech_agent)
-
-class SceneCommand(BaseModel):
-    action: str
-    target: Optional[str] = None
-    position: Optional[List[float]] = None
-    message: str
-
-@router.websocket("/ws/chat")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        while True:
-            # 兼容模式：既能接收前端的心跳/纯文本 JSON，也能处理附带 base64 语音流的 JSON 封装结构。
-            data = await websocket.receive_json()
-            
-            # --- 阶段 0: 心跳包或闲杂指令过滤 ---
-            if data.get("action") == "heartbeat":
-                continue
-                
-            query_text = data.get("query", "")
-            audio_base64 = data.get("audio", "")
-            
-            # --- 阶段 1: 语音转文本 (ASR Phase) ---
-            if audio_base64:
-                # 收到音频流，将 Base64 发给 ASR 代理
-                query_text = await speech_agent.asr(base64.b64decode(audio_base64))
-                # ASR 出了结果，先直接告诉前端上屏显示听写结果
-                await websocket.send_json({"type": "transcript", "text": query_text})
-            elif not query_text:
-                continue
-
-            # --- 阶段 2: 意图分析 (Router Phase) ---
-            # 交由智谱 LLM 判断用户意图、提取 Action 以及明确是否必须走 RAG
-            intent_data = await intent_agent.analyze_intent(query_text)
-            action = intent_data.get("action", "idle")
-            target = intent_data.get("target")
-
-            # 历史 WebSocket 接口保留兼容；先返回早期状态，避免前端等待无反馈。
-            early_cmd = SceneCommand(action=action, target=target, message="正在检索相关古籍知识...")
-            await websocket.send_json({
-                "type": "command",
-                "command": early_cmd.dict()
-            })
-
-            # --- 阶段 3: 知识检索 (RAG Phase) / 图像生成 ---
-            reply_msg = f"收到指令：{query_text}"
-            image_url = None
-            if action == "generate_image":
-                # 调用 CogView-3 生成概念图
-                try:
-                    from agents.image_gen import ImageGenAgent
-                    img_agent = ImageGenAgent()
-                    image_url = img_agent.generate(intent_data.get("prompt", query_text))
-                    reply_msg = "已为您生成相关意象图。" if image_url else "图像生成失败，请稍后重试。"
-                except Exception as e:
-                    reply_msg = f"图像生成服务暂不可用: {e}"
-            elif intent_data.get("need_rag"):
-                reply_msg = await rag_agent.query_knowledge(intent_data, query_text)
-            elif action == "idle":
-                reply_msg = "您可以继续追问原文含义、历史背景或相关典故。"
-
-            # --- 阶段 4: 语音合成 (TTS Phase) ---
-            audio_bytes = await speech_agent.tts(reply_msg)
-            
-            # --- 阶段 5: 命令重装与发送 ---
-            cmd = SceneCommand(
-                action=action,
-                target=target,
-                message=reply_msg
-            )
-            
-            payload = {
-                "type": "command",
-                "command": cmd.dict(),
-                "audio_data": base64.b64encode(audio_bytes).decode('ascii')
-            }
-            if image_url:
-                payload["image_url"] = image_url
-            
-            await websocket.send_json(payload)
-            
-    except WebSocketDisconnect:
-        logger.info("Client disconnected from /ws/chat")
-
-
-# ========== SSE流式聊天API ==========
-
 
 def sse_reasoning(step: str, label: str, status: str, duration: float = None, model: str = None, fallback: bool = False) -> str:
     """Generate an SSE reasoning event string."""

@@ -20,7 +20,7 @@ global.EventSource = vi.fn().mockImplementation(() => ({
   CLOSED: 2,
 })) as any
 
-// Mock WebSocket for useWebSocket hook
+// Mock WebSocket for legacy browser API compatibility
 global.WebSocket = vi.fn().mockImplementation(() => ({
   addEventListener: vi.fn(),
   removeEventListener: vi.fn(),
