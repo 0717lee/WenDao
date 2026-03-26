@@ -16,6 +16,11 @@ from core.database import get_db
 router = APIRouter(prefix="/api/v1/reader", tags=["reader"])
 
 
+def get_connection():
+    """Local wrapper so tests can patch either this symbol or pg_database.get_connection."""
+    return pg_database.get_connection()
+
+
 # --- Request Models ---
 
 class ProgressUpdate(BaseModel):
@@ -40,7 +45,7 @@ async def get_reading_history():
     """Get reading history sorted by last read time."""
     try:
         if pg_database.pool:
-            async with pg_database.get_connection() as conn:
+            async with get_connection() as conn:
                 rows = await conn.fetch("""
                     SELECT d.id, d.title, h.current_paragraph, h.total_paragraphs, h.last_read_at
                     FROM reading_history h
@@ -67,7 +72,7 @@ async def update_progress(body: ProgressUpdate, _user: dict = Depends(require_au
     """Update reading progress for a document (upsert)."""
     try:
         if pg_database.pool:
-            async with pg_database.get_connection() as conn:
+            async with get_connection() as conn:
                 result = await conn.execute("""
                     UPDATE reading_history
                     SET current_paragraph = $2, total_paragraphs = $3, last_read_at = NOW()
@@ -101,7 +106,7 @@ async def get_folders():
     """Get all favorite folders."""
     try:
         if pg_database.pool:
-            async with pg_database.get_connection() as conn:
+            async with get_connection() as conn:
                 rows = await conn.fetch(
                     "SELECT id, name, created_at FROM favorite_folders ORDER BY created_at DESC"
                 )
@@ -122,7 +127,7 @@ async def create_folder(body: FolderCreate, _user: dict = Depends(require_auth))
     """Create a new favorite folder."""
     try:
         if pg_database.pool:
-            async with pg_database.get_connection() as conn:
+            async with get_connection() as conn:
                 row = await conn.fetchrow(
                     "INSERT INTO favorite_folders (name) VALUES ($1) RETURNING id", body.name
                 )
@@ -146,8 +151,8 @@ async def create_folder(body: FolderCreate, _user: dict = Depends(require_auth))
 async def get_entity_frequency():
     """Aggregate entity frequency from reading history documents."""
     try:
-        if pg_database.pool:
-            async with pg_database.get_connection() as conn:
+        try:
+            async with get_connection() as conn:
                 rows = await conn.fetch("""
                     SELECT entity_id, COUNT(*) as freq
                     FROM reading_history h
@@ -169,6 +174,8 @@ async def get_entity_frequency():
                 "frequencies": [{"entity_id": row["entity_id"], "count": row["freq"]} for row in rows],
                 "total_documents": total or 0,
             }
+        except RuntimeError:
+            pass
 
         async with get_db() as db:
             cursor = await db.execute("""
@@ -206,7 +213,7 @@ async def add_favorite(body: FavoriteAdd, _user: dict = Depends(require_auth)):
     """Add a document to a favorite folder."""
     try:
         if pg_database.pool:
-            async with pg_database.get_connection() as conn:
+            async with get_connection() as conn:
                 await conn.execute(
                     "INSERT INTO favorites (document_id, folder_id) VALUES ($1::uuid, $2::uuid) ON CONFLICT DO NOTHING",
                     body.document_id, body.folder_id,
@@ -228,7 +235,7 @@ async def get_favorites(folder_id: str):
     """Get all documents in a favorite folder."""
     try:
         if pg_database.pool:
-            async with pg_database.get_connection() as conn:
+            async with get_connection() as conn:
                 rows = await conn.fetch("""
                     SELECT d.id, d.title, f.created_at
                     FROM favorites f

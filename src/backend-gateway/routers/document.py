@@ -20,15 +20,38 @@ from agents.word_explainer import WordExplainerAgent
 from core import pg_database
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
+from core.lazy_proxy import LazyProxy
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 
-ocr_agent = OCRAgent()
-translator_agent = TranslatorAgent()
-word_explainer = WordExplainerAgent()
-entity_extractor = EntityExtractor()
+
+def _create_ocr_agent() -> OCRAgent:
+    return OCRAgent()
+
+
+def _create_translator_agent() -> TranslatorAgent:
+    return TranslatorAgent()
+
+
+def _create_word_explainer() -> WordExplainerAgent:
+    return WordExplainerAgent()
+
+
+def _create_entity_extractor() -> EntityExtractor:
+    return EntityExtractor()
+
+
+ocr_agent = LazyProxy(_create_ocr_agent)
+translator_agent = LazyProxy(_create_translator_agent)
+word_explainer = LazyProxy(_create_word_explainer)
+entity_extractor = LazyProxy(_create_entity_extractor)
+
+
+def get_connection():
+    """Local wrapper so tests can patch either this symbol or pg_database.get_connection."""
+    return pg_database.get_connection()
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/tiff"}
 
@@ -70,8 +93,8 @@ async def _create_document(
     image_data: str,
 ) -> None:
     """Persist uploaded document to PostgreSQL or SQLite."""
-    if pg_database.pool:
-        async with pg_database.get_connection() as conn:
+    try:
+        async with get_connection() as conn:
             await conn.execute(
                 "INSERT INTO documents (id, title, original_text, ocr_confidence, image_data, status) "
                 "VALUES ($1::uuid, $2, $3, $4, $5, 'ocr_complete')",
@@ -82,6 +105,8 @@ async def _create_document(
                 image_data,
             )
         return
+    except RuntimeError:
+        pass
 
     async with get_db() as db:
         await db.execute(
@@ -96,8 +121,8 @@ async def _create_document(
 
 async def _get_document(document_id: str) -> dict | None:
     """Fetch a normalized document row from PostgreSQL or SQLite."""
-    if pg_database.pool:
-        async with pg_database.get_connection() as conn:
+    try:
+        async with get_connection() as conn:
             row = await conn.fetchrow(
                 """
                 SELECT id, title, original_text, punctuated_text, translated_text, ocr_confidence,
@@ -108,6 +133,8 @@ async def _get_document(document_id: str) -> dict | None:
                 document_id,
             )
             return dict(row) if row else None
+    except RuntimeError:
+        pass
 
     async with get_db() as db:
         cursor = await db.execute(
@@ -125,8 +152,8 @@ async def _get_document(document_id: str) -> dict | None:
 
 async def _update_document_text(document_id: str, text: str) -> bool:
     """Persist corrected OCR text before running translation and entity extraction."""
-    if pg_database.pool:
-        async with pg_database.get_connection() as conn:
+    try:
+        async with get_connection() as conn:
             result = await conn.execute(
                 """
                 UPDATE documents
@@ -137,6 +164,8 @@ async def _update_document_text(document_id: str, text: str) -> bool:
                 text,
             )
             return result != "UPDATE 0"
+    except RuntimeError:
+        pass
 
     async with get_db() as db:
         cursor = await db.execute(
@@ -158,8 +187,8 @@ async def _update_document_results(
     entity_ids: list[str] | None = None,
 ) -> None:
     """Persist final processing results using the active database backend."""
-    if pg_database.pool:
-        async with pg_database.get_connection() as conn:
+    try:
+        async with get_connection() as conn:
             await conn.execute(
                 """
                 UPDATE documents
@@ -176,6 +205,8 @@ async def _update_document_results(
                 json.dumps(entity_ids or []),
             )
         return
+    except RuntimeError:
+        pass
 
     async with get_db() as db:
         await db.execute(

@@ -118,14 +118,9 @@ class TestSSEEntitiesEvent:
     @pytest.mark.asyncio
     @patch.dict(os.environ, {"MOONSHOT_API_KEY": "test_key", "ZHIPUAI_API_KEY": "test_key"})
     async def test_sse_includes_entities_event(self):
-        # Patch module-level agent constructors before importing chat module
-        with patch("agents.router.IntentRouter.__init__", return_value=None), \
-             patch("agents.rag.RAGAgent.__init__", return_value=None), \
-             patch("agents.speech.SpeechAgent.__init__", return_value=None):
-            # Force reimport to avoid cached module with failed init
-            if "routers.chat" in sys.modules:
-                del sys.modules["routers.chat"]
-            from routers.chat import stream_chat_response
+        if "routers.chat" in sys.modules:
+            del sys.modules["routers.chat"]
+        from routers.chat import stream_chat_response
 
         mock_rag = Mock()
         mock_rag.query_ancient_text.return_value = {
@@ -158,12 +153,9 @@ class TestSSEEntitiesEvent:
     @pytest.mark.asyncio
     @patch.dict(os.environ, {"MOONSHOT_API_KEY": "test_key", "ZHIPUAI_API_KEY": "test_key"})
     async def test_sse_omits_entities_when_empty(self):
-        with patch("agents.router.IntentRouter.__init__", return_value=None), \
-             patch("agents.rag.RAGAgent.__init__", return_value=None), \
-             patch("agents.speech.SpeechAgent.__init__", return_value=None):
-            if "routers.chat" in sys.modules:
-                del sys.modules["routers.chat"]
-            from routers.chat import stream_chat_response
+        if "routers.chat" in sys.modules:
+            del sys.modules["routers.chat"]
+        from routers.chat import stream_chat_response
 
         mock_rag = Mock()
         mock_rag.query_ancient_text.return_value = {
@@ -189,12 +181,9 @@ class TestSSEEntitiesEvent:
     @patch.dict(os.environ, {"MOONSHOT_API_KEY": "test_key", "ZHIPUAI_API_KEY": "test_key"})
     async def test_sse_entities_before_done(self):
         """entities event should appear before done event."""
-        with patch("agents.router.IntentRouter.__init__", return_value=None), \
-             patch("agents.rag.RAGAgent.__init__", return_value=None), \
-             patch("agents.speech.SpeechAgent.__init__", return_value=None):
-            if "routers.chat" in sys.modules:
-                del sys.modules["routers.chat"]
-            from routers.chat import stream_chat_response
+        if "routers.chat" in sys.modules:
+            del sys.modules["routers.chat"]
+        from routers.chat import stream_chat_response
 
         mock_rag = Mock()
         mock_rag.query_ancient_text.return_value = {

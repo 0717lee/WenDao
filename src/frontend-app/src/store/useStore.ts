@@ -1,7 +1,27 @@
 import { create } from 'zustand'
-import { BuildingConfigParameter } from '../components/ProceduralEngine/ModularSystem'
-import { BuildingEntry } from '../data/buildingCatalog'
 import type { ReasoningStep } from '../components/ReasoningTimeline'
+
+type LegacyBuildingConfig = {
+    type: 'residential' | 'official' | 'imperial' | 'bridge'
+    bayCount: number
+    depthCount: number
+    roofType: 'wudian' | 'xieshan' | 'yingshan' | 'stone_arch'
+}
+
+type LegacyBuildingEntry = {
+    id: string
+    label: string
+    subtitle: string
+    description: string
+    category: string
+    renderType: 'glb' | 'parametric'
+    glbUrl?: string
+    hasAnimation?: boolean
+    parametricConfig?: LegacyBuildingConfig
+    dynasty?: string
+    style?: string
+    features?: string[]
+}
 
 /** 后端通过 WebSocket 下发的场景指令 */
 export interface SceneCommand {
@@ -87,8 +107,8 @@ interface AppState {
     clearMessages: () => void
 
     // (V2) 渲染参数骨架预制类型
-    activeCatalog: BuildingConfigParameter | null
-    setActiveCatalog: (config: BuildingConfigParameter | null) => void
+    activeCatalog: LegacyBuildingConfig | null
+    setActiveCatalog: (config: LegacyBuildingConfig | null) => void
 
     // (V2) 核心主状态机，控制双态显示面板
     scaleLevel: 'MACRO' | 'MICRO'
@@ -99,8 +119,8 @@ interface AppState {
     setActiveModelId: (id: string) => void
 
     // (V4) 沉浸式展厅：当前选中建筑条目
-    activeBuilding: BuildingEntry | null
-    setActiveBuilding: (entry: BuildingEntry | null) => void
+    activeBuilding: LegacyBuildingEntry | null
+    setActiveBuilding: (entry: LegacyBuildingEntry | null) => void
 
     // (V4) 画廊分类筛选
     galleryFilter: string
@@ -222,7 +242,7 @@ export const useStore = create<AppState>((set) => ({
             return {
                 activeBuilding: entry,
                 activeModelId: '',
-                activeCatalog: entry.parametricConfig as BuildingConfigParameter | null,
+                    activeCatalog: entry.parametricConfig as LegacyBuildingConfig | null,
                 scaleLevel: 'MACRO' as const,
                 selectedNode: null,
             }

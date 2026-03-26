@@ -9,13 +9,7 @@ export default defineConfig({
     },
     build: {
         rollupOptions: {
-            output: {
-                manualChunks: {
-                    'three-core': ['three'],
-                    'r3f': ['@react-three/fiber', '@react-three/drei', '@react-three/postprocessing'],
-                    'recharts': ['recharts'],
-                },
-            },
+            output: {},
         },
     },
     test: {

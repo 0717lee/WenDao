@@ -83,7 +83,7 @@ export function ChatInterface() {
 
     const sendVisionMessage = async (image: File) => {
         setLoading(true)
-        setProgress('正在识别古建筑...')
+        setProgress('正在分析图片内容...')
 
         // Read image as data URL for preview
         const imagePreview = await readFileAsDataURL(image)
@@ -92,7 +92,7 @@ export function ChatInterface() {
         const userMessage = {
             id: Date.now().toString(),
             role: 'user' as const,
-            content: inputValue.trim() || '请识别这张古建筑照片',
+            content: inputValue.trim() || '请分析这张图片与相关文化信息',
             visionResult: { imagePreview, buildingType: '', roofStyle: '', components: [], era: '', rawText: '', matchedGraphNodes: [] },
             timestamp: Date.now(),
         }
@@ -146,7 +146,7 @@ export function ChatInterface() {
             updateLastMessage(analysis.raw_text || 'Analysis complete')
         } catch (error) {
             console.error('Vision API error:', error)
-            updateLastMessage('Sorry, image analysis failed. Please try again.')
+            updateLastMessage('图片分析失败，请稍后重试。')
         } finally {
             setLoading(false)
             setProgress('')
@@ -254,7 +254,7 @@ export function ChatInterface() {
             }
         } catch (error) {
             console.error('Poem API error:', error)
-            updateLastMessage('Poetry generation failed. Please try again.')
+            updateLastMessage('诗词生成失败，请稍后重试。')
             setLoading(false)
             setProgress('')
         }
@@ -413,7 +413,7 @@ export function ChatInterface() {
             }
         } catch (error) {
             console.error('Failed to send message:', error)
-            updateLastMessage('Sorry, an error occurred. Please try again.')
+            updateLastMessage('抱歉，当前对话暂时不可用，请稍后重试。')
             setLoading(false)
             setProgress('')
         }

@@ -1,3 +1,5 @@
+"""Manual intent parsing checks kept outside the formal pytest suite."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 from agents.router import IntentRouter

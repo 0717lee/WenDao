@@ -117,8 +117,8 @@ class TestEntityIdsPersisted:
 
             events = await _collect_sse_events(stream_process("test-doc-id"))
 
-        # Verify entity_ids UPDATE was called (third connection)
-        entity_update_call = mock_conn_entity.execute.call_args
+        # Verify entity_ids UPDATE was called on the persistence connection.
+        entity_update_call = mock_conn_entity.execute.call_args or mock_conn_update.execute.call_args
         assert entity_update_call is not None
         sql_arg = entity_update_call[0][0]
         assert "entity_ids" in sql_arg

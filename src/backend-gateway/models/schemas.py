@@ -4,6 +4,7 @@ Pydantic数据模型
 定义聊天请求/响应和引用来源的数据结构
 """
 from pydantic import BaseModel, Field, field_validator
+from pydantic.config import ConfigDict
 from typing import List, Optional
 import re
 
@@ -21,13 +22,12 @@ class Citation(BaseModel):
     title: str = Field(..., description="古籍标题")
     source: str = Field(..., description="具体出处（如卷数、章节）")
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "title": "《营造法式》",
-                "source": "卷三"
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "title": "《论语》",
+            "source": "学而篇",
         }
+    })
 
 
 class ChatRequest(BaseModel):
@@ -42,12 +42,11 @@ class ChatRequest(BaseModel):
             raise ValueError("消息内容不能为空")
         return _strip_html(v.strip())
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "message": "什么是斗拱？"
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "message": "“学而时习之”是什么意思？"
         }
+    })
 
 
 class ChatResponse(BaseModel):
@@ -55,16 +54,15 @@ class ChatResponse(BaseModel):
     answer: str = Field(..., description="AI生成的回答")
     citations: List[Citation] = Field(default_factory=list, description="引用来源列表")
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "answer": "斗拱是中国古建筑的重要构件，位于柱与梁之间，起承重和装饰作用。",
-                "citations": [
-                    {"title": "《营造法式》", "source": "卷三"},
-                    {"title": "《天工开物》", "source": "第五章"}
-                ]
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "answer": "这句话的意思是：学习后经常复习实践，是很快乐的事。",
+            "citations": [
+                {"title": "《论语》", "source": "学而篇"},
+                {"title": "《孟子》", "source": "梁惠王上"},
+            ],
         }
+    })
 
 
 # ---- Document Processing Schemas (Phase 2) ----

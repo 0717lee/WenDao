@@ -1,9 +1,7 @@
 """
-INT-S4 · 真实大模型 API 链路端到端验证脚本
-──────────────────────────────────────────
-注: 此脚本仅发送文本指令测试智谱+Kimi链路。
-    讯飞 ASR/TTS 需要有真实音频输入才会走到，
-    文本链路验通即可证明架构正确。
+INT-S4 · 手工 WebSocket 验证脚本
+──────────────────────────────
+该脚本用于人工检查兼容保留的 WebSocket 链路，不属于正式 pytest 测试。
 """
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

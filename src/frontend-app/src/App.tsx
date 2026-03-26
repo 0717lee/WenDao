@@ -9,7 +9,6 @@ import { ThreeColumnReader } from './components/ThreeColumnReader';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { Drawer } from './components/Drawer';
-import { useWebSocket } from './hooks/useWebSocket';
 import { useDocumentStore } from './store/useDocumentStore';
 import { useGraphStore } from './store/useGraphStore';
 import { useAuthStore } from './store/useAuthStore';
@@ -26,9 +25,6 @@ const TAB_ICONS: Record<string, string> = {
 type AuthPage = 'login' | 'register';
 
 function App() {
-    // WebSocket connection (backward compat, not used in current phase)
-    useWebSocket();
-
     const { activeTab, setActiveTab } = useGraphStore();
     const { currentDocument, uploadStatus } = useDocumentStore();
     const { username, logout } = useAuthStore();

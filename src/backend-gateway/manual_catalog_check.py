@@ -1,3 +1,9 @@
+"""Manual catalog verification helper.
+
+This is intentionally not named like an automated pytest module because the
+formal backend test entrypoint lives under ``tests/``.
+"""
+
 from fastapi.testclient import TestClient
 from main import app
 

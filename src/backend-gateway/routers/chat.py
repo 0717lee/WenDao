@@ -1,4 +1,4 @@
-import asyncio, base64, json, time
+import asyncio, base64, json, logging, time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -6,6 +6,7 @@ from typing import Optional, List, AsyncGenerator
 from agents.router import IntentRouter
 from agents.rag import RAGAgent
 from agents.speech import SpeechAgent
+from core.lazy_proxy import LazyProxy
 from models.schemas import ChatRequest
 
 try:
@@ -29,11 +30,24 @@ limiter = Limiter(key_func=get_remote_address)
 from core.database import get_db
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-# 实例化三大代理节点
-intent_agent = IntentRouter()
-rag_agent = RAGAgent()
-speech_agent = SpeechAgent()
+
+def _create_intent_agent() -> IntentRouter:
+    return IntentRouter()
+
+
+def _create_rag_agent() -> RAGAgent:
+    return RAGAgent()
+
+
+def _create_speech_agent() -> SpeechAgent:
+    return SpeechAgent()
+
+
+intent_agent = LazyProxy(_create_intent_agent)
+rag_agent = LazyProxy(_create_rag_agent)
+speech_agent = LazyProxy(_create_speech_agent)
 
 class SceneCommand(BaseModel):
     action: str
@@ -71,9 +85,8 @@ async def websocket_endpoint(websocket: WebSocket):
             action = intent_data.get("action", "idle")
             target = intent_data.get("target")
 
-            # 🔥 [性能与体验优化 T5.2]: 并发解耦，让 3D 动作“秒回”
-            # 不要等后面耗时极长的 RAG + TTS 完成，先立刻把 3D 动作指令踢给前端！
-            early_cmd = SceneCommand(action=action, target=target, message="正在查询《营造法式》知识库中...")
+            # 历史 WebSocket 接口保留兼容；先返回早期状态，避免前端等待无反馈。
+            early_cmd = SceneCommand(action=action, target=target, message="正在检索相关古籍知识...")
             await websocket.send_json({
                 "type": "command",
                 "command": early_cmd.dict()
@@ -88,13 +101,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     from agents.image_gen import ImageGenAgent
                     img_agent = ImageGenAgent()
                     image_url = img_agent.generate(intent_data.get("prompt", query_text))
-                    reply_msg = "已为您生成古建筑概念图。" if image_url else "图像生成失败，请稍后重试。"
+                    reply_msg = "已为您生成相关意象图。" if image_url else "图像生成失败，请稍后重试。"
                 except Exception as e:
                     reply_msg = f"图像生成服务暂不可用: {e}"
             elif intent_data.get("need_rag"):
                 reply_msg = await rag_agent.query_knowledge(intent_data, query_text)
             elif action == "idle":
-                reply_msg = "您可以随时要求我拆解斗拱，或是分析承重梁的受力情况。"
+                reply_msg = "您可以继续追问原文含义、历史背景或相关典故。"
 
             # --- 阶段 4: 语音合成 (TTS Phase) ---
             audio_bytes = await speech_agent.tts(reply_msg)
@@ -117,7 +130,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json(payload)
             
     except WebSocketDisconnect:
-        print("Client disconnected from /ws/chat")
+        logger.info("Client disconnected from /ws/chat")
 
 
 # ========== SSE流式聊天API ==========
@@ -169,7 +182,7 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
             discovery = EntityDiscovery(graph_data)
             new_entities = discovery.discover_new_entities(answer, query)
         except Exception as disc_err:
-            print(f"[ChatRouter] Entity discovery failed (non-critical): {disc_err}")
+            logger.warning("[ChatRouter] Entity discovery failed (non-critical): %s", disc_err)
 
         # -- Step 3: Knowledge linking --
         yield sse_reasoning("knowledge_linking", "知识关联推理", "running", model="GraphRAG")
@@ -216,10 +229,10 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
                 )
                 await db.commit()
         except Exception as db_error:
-            print(f"[ChatRouter] 保存对话历史失败: {db_error}")
+            logger.warning("[ChatRouter] 保存对话历史失败: %s", db_error)
 
     except Exception as e:
-        print(f"[ChatRouter] 流式响应生成失败: {e}")
+        logger.exception("[ChatRouter] 流式响应生成失败: %s", e)
         error_msg = f"抱歉，处理您的请求时发生错误：{str(e)}"
         yield f'event: error\ndata: {json.dumps({"message": error_msg}, ensure_ascii=False)}\n\n'
 
@@ -247,5 +260,5 @@ async def chat(request: Request, body: ChatRequest):
             }
         )
     except Exception as e:
-        print(f"[ChatRouter] 聊天API错误: {e}")
+        logger.exception("[ChatRouter] 聊天API错误: %s", e)
         raise HTTPException(status_code=500, detail=f"服务器错误：{str(e)}")

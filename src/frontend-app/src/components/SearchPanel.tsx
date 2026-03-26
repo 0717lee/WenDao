@@ -3,7 +3,7 @@ import { Search, Loader2, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 
 interface SearchResult {
-  id: number;
+  id: string;
   title: string;
   content: string;
   source: string;

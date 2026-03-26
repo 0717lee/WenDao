@@ -5,12 +5,14 @@
 """
 import os
 import jieba
+import logging
 from enum import Enum
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from core.database import get_db
+from core.lazy_proxy import LazyProxy
 from agents.rag import RAGAgent
 
 # Load custom dictionary for ancient Chinese terms
@@ -19,13 +21,14 @@ if os.path.exists(DICT_PATH):
     jieba.load_userdict(DICT_PATH)
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
+logger = logging.getLogger(__name__)
 
-# Initialize RAG agent for vector search
-try:
-    rag_agent = RAGAgent()
-except Exception as e:
-    print(f"[Search] RAG Agent initialization failed: {e}")
-    rag_agent = None
+
+def _create_rag_agent() -> RAGAgent:
+    return RAGAgent()
+
+
+rag_agent = LazyProxy(_create_rag_agent)
 
 
 class SearchMode(str, Enum):

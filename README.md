@@ -12,8 +12,14 @@ TextTwin 是一个面向古籍阅读与研究的 AI 知识平台。通过 OCR �
 - **三栏对照阅读**：原文 / 标点文 / 白话翻译并列展示，移动端 Tab 自适应
 - **知识图谱**：200+ 节点力导向图可视化，支持动态 AI 扩展、典故溯源链
 - **RAG 智能对话**：基于向量检索的古籍知识问答，引用原文片段
-- **多模态 AI**：古建筑照片识别、古风诗词生成配图、语音交互
+- **多模态增强**：图片辅助分析、古风诗词生成配图、语音交互
 - **7 款 AI 工具 / 4 家供应商**：智谱 AI、Moonshot Kimi、讯飞 ASR/TTS、FAISS+Embedding
+
+### 国赛主打链路
+
+- **读懂闭环**：OCR 上传 -> 标点翻译 -> 三栏对照 -> 字词释义
+- **可解释检索**：RAG 对话 -> 原文引用 -> 知识图谱联动
+- **二次阅读沉淀**：搜索 -> 历史/收藏 -> 继续追问
 
 ## 技术栈
 
@@ -119,6 +125,15 @@ TextTwin/
 启动后端后访问：
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
+
+## Competition Materials
+
+竞赛交付材料源码已放在 [deliverables/competition/CHECKLIST.md](//workspace/deliverables/competition/CHECKLIST.md)：
+
+- [PPT_OUTLINE.md](//workspace/deliverables/competition/PPT_OUTLINE.md)
+- [DEMO_SCRIPT.md](//workspace/deliverables/competition/DEMO_SCRIPT.md)
+- [DEV_BRIEF.md](//workspace/deliverables/competition/DEV_BRIEF.md)
+- [JUDGE_TALKING_POINTS.md](//workspace/deliverables/competition/JUDGE_TALKING_POINTS.md)
 
 ## 赛制合规
 

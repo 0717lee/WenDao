@@ -1,6 +1,7 @@
 """
-T3.1.1 验证脚本：RAG 检索质量验证
-用途: 执行 seed_knowledge.py 灌库后，运行此脚本来验证宏观建筑知识是否被正确召回。
+手工 RAG 检索检查脚本。
+
+正式的自动化验证请使用 ``validate_ancient_nlp.py`` 和 ``tests/`` 目录下的测试。
 """
 import os
 import sys

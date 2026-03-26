@@ -2,7 +2,7 @@
 T3.4.2 · 月之暗面 Kimi (Moonshot) 长文 RAG 知识检索代理
 ──────────────────────────────────────────────────────────
 结合本地 FAISS (真实 Embedding) 做向量检索后，将相关文档段交由
-Kimi 的 32k 长上下文窗口生成通俗化的古建筑知识解读。
+Kimi 生成通俗化的古籍知识解读。
 """
 import os, asyncio, logging
 from typing import Dict, Any
@@ -40,7 +40,7 @@ class RAGAgent:
                 from core.entity_extractor import EntityExtractor
                 self._entity_extractor = EntityExtractor()
             except Exception as e:
-                print(f"[RAGAgent] EntityExtractor init failed: {e}")
+                logger.warning("[RAGAgent] EntityExtractor init failed: %s", e)
                 self._entity_extractor = None
         return self._entity_extractor
 
@@ -61,7 +61,7 @@ class RAGAgent:
                 try:
                     docs = self.vectorstore.similarity_search(user_query, k=3)
                 except Exception as e:
-                    print(f"[RAGAgent] 检索失败: {e}")
+                    logger.warning("[RAGAgent] 检索失败: %s", e)
 
             # 2. 提取引用来源
             citations = []
@@ -114,7 +114,7 @@ class RAGAgent:
             }
 
         except Exception as e:
-            print(f"[RAGAgent] 查询失败: {e}")
+            logger.exception("[RAGAgent] 查询失败: %s", e)
             return {
                 "answer": f'抱歉，知识检索服务暂时不可用。您询问的是关于"{user_query}"的问题，请稍后再试。',
                 "citations": [],
@@ -161,13 +161,13 @@ class RAGAgent:
                     docstore=docstore,
                     index_to_docstore_id=index_to_docstore_id,
                 )
-                print("[RAGAgent] FAISS 知识库加载成功 (真实 Embedding)")
+                logger.info("[RAGAgent] FAISS 知识库加载成功 (真实 Embedding)")
             else:
-                print(f"[RAGAgent] FAISS 索引文件不存在: {db_path}，将使用纯 LLM 模式")
+                logger.warning("[RAGAgent] FAISS 索引文件不存在: %s，将使用纯 LLM 模式", db_path)
                 self.vectorstore = None
 
         except Exception as e:
-            print(f"[RAGAgent] 向量库加载失败，将使用纯 LLM 模式: {e}")
+            logger.warning("[RAGAgent] 向量库加载失败，将使用纯 LLM 模式: %s", e)
             self.vectorstore = None
 
     def _retrieve_context(self, query: str, k: int = 3) -> str:
@@ -178,7 +178,7 @@ class RAGAgent:
             docs = self.vectorstore.similarity_search(query, k=k)
             return "\n---\n".join([doc.page_content for doc in docs]) if docs else ""
         except Exception as e:
-            print(f"[RAGAgent] 检索失败: {e}")
+            logger.warning("[RAGAgent] 检索失败: %s", e)
             return ""
 
     async def query_knowledge(self, intent_data: Dict[str, Any], original_text: str) -> str:

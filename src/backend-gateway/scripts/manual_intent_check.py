@@ -1,3 +1,8 @@
+"""Manual intent inspection script.
+
+The formal automated tests live under ``src/backend-gateway/tests``.
+"""
+
 import asyncio
 import os
 import sys

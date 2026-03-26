@@ -9,14 +9,8 @@ import os
 import sys
 import json
 import argparse
-from pathlib import Path
+import io
 from dotenv import load_dotenv
-
-# Fix Windows GBK encoding issue
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,6 +19,18 @@ load_dotenv()
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from agents.rag import RAGAgent
+
+
+def _configure_output_streams() -> None:
+    """Fix Windows GBK issues without mutating streams during module import."""
+    if sys.platform != "win32":
+        return
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        buffer = getattr(stream, "buffer", None)
+        if buffer is None:
+            continue
+        setattr(sys, name, io.TextIOWrapper(buffer, encoding="utf-8"))
 
 
 def load_test_samples(samples_path: str) -> list:
@@ -160,6 +166,7 @@ def validate_nlp_quality(samples_path: str, verbose: bool = False, json_output: 
 
 
 def main():
+    _configure_output_streams()
     parser = argparse.ArgumentParser(description="验证古文NLP检索质量")
     parser.add_argument(
         "--samples",
