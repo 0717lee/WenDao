@@ -189,6 +189,19 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS study_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                document_id TEXT NOT NULL,
+                completed_cards INTEGER DEFAULT 0,
+                total_cards INTEGER DEFAULT 0,
+                mastered_cards INTEGER DEFAULT 0,
+                review_again_cards INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )
+        """)
+
         await db.commit()
 
 

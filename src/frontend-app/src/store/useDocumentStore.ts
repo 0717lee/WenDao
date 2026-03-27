@@ -13,10 +13,13 @@ interface Document {
 interface DocumentStore {
   currentDocument: Document | null;
   comparisonDocuments: Document[];
+  pendingAnchorText: string;
   uploadStatus: 'idle' | 'uploading' | 'processing' | 'done' | 'error';
   processProgress: string;
   setDocument: (doc: Document) => void;
   updateDocument: (updates: Partial<Document>) => void;
+  setPendingAnchorText: (anchor: string) => void;
+  consumePendingAnchorText: () => string;
   toggleComparisonDocument: (doc: Document) => void;
   removeComparisonDocument: (documentId: string) => void;
   clearComparisonDocuments: () => void;
@@ -28,12 +31,22 @@ interface DocumentStore {
 export const useDocumentStore = create<DocumentStore>((set) => ({
   currentDocument: null,
   comparisonDocuments: [],
+  pendingAnchorText: '',
   uploadStatus: 'idle',
   processProgress: '',
   setDocument: (doc) => set({ currentDocument: doc }),
   updateDocument: (updates) => set((state) => ({
     currentDocument: state.currentDocument ? { ...state.currentDocument, ...updates } : null,
   })),
+  setPendingAnchorText: (pendingAnchorText) => set({ pendingAnchorText }),
+  consumePendingAnchorText: () => {
+    let anchor = ''
+    set((state) => {
+      anchor = state.pendingAnchorText
+      return { pendingAnchorText: '' }
+    })
+    return anchor
+  },
   toggleComparisonDocument: (doc) => set((state) => {
     const exists = state.comparisonDocuments.some((item) => item.id === doc.id)
     if (exists) {
@@ -48,5 +61,5 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
   clearComparisonDocuments: () => set({ comparisonDocuments: [] }),
   setUploadStatus: (status) => set({ uploadStatus: status }),
   setProcessProgress: (progress) => set({ processProgress: progress }),
-  reset: () => set({ currentDocument: null, comparisonDocuments: [], uploadStatus: 'idle', processProgress: '' }),
+  reset: () => set({ currentDocument: null, comparisonDocuments: [], pendingAnchorText: '', uploadStatus: 'idle', processProgress: '' }),
 }));

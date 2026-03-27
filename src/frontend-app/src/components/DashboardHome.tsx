@@ -7,6 +7,7 @@ interface DashboardHomeProps {
   onAsk: (prompt: string) => void
   onOpenBookshelf: () => void
   onOpenWordbook: () => void
+  onOpenCompare: () => void
 }
 
 interface BookshelfItem {
@@ -36,6 +37,13 @@ interface AnalyticsOverview {
   top_entities: Array<{ id: string; label: string; count: number }>
 }
 
+interface RecommendationItem {
+  id: string
+  title: string
+  preview?: string
+  reasons?: string[]
+}
+
 const SAMPLE_PROMPTS = [
   '“学而时习之”到底在讲什么？',
   '请用白话解释《道德经》第一章',
@@ -54,12 +62,14 @@ export default function DashboardHome({
   onAsk,
   onOpenBookshelf,
   onOpenWordbook,
+  onOpenCompare,
 }: DashboardHomeProps) {
   const [loading, setLoading] = useState(true)
   const [documents, setDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [wordbook, setWordbook] = useState<WordbookItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -67,18 +77,20 @@ export default function DashboardHome({
     async function load() {
       setLoading(true)
       try {
-        const [docsRes, historyRes, wordbookRes, analyticsRes] = await Promise.all([
+        const [docsRes, historyRes, wordbookRes, analyticsRes, recommendationRes] = await Promise.all([
           fetch(`${API_BASE}/api/v1/documents?limit=6`),
           fetch(`${API_BASE}/api/v1/reader/history`),
           fetch(`${API_BASE}/api/v1/reader/wordbook?limit=6`),
           fetch(`${API_BASE}/api/v1/analytics/overview`),
+          fetch(`${API_BASE}/api/v1/documents/recommendations?limit=4`),
         ])
 
-        const [docsData, historyData, wordbookData, analyticsData] = await Promise.all([
+        const [docsData, historyData, wordbookData, analyticsData, recommendationData] = await Promise.all([
           docsRes.ok ? docsRes.json() : { documents: [] },
           historyRes.ok ? historyRes.json() : [],
           wordbookRes.ok ? wordbookRes.json() : { entries: [] },
           analyticsRes.ok ? analyticsRes.json() : null,
+          recommendationRes.ok ? recommendationRes.json() : { documents: [] },
         ])
 
         if (cancelled) return
@@ -86,12 +98,14 @@ export default function DashboardHome({
         setHistory(Array.isArray(historyData) ? historyData : [])
         setWordbook(Array.isArray(wordbookData.entries) ? wordbookData.entries : [])
         setAnalytics(analyticsData && typeof analyticsData === 'object' ? analyticsData : null)
+        setRecommendations(Array.isArray(recommendationData.documents) ? recommendationData.documents : [])
       } catch {
         if (cancelled) return
         setDocuments([])
         setHistory([])
         setWordbook([])
         setAnalytics(null)
+        setRecommendations([])
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -182,6 +196,17 @@ export default function DashboardHome({
                 }}
               >
                 查看生词本
+              </button>
+              <button
+                onClick={onOpenCompare}
+                className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
+                style={{
+                  backgroundColor: 'rgba(201,160,99,0.12)',
+                  color: 'var(--gf-gold)',
+                  border: '1px solid rgba(201,160,99,0.2)',
+                }}
+              >
+                对照阅读
               </button>
             </div>
           </div>
@@ -385,6 +410,48 @@ export default function DashboardHome({
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section
+          className="rounded-2xl p-4 md:p-5"
+          style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+        >
+          <div className="mb-4">
+            <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+              推荐继续阅读
+            </h3>
+            <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              基于图谱实体、生词本和最近阅读生成的下一步建议
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {recommendations.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onOpenDocument(item.id)}
+                className="rounded-2xl px-4 py-4 text-left transition-colors hover:bg-[rgba(26,30,35,0.03)]"
+                style={{ border: '1px solid rgba(26,30,35,0.08)' }}
+              >
+                <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                  {item.title}
+                </div>
+                <div className="line-clamp-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                  {item.preview || '暂无摘要'}
+                </div>
+                {item.reasons && item.reasons.length > 0 && (
+                  <div className="mt-2 text-[11px]" style={{ color: 'var(--gf-gold)' }}>
+                    {item.reasons[0]}
+                  </div>
+                )}
+              </button>
+            ))}
+            {!loading && recommendations.length === 0 && (
+              <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
+                暂无推荐，先读一篇古籍试试看。
+              </p>
+            )}
           </div>
         </section>
       </div>

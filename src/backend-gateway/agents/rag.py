@@ -72,7 +72,8 @@ class RAGAgent:
                 if metadata.get("title") and metadata.get("source"):
                     citations.append({
                         "title": metadata["title"],
-                        "source": metadata["source"]
+                        "source": metadata["source"],
+                        "excerpt": doc.page_content[:120],
                     })
 
             context = "\n---\n".join(context_parts) if context_parts else ""

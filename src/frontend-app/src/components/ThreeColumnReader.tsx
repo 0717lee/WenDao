@@ -9,13 +9,15 @@ import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
 
 export function ThreeColumnReader() {
-  const { currentDocument } = useDocumentStore();
+  const { currentDocument, consumePendingAnchorText } = useDocumentStore();
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<'original' | 'punctuated' | 'translated'>('original');
   const [sidePanel, setSidePanel] = useState<'notes' | 'study' | null>(null);
+  const [anchorText, setAnchorText] = useState('');
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -27,6 +29,20 @@ export function ThreeColumnReader() {
       if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentDocument) return;
+    const nextAnchor = consumePendingAnchorText();
+    if (nextAnchor) {
+      setAnchorText(nextAnchor);
+    }
+  }, [currentDocument?.id, consumePendingAnchorText]);
+
+  useEffect(() => {
+    if (anchorText && anchorRef.current) {
+      anchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [anchorText, activeTab]);
 
   if (!currentDocument) return null;
 
@@ -74,19 +90,34 @@ export function ThreeColumnReader() {
       >
         {label}
       </h3>
-      <div className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
-        {text.split('').map((char, idx) => (
-          <span
-            key={idx}
-            onClick={(e) => handleWordClick(char, e)}
-            className="cursor-pointer transition-colors"
-            style={{ borderRadius: '2px' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(201,160,99,0.15)')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-          >
-            {char}
-          </span>
-        ))}
+      <div className="space-y-2 leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
+        {text
+          .split(/\n+/)
+          .filter((block) => block.length > 0)
+          .map((block, blockIndex) => {
+            const isAnchorBlock = Boolean(anchorText) && block.includes(anchorText);
+            return (
+              <p
+                key={`${label}-${blockIndex}`}
+                className="rounded-lg px-2 py-1"
+                style={{ backgroundColor: isAnchorBlock ? 'rgba(201,160,99,0.14)' : 'transparent' }}
+              >
+                {block.split('').map((char, idx) => (
+                  <span
+                    key={`${label}-${blockIndex}-${idx}`}
+                    ref={isAnchorBlock && idx === 0 ? anchorRef : undefined}
+                    onClick={(e) => handleWordClick(char, e)}
+                    className="cursor-pointer transition-colors"
+                    style={{ borderRadius: '2px' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(201,160,99,0.15)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    {char}
+                  </span>
+                ))}
+              </p>
+            );
+          })}
       </div>
     </div>
   );

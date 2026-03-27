@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HelpCircle, RotateCcw } from 'lucide-react'
 import { API_BASE } from '../lib/api'
+import { authHeaders } from '../store/useAuthStore'
 
 interface StudyCard {
   id: string
@@ -25,24 +26,40 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
   const [loading, setLoading] = useState(true)
   const [index, setIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
+  const [masteredCount, setMasteredCount] = useState(0)
+  const [reviewAgainCount, setReviewAgainCount] = useState(0)
+  const [summary, setSummary] = useState<{
+    sessions_count: number
+    mastery_rate: number
+    last_reviewed_at: string | null
+  } | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
       try {
-        const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-cards`)
-        const data = response.ok ? await response.json() : { cards: [], quiz: [] }
+        const [cardsResponse, summaryResponse] = await Promise.all([
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-cards`),
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`),
+        ])
+        const data = cardsResponse.ok ? await cardsResponse.json() : { cards: [], quiz: [] }
+        const summaryData = summaryResponse.ok ? await summaryResponse.json() : null
         if (!cancelled) {
           setCards(data.cards || [])
           setQuiz(data.quiz || [])
           setIndex(0)
           setShowAnswer(false)
+          setMasteredCount(0)
+          setReviewAgainCount(0)
+          setSummary(summaryData)
         }
       } catch {
         if (!cancelled) {
           setCards([])
           setQuiz([])
+          setSummary(null)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -55,6 +72,44 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
   }, [documentId])
 
   const current = cards[index]
+
+  const handleCardResult = async (result: 'mastered' | 'review') => {
+    const nextMastered = result === 'mastered' ? masteredCount + 1 : masteredCount
+    const nextReview = result === 'review' ? reviewAgainCount + 1 : reviewAgainCount
+    setMasteredCount(nextMastered)
+    setReviewAgainCount(nextReview)
+
+    if (index < cards.length - 1) {
+      setIndex((prev) => prev + 1)
+      setShowAnswer(false)
+      return
+    }
+
+    setSaving(true)
+    try {
+      await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          completed_cards: cards.length,
+          total_cards: cards.length,
+          mastered_cards: nextMastered,
+          review_again_cards: nextReview,
+        }),
+      })
+
+      const summaryResponse = await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`)
+      const summaryData = summaryResponse.ok ? await summaryResponse.json() : null
+      setSummary(summaryData)
+    } catch {
+      // Keep local summary silent if persistence fails
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div
@@ -83,6 +138,16 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
           重置
         </button>
       </div>
+
+      {summary && (
+        <div
+          className="mb-4 rounded-2xl px-4 py-3 text-xs"
+          style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.58)' }}
+        >
+          已复习 {summary.sessions_count} 次，最近掌握率 {Math.round((summary.mastery_rate || 0) * 100)}%
+          {summary.last_reviewed_at ? `，最近一次：${new Date(summary.last_reviewed_at).toLocaleString('zh-CN')}` : ''}
+        </div>
+      )}
 
       {loading ? (
         <div className="rounded-2xl p-6 text-center text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
@@ -123,6 +188,22 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
               style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'var(--gf-text)' }}
             >
               下一张
+            </button>
+            <button
+              onClick={() => handleCardResult('mastered')}
+              disabled={saving}
+              className="rounded-xl px-4 py-2 text-sm disabled:opacity-60"
+              style={{ backgroundColor: 'rgba(60,138,81,0.12)', color: '#3c8a51' }}
+            >
+              {saving ? '保存中...' : '我已掌握'}
+            </button>
+            <button
+              onClick={() => handleCardResult('review')}
+              disabled={saving}
+              className="rounded-xl px-4 py-2 text-sm disabled:opacity-60"
+              style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+            >
+              需要复习
             </button>
           </div>
 

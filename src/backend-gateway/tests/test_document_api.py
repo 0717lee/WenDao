@@ -304,5 +304,81 @@ class TestStudyCards:
         assert result["cards"][0]["front"]
 
 
+class TestStudyProgress:
+    """Study progress endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_get_study_progress_returns_summary(self):
+        from routers.document import get_study_progress
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1"})), \
+             patch("routers.document._get_study_progress", new=AsyncMock(return_value={
+                 "document_id": "doc-1",
+                 "sessions_count": 2,
+                 "mastery_rate": 0.75,
+                 "last_reviewed_at": "2026-03-27T10:00:00",
+             })):
+            result = await get_study_progress("doc-1")
+
+        assert result["sessions_count"] == 2
+        assert result["mastery_rate"] == 0.75
+
+    @pytest.mark.asyncio
+    async def test_save_study_progress_persists_session(self):
+        from routers.document import StudyProgressUpdateRequest, save_study_progress
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1"})), \
+             patch("routers.document._save_study_session", new=AsyncMock(return_value={
+                 "document_id": "doc-1",
+                 "completed_cards": 5,
+                 "total_cards": 5,
+                 "mastered_cards": 4,
+                 "review_again_cards": 1,
+             })):
+            result = await save_study_progress(
+                "doc-1",
+                StudyProgressUpdateRequest(
+                    completed_cards=5,
+                    total_cards=5,
+                    mastered_cards=4,
+                    review_again_cards=1,
+                ),
+                {"sub": "user-1"},
+            )
+
+        assert result["mastered_cards"] == 4
+
+
+class TestCitationResolution:
+    """Citation resolution/recommendation endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_resolve_citation_returns_match(self):
+        from routers.document import resolve_citation
+
+        with patch("routers.document._resolve_citation_reference", new=AsyncMock(return_value={
+            "document_id": "doc-1",
+            "title": "论语节选",
+            "anchor_text": "学而时习之",
+            "match_score": 42,
+        })):
+            result = await resolve_citation(title="论语", source="学而篇", excerpt="学而时习之")
+
+        assert result["match"]["document_id"] == "doc-1"
+        assert result["match"]["anchor_text"] == "学而时习之"
+
+    @pytest.mark.asyncio
+    async def test_recommendations_returns_documents(self):
+        from routers.document import get_recommendations
+
+        with patch("routers.document._get_recommendations", new=AsyncMock(return_value=[
+            {"id": "doc-2", "title": "孟子节选", "recommendation_score": 9, "reasons": ["与你的阅读记录有关"]},
+        ])):
+            result = await get_recommendations(document_id="doc-1", limit=5)
+
+        assert result["total"] == 1
+        assert result["documents"][0]["title"] == "孟子节选"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

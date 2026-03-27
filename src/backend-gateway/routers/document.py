@@ -68,6 +68,13 @@ class DocumentNoteUpdateRequest(BaseModel):
     note_text: str = Field(default="", max_length=10000)
 
 
+class StudyProgressUpdateRequest(BaseModel):
+    completed_cards: int = Field(..., ge=0)
+    total_cards: int = Field(..., ge=0)
+    mastered_cards: int = Field(..., ge=0)
+    review_again_cards: int = Field(..., ge=0)
+
+
 def _split_learning_sentences(text: str) -> list[str]:
     chunks = [segment.strip() for segment in text.replace("\r", "").splitlines() if segment.strip()]
     if not chunks:
@@ -313,6 +320,245 @@ async def _save_document_note(document_id: str, note_text: str) -> dict[str, Any
     return await _get_document_note(document_id)
 
 
+async def _save_study_session(document_id: str, body: StudyProgressUpdateRequest) -> dict[str, Any]:
+    """Persist one study-card review session."""
+    payload = (
+        body.completed_cards,
+        body.total_cards,
+        body.mastered_cards,
+        body.review_again_cards,
+    )
+    try:
+        async with get_connection() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO study_sessions (
+                    document_id, completed_cards, total_cards, mastered_cards, review_again_cards
+                ) VALUES ($1::uuid, $2, $3, $4, $5)
+                RETURNING
+                    document_id::text AS document_id,
+                    completed_cards,
+                    total_cards,
+                    mastered_cards,
+                    review_again_cards,
+                    created_at
+                """,
+                document_id,
+                *payload,
+            )
+            return dict(row)
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO study_sessions (
+                document_id, completed_cards, total_cards, mastered_cards, review_again_cards
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (document_id, *payload),
+        )
+        await db.commit()
+    return await _get_study_progress(document_id)
+
+
+async def _get_study_progress(document_id: str) -> dict[str, Any]:
+    """Return aggregate study progress for one document."""
+    try:
+        async with get_connection() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT
+                    COUNT(*)::int AS sessions_count,
+                    COALESCE(SUM(completed_cards), 0)::int AS completed_cards,
+                    COALESCE(SUM(mastered_cards), 0)::int AS mastered_cards,
+                    COALESCE(SUM(review_again_cards), 0)::int AS review_again_cards,
+                    MAX(created_at) AS last_reviewed_at
+                FROM study_sessions
+                WHERE document_id = $1::uuid
+                """,
+                document_id,
+            )
+            data = dict(row) if row else {}
+    except RuntimeError:
+        async with get_db() as db:
+            cursor = await db.execute(
+                """
+                SELECT
+                    COUNT(*) AS sessions_count,
+                    COALESCE(SUM(completed_cards), 0) AS completed_cards,
+                    COALESCE(SUM(mastered_cards), 0) AS mastered_cards,
+                    COALESCE(SUM(review_again_cards), 0) AS review_again_cards,
+                    MAX(created_at) AS last_reviewed_at
+                FROM study_sessions
+                WHERE document_id = ?
+                """,
+                (document_id,),
+            )
+            row = await cursor.fetchone()
+            data = dict(row) if row else {}
+
+    sessions = int(data.get("sessions_count") or 0)
+    completed = int(data.get("completed_cards") or 0)
+    mastered = int(data.get("mastered_cards") or 0)
+    review_again = int(data.get("review_again_cards") or 0)
+    accuracy = round(mastered / max(completed, 1), 2) if completed else 0.0
+    return {
+        "document_id": document_id,
+        "sessions_count": sessions,
+        "completed_cards": completed,
+        "mastered_cards": mastered,
+        "review_again_cards": review_again,
+        "mastery_rate": accuracy,
+        "last_reviewed_at": data.get("last_reviewed_at"),
+    }
+
+
+async def _resolve_citation_reference(title: str, source: str, excerpt: str = "") -> dict[str, Any] | None:
+    """Try to map a citation to an uploaded document and a readable anchor snippet."""
+    terms = [value.strip() for value in (title, source, excerpt) if value and value.strip()]
+    if not terms:
+        return None
+
+    def score_record(record: dict[str, Any]) -> tuple[int, str]:
+        haystacks = [
+            record.get("title") or "",
+            record.get("original_text") or "",
+            record.get("punctuated_text") or "",
+            record.get("translated_text") or "",
+        ]
+        score = 0
+        anchor = ""
+        for term in terms:
+            for text in haystacks:
+                if term and term in text:
+                    score += len(term) * 5
+                    if not anchor:
+                        anchor = term
+                        break
+            if term == title and title == record.get("title"):
+                score += 25
+        return score, anchor
+
+    candidates: list[dict[str, Any]] = []
+    try:
+        async with get_connection() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id::text AS id, title, original_text, punctuated_text, translated_text
+                FROM documents
+                ORDER BY COALESCE(updated_at, created_at) DESC
+                LIMIT 200
+                """
+            )
+            candidates = [dict(row) for row in rows]
+    except RuntimeError:
+        async with get_db() as db:
+            cursor = await db.execute(
+                """
+                SELECT id, title, original_text, punctuated_text, translated_text
+                FROM documents
+                ORDER BY COALESCE(updated_at, created_at) DESC
+                LIMIT 200
+                """
+            )
+            candidates = [dict(row) for row in await cursor.fetchall()]
+
+    best_match: dict[str, Any] | None = None
+    best_score = 0
+    best_anchor = ""
+    for candidate in candidates:
+        score, anchor = score_record(candidate)
+        if score > best_score:
+            best_match = candidate
+            best_score = score
+            best_anchor = anchor
+
+    if not best_match or best_score <= 0:
+        return None
+
+    return {
+        "document_id": best_match["id"],
+        "title": best_match["title"],
+        "anchor_text": best_anchor or excerpt or source or title,
+        "match_score": best_score,
+    }
+
+
+async def _get_recommendations(document_id: str | None, limit: int = 6) -> list[dict[str, Any]]:
+    """Recommend next readings using shared entities, history, and wordbook signals."""
+    docs = await _list_documents(limit=200)
+    if not docs:
+        return []
+
+    current_doc = await _get_document(document_id) if document_id else None
+    current_entities = set()
+    if current_doc:
+        try:
+            current_entities = set(json.loads(current_doc.get("entity_ids") or "[]"))
+        except json.JSONDecodeError:
+            current_entities = set()
+
+    history_ids: set[str] = set()
+    wordbook_terms: list[str] = []
+    try:
+        from routers.reader import _list_wordbook_entries, get_reading_history
+
+        history_items = await get_reading_history()
+        history_ids = {str(item.get("id")) for item in history_items}
+        wordbook_entries = await _list_wordbook_entries(limit=20)
+        wordbook_terms = [entry["word"] for entry in wordbook_entries if entry.get("word")]
+    except Exception:
+        pass
+
+    recommendations = []
+    for doc in docs:
+        if document_id and str(doc["id"]) == document_id:
+            continue
+
+        score = 0
+        reasons: list[str] = []
+
+        candidate = await _get_document(str(doc["id"]))
+        candidate_entities = set()
+        if candidate:
+            try:
+                candidate_entities = set(json.loads(candidate.get("entity_ids") or "[]"))
+            except json.JSONDecodeError:
+                candidate_entities = set()
+
+        shared_entities = current_entities & candidate_entities
+        if shared_entities:
+            score += len(shared_entities) * 8
+            reasons.append("与当前文档共享图谱实体")
+
+        if str(doc["id"]) in history_ids:
+            score += 3
+            reasons.append("与你的阅读记录有关")
+
+        preview = (doc.get("preview") or "") + " " + (doc.get("title") or "")
+        word_hits = [term for term in wordbook_terms if term and term in preview]
+        if word_hits:
+            score += min(len(word_hits), 3) * 2
+            reasons.append("命中你的生词本")
+
+        if doc.get("has_processed"):
+            score += 1
+
+        if score > 0:
+            recommendations.append({
+                **doc,
+                "recommendation_score": score,
+                "reasons": reasons,
+            })
+
+    recommendations.sort(key=lambda item: item["recommendation_score"], reverse=True)
+    if not recommendations:
+        return docs[:limit]
+    return recommendations[:limit]
+
+
 async def _update_document_text(document_id: str, text: str) -> bool:
     """Persist corrected OCR text before running translation and entity extraction."""
     try:
@@ -454,6 +700,42 @@ async def get_study_cards(document_id: str):
     ]
 
     return {"cards": cards, "quiz": quiz}
+
+
+@router.get("/{document_id}/study-progress")
+async def get_study_progress(document_id: str):
+    """Return aggregated study-card review progress for a document."""
+    document = await _get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return await _get_study_progress(document_id)
+
+
+@router.post("/{document_id}/study-progress")
+async def save_study_progress(document_id: str, body: StudyProgressUpdateRequest, _user: dict = Depends(require_auth)):
+    """Persist one study-card review result."""
+    document = await _get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return await _save_study_session(document_id, body)
+
+
+@router.get("/resolve-citation")
+async def resolve_citation(
+    title: str = Query(..., min_length=1),
+    source: str = Query(..., min_length=1),
+    excerpt: str = Query(""),
+):
+    """Try to resolve a citation to an uploaded document and anchor text."""
+    result = await _resolve_citation_reference(title=title, source=source, excerpt=excerpt)
+    return {"match": result}
+
+
+@router.get("/recommendations")
+async def get_recommendations(document_id: str | None = Query(default=None), limit: int = Query(6, ge=1, le=20)):
+    """Recommend next documents using reading history, wordbook, and shared entities."""
+    items = await _get_recommendations(document_id=document_id, limit=limit)
+    return {"documents": items, "total": len(items)}
 
 
 @router.post("/upload")

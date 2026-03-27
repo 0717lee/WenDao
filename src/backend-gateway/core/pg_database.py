@@ -135,6 +135,18 @@ async def init_pg_database() -> None:
             )
         """)
 
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS study_sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+                completed_cards INT DEFAULT 0,
+                total_cards INT DEFAULT 0,
+                mastered_cards INT DEFAULT 0,
+                review_again_cards INT DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
         # Add entity_ids column for GraphRAG cross-referencing (Phase 3)
         await conn.execute("""
             ALTER TABLE documents
@@ -162,4 +174,4 @@ async def init_pg_database() -> None:
             ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
         """)
 
-    logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes)")
+    logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes, study_sessions)")

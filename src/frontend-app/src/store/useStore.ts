@@ -25,7 +25,7 @@ export interface Message {
     id: string
     role: 'user' | 'assistant'
     content: string
-    citations?: Array<{ title: string; source: string }>
+    citations?: Array<{ title: string; source: string; excerpt?: string }>
     entityIds?: string[]
     reasoningSteps?: ReasoningStep[]
     pendingEntities?: Array<{ label: string; group: string; desc: string; confidence: number; similar_to?: { id: string; label: string; similarity: number } }>

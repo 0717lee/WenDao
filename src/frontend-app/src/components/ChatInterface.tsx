@@ -7,6 +7,7 @@ import { ImageUploadPreview } from './ImageUploadPreview'
 import { useVoiceRecorder, playTTSAudio } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
 import { useGraphStore } from '../store/useGraphStore'
+import { useDocumentStore } from '../store/useDocumentStore'
 import type { ReasoningStep } from './ReasoningTimeline'
 
 // Default reasoning steps template
@@ -26,6 +27,7 @@ export function ChatInterface() {
     const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const assistantContentRef = useRef('')
     const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
+    const { setDocument, setUploadStatus, setPendingAnchorText } = useDocumentStore()
     const setActiveTab = useGraphStore((state) => state.setActiveTab)
     const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery)
     const { isRecording, isTranscribing, toggleRecording } = useVoiceRecorder()
@@ -69,11 +71,44 @@ export function ChatInterface() {
     )
 
     const handleCitationClick = useCallback(
-        (citation: { title: string; source: string }) => {
+        async (citation: { title: string; source: string; excerpt?: string }) => {
+            try {
+                const params = new URLSearchParams({
+                    title: citation.title,
+                    source: citation.source,
+                })
+                if (citation.excerpt) params.set('excerpt', citation.excerpt)
+
+                const resolveRes = await fetch(`${API_BASE}/api/v1/documents/resolve-citation?${params.toString()}`)
+                const resolveData = resolveRes.ok ? await resolveRes.json() : { match: null }
+
+                if (resolveData.match?.document_id) {
+                    const documentRes = await fetch(`${API_BASE}/api/v1/documents/${resolveData.match.document_id}`)
+                    if (documentRes.ok) {
+                        const data = await documentRes.json()
+                        setDocument({
+                            id: data.id,
+                            title: data.title,
+                            originalText: data.original_text,
+                            punctuatedText: data.punctuated_text || '',
+                            translatedText: data.translated_text || '',
+                            confidence: data.ocr_confidence,
+                            imageUrl: data.image_data || undefined,
+                        })
+                        setUploadStatus(data.punctuated_text ? 'done' : 'idle')
+                        setPendingAnchorText(resolveData.match.anchor_text || citation.excerpt || citation.source)
+                        setActiveTab('reader')
+                        return
+                    }
+                }
+            } catch (error) {
+                console.error('Citation resolution failed:', error)
+            }
+
             queueSearchQuery(`${citation.title} ${citation.source}`)
             setActiveTab('search')
         },
-        [queueSearchQuery, setActiveTab]
+        [queueSearchQuery, setActiveTab, setDocument, setPendingAnchorText, setUploadStatus]
     )
 
     const handleVoiceToggle = useCallback(() => {
