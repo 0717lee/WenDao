@@ -144,6 +144,8 @@ function App() {
                         onAsk={jumpToChat}
                         onOpenBookshelf={() => setActiveTab('bookshelf')}
                         onOpenWordbook={() => setActiveTab('wordbook')}
+                        onOpenCompare={() => setActiveTab('compare')}
+                        onContinueStudy={openDocument}
                     />
                 );
             case 'chat':

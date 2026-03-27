@@ -8,6 +8,7 @@ interface DashboardHomeProps {
   onOpenBookshelf: () => void
   onOpenWordbook: () => void
   onOpenCompare: () => void
+  onContinueStudy: (documentId: string) => void
 }
 
 interface BookshelfItem {
@@ -44,6 +45,16 @@ interface RecommendationItem {
   reasons?: string[]
 }
 
+interface StudyOverview {
+  sessions_count: number
+  reviewed_documents_count: number
+  completed_cards: number
+  mastered_cards: number
+  review_again_cards: number
+  mastery_rate: number
+  last_reviewed_document?: { document_id: string; title: string; created_at?: string } | null
+}
+
 const SAMPLE_PROMPTS = [
   '“学而时习之”到底在讲什么？',
   '请用白话解释《道德经》第一章',
@@ -63,6 +74,7 @@ export default function DashboardHome({
   onOpenBookshelf,
   onOpenWordbook,
   onOpenCompare,
+  onContinueStudy,
 }: DashboardHomeProps) {
   const [loading, setLoading] = useState(true)
   const [documents, setDocuments] = useState<BookshelfItem[]>([])
@@ -70,6 +82,7 @@ export default function DashboardHome({
   const [wordbook, setWordbook] = useState<WordbookItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([])
+  const [studyOverview, setStudyOverview] = useState<StudyOverview | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -77,20 +90,22 @@ export default function DashboardHome({
     async function load() {
       setLoading(true)
       try {
-        const [docsRes, historyRes, wordbookRes, analyticsRes, recommendationRes] = await Promise.all([
+        const [docsRes, historyRes, wordbookRes, analyticsRes, recommendationRes, studyRes] = await Promise.all([
           fetch(`${API_BASE}/api/v1/documents?limit=6`),
           fetch(`${API_BASE}/api/v1/reader/history`),
           fetch(`${API_BASE}/api/v1/reader/wordbook?limit=6`),
           fetch(`${API_BASE}/api/v1/analytics/overview`),
           fetch(`${API_BASE}/api/v1/documents/recommendations?limit=4`),
+          fetch(`${API_BASE}/api/v1/reader/study-overview`),
         ])
 
-        const [docsData, historyData, wordbookData, analyticsData, recommendationData] = await Promise.all([
+        const [docsData, historyData, wordbookData, analyticsData, recommendationData, studyData] = await Promise.all([
           docsRes.ok ? docsRes.json() : { documents: [] },
           historyRes.ok ? historyRes.json() : [],
           wordbookRes.ok ? wordbookRes.json() : { entries: [] },
           analyticsRes.ok ? analyticsRes.json() : null,
           recommendationRes.ok ? recommendationRes.json() : { documents: [] },
+          studyRes.ok ? studyRes.json() : null,
         ])
 
         if (cancelled) return
@@ -99,6 +114,7 @@ export default function DashboardHome({
         setWordbook(Array.isArray(wordbookData.entries) ? wordbookData.entries : [])
         setAnalytics(analyticsData && typeof analyticsData === 'object' ? analyticsData : null)
         setRecommendations(Array.isArray(recommendationData.documents) ? recommendationData.documents : [])
+        setStudyOverview(studyData && typeof studyData === 'object' ? studyData : null)
       } catch {
         if (cancelled) return
         setDocuments([])
@@ -106,6 +122,7 @@ export default function DashboardHome({
         setWordbook([])
         setAnalytics(null)
         setRecommendations([])
+        setStudyOverview(null)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -411,6 +428,64 @@ export default function DashboardHome({
               </div>
             </div>
           </div>
+        </section>
+
+        <section
+          className="rounded-2xl p-4 md:p-5"
+          style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                学习总览
+              </h3>
+              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                记录你通过学习卡片完成的复习次数与掌握率
+              </p>
+            </div>
+            {studyOverview?.last_reviewed_document?.document_id && (
+              <button
+                onClick={() => onContinueStudy(studyOverview.last_reviewed_document!.document_id)}
+                className="rounded-2xl px-4 py-2 text-sm text-white"
+                style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+              >
+                继续复习
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>复习次数</div>
+              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                {studyOverview?.sessions_count ?? 0}
+              </div>
+            </div>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>复习文档</div>
+              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                {studyOverview?.reviewed_documents_count ?? 0}
+              </div>
+            </div>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>掌握率</div>
+              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                {Math.round((studyOverview?.mastery_rate ?? 0) * 100)}%
+              </div>
+            </div>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>需复习卡片</div>
+              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                {studyOverview?.review_again_cards ?? 0}
+              </div>
+            </div>
+          </div>
+
+          {studyOverview?.last_reviewed_document?.title && (
+            <div className="mt-4 text-sm" style={{ color: 'rgba(26,30,35,0.52)' }}>
+              最近一次复习：{studyOverview.last_reviewed_document.title}
+            </div>
+          )}
         </section>
 
         <section

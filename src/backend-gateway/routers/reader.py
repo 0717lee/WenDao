@@ -46,6 +46,71 @@ class WordbookEntryCreate(BaseModel):
     citations: list[dict[str, Any]] = []
 
 
+async def _get_study_overview() -> dict[str, Any]:
+    """Aggregate study-session progress across all documents."""
+    try:
+        async with get_connection() as conn:
+            summary = await conn.fetchrow(
+                """
+                SELECT
+                    COUNT(*)::int AS sessions_count,
+                    COUNT(DISTINCT document_id)::int AS reviewed_documents_count,
+                    COALESCE(SUM(completed_cards), 0)::int AS completed_cards,
+                    COALESCE(SUM(mastered_cards), 0)::int AS mastered_cards,
+                    COALESCE(SUM(review_again_cards), 0)::int AS review_again_cards
+                FROM study_sessions
+                """
+            )
+            latest = await conn.fetchrow(
+                """
+                SELECT s.document_id::text AS document_id, d.title, s.created_at
+                FROM study_sessions s
+                JOIN documents d ON d.id = s.document_id
+                ORDER BY s.created_at DESC
+                LIMIT 1
+                """
+            )
+    except RuntimeError:
+        async with get_db() as db:
+            cursor = await db.execute(
+                """
+                SELECT
+                    COUNT(*) AS sessions_count,
+                    COUNT(DISTINCT document_id) AS reviewed_documents_count,
+                    COALESCE(SUM(completed_cards), 0) AS completed_cards,
+                    COALESCE(SUM(mastered_cards), 0) AS mastered_cards,
+                    COALESCE(SUM(review_again_cards), 0) AS review_again_cards
+                FROM study_sessions
+                """
+            )
+            summary = await cursor.fetchone()
+            cursor = await db.execute(
+                """
+                SELECT s.document_id, d.title, s.created_at
+                FROM study_sessions s
+                JOIN documents d ON d.id = s.document_id
+                ORDER BY s.created_at DESC
+                LIMIT 1
+                """
+            )
+            latest = await cursor.fetchone()
+
+    summary_dict = dict(summary) if summary else {}
+    completed = int(summary_dict.get("completed_cards") or 0)
+    mastered = int(summary_dict.get("mastered_cards") or 0)
+    mastery_rate = round(mastered / max(completed, 1), 2) if completed else 0.0
+
+    return {
+        "sessions_count": int(summary_dict.get("sessions_count") or 0),
+        "reviewed_documents_count": int(summary_dict.get("reviewed_documents_count") or 0),
+        "completed_cards": completed,
+        "mastered_cards": mastered,
+        "review_again_cards": int(summary_dict.get("review_again_cards") or 0),
+        "mastery_rate": mastery_rate,
+        "last_reviewed_document": dict(latest) if latest else None,
+    }
+
+
 async def _list_wordbook_entries(limit: int | None = None) -> list[dict[str, Any]]:
     """Return wordbook entries ordered by recency."""
     try:
@@ -320,6 +385,12 @@ async def get_wordbook(limit: int = Query(100, ge=1, le=500)):
     """Return saved vocabulary entries for the wordbook view."""
     entries = await _list_wordbook_entries(limit=limit)
     return {"entries": entries, "total": len(entries)}
+
+
+@router.get("/study-overview")
+async def get_study_overview():
+    """Return aggregate study progress for the dashboard."""
+    return await _get_study_overview()
 
 
 @router.post("/wordbook")

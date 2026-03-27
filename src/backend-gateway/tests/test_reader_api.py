@@ -234,5 +234,28 @@ class TestWordbook:
         assert result["status"] == "ok"
 
 
+class TestStudyOverview:
+    """Dashboard study overview endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_study_overview_returns_summary(self):
+        from routers.reader import get_study_overview
+
+        with patch("routers.reader._get_study_overview", new=AsyncMock(return_value={
+            "sessions_count": 3,
+            "reviewed_documents_count": 2,
+            "completed_cards": 12,
+            "mastered_cards": 9,
+            "review_again_cards": 3,
+            "mastery_rate": 0.75,
+            "last_reviewed_document": {"document_id": "doc-1", "title": "论语节选"},
+        })):
+            result = await get_study_overview()
+
+        assert result["sessions_count"] == 3
+        assert result["mastery_rate"] == 0.75
+        assert result["last_reviewed_document"]["title"] == "论语节选"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
