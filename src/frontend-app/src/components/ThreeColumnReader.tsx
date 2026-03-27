@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
+import { GraduationCap, NotebookText } from 'lucide-react';
+import { authHeaders } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
+import { ReaderNotesPanel } from './ReaderNotesPanel';
+import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
+import { API_BASE } from '../lib/api';
 
 export function ThreeColumnReader() {
   const { currentDocument } = useDocumentStore();
@@ -9,20 +14,56 @@ export function ThreeColumnReader() {
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<'original' | 'punctuated' | 'translated'>('original');
+  const [sidePanel, setSidePanel] = useState<'notes' | 'study' | null>(null);
+  const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
+    };
   }, []);
 
   if (!currentDocument) return null;
 
+  const totalParagraphs = Math.max(
+    1,
+    (currentDocument.punctuatedText || currentDocument.originalText)
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean).length,
+  );
+
   const handleWordClick = (word: string, event: React.MouseEvent) => {
     setSelectedWord(word);
     setPopoverPosition({ x: event.clientX, y: event.clientY });
+  };
+
+  const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
+    if (!currentDocument) return;
+    const readableHeight = Math.max(scrollHeight - clientHeight, 1);
+    const ratio = Math.min(1, Math.max(0, scrollTop / readableHeight));
+    const currentParagraph = Math.min(totalParagraphs, Math.max(1, Math.round(ratio * (totalParagraphs - 1)) + 1));
+
+    if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
+    progressTimeoutRef.current = setTimeout(() => {
+      fetch(`${API_BASE}/api/v1/reader/progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          document_id: currentDocument.id,
+          current_paragraph: currentParagraph,
+          total_paragraphs: totalParagraphs,
+        }),
+      }).catch(() => {});
+    }, 200);
   };
 
   const renderText = (text: string, label: string) => (
@@ -54,6 +95,30 @@ export function ThreeColumnReader() {
   if (isMobile) {
     return (
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
+        <div className="flex items-center justify-between border-b px-4 py-2" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.45)' }}>
+          <span className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+            阅读进度会自动记录
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
+              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs"
+              style={{ backgroundColor: sidePanel === 'notes' ? 'rgba(140,26,17,0.12)' : 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+            >
+              <NotebookText className="w-3.5 h-3.5" />
+              笔记
+            </button>
+            <button
+              onClick={() => setSidePanel((prev) => (prev === 'study' ? null : 'study'))}
+              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs"
+              style={{ backgroundColor: sidePanel === 'study' ? 'rgba(201,160,99,0.18)' : 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              学习卡片
+            </button>
+          </div>
+        </div>
+
         {/* Tab buttons */}
         <div className="flex border-b" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.5)' }}>
           {[
@@ -78,11 +143,28 @@ export function ThreeColumnReader() {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div
+          className="flex-1 overflow-y-auto p-4"
+          onScroll={(e) => {
+            const target = e.currentTarget;
+            reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+          }}
+        >
           {activeTab === 'original' && renderText(currentDocument.originalText, '原文')}
           {activeTab === 'punctuated' && currentDocument.punctuatedText && renderText(currentDocument.punctuatedText, '标点文')}
           {activeTab === 'translated' && currentDocument.translatedText && renderText(currentDocument.translatedText, '白话译')}
         </div>
+
+        {sidePanel === 'notes' && (
+          <div className="border-t p-4" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
+            <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
+          </div>
+        )}
+        {sidePanel === 'study' && (
+          <div className="border-t p-4" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
+            <StudyCardsPanel documentId={currentDocument.id} />
+          </div>
+        )}
 
         {selectedWord && popoverPosition && (
           <WordPopover
@@ -98,12 +180,39 @@ export function ThreeColumnReader() {
   // Desktop: Three columns side-by-side with scroll sync
   return (
     <div className="h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
+        <div className="flex items-center justify-between px-4 pt-4">
+          <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+            当前文档：{currentDocument.title}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs"
+              style={{ backgroundColor: sidePanel === 'notes' ? 'rgba(140,26,17,0.12)' : 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+            >
+              <NotebookText className="w-3.5 h-3.5" />
+              {sidePanel === 'notes' ? '收起笔记' : '阅读笔记'}
+            </button>
+            <button
+              onClick={() => setSidePanel((prev) => (prev === 'study' ? null : 'study'))}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs"
+              style={{ backgroundColor: sidePanel === 'study' ? 'rgba(201,160,99,0.18)' : 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              {sidePanel === 'study' ? '收起卡片' : '学习卡片'}
+            </button>
+          </div>
+        </div>
       <ScrollSync>
-        <div className="grid grid-cols-3 gap-4 h-full p-4">
+        <div className={`grid h-full gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}>
           <ScrollSyncPane>
             <div
               className="overflow-y-auto h-full rounded-xl shadow-sm p-4"
               style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+              }}
             >
               {renderText(currentDocument.originalText, '原文')}
             </div>
@@ -132,6 +241,16 @@ export function ThreeColumnReader() {
               }
             </div>
           </ScrollSyncPane>
+
+          {sidePanel && (
+            <div className="overflow-y-auto h-full">
+              {sidePanel === 'notes' ? (
+                <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
+              ) : (
+                <StudyCardsPanel documentId={currentDocument.id} />
+              )}
+            </div>
+          )}
         </div>
       </ScrollSync>
 

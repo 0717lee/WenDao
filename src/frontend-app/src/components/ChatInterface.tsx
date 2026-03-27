@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Volume2, VolumeX } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { MessageList } from './MessageList'
@@ -6,6 +6,7 @@ import { MessageInput } from './MessageInput'
 import { ImageUploadPreview } from './ImageUploadPreview'
 import { useVoiceRecorder, playTTSAudio } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
+import { useGraphStore } from '../store/useGraphStore'
 import type { ReasoningStep } from './ReasoningTimeline'
 
 // Default reasoning steps template
@@ -21,8 +22,59 @@ export function ChatInterface() {
     const [attachedImage, setAttachedImage] = useState<File | null>(null)
     const [voiceError, setVoiceError] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const { messages, isLoading, currentProgress, addMessage, updateLastMessage, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, ttsAutoRead, setTtsAutoRead } = useStore()
+    const streamBufferRef = useRef('')
+    const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const assistantContentRef = useRef('')
+    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
+    const setActiveTab = useGraphStore((state) => state.setActiveTab)
+    const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery)
     const { isRecording, isTranscribing, toggleRecording } = useVoiceRecorder()
+
+    useEffect(() => {
+        if (draftMessage) {
+            setInputValue(draftMessage)
+            setDraftMessage('')
+        }
+    }, [draftMessage, setDraftMessage])
+
+    useEffect(() => {
+        return () => {
+            if (streamFlushTimerRef.current) {
+                clearTimeout(streamFlushTimerRef.current)
+            }
+        }
+    }, [])
+
+    const flushStreamBuffer = useCallback(
+        (force = false) => {
+            const applyFlush = () => {
+                streamFlushTimerRef.current = null
+                if (!streamBufferRef.current) return
+                assistantContentRef.current += streamBufferRef.current
+                streamBufferRef.current = ''
+                startTransition(() => {
+                    updateLastMessage(assistantContentRef.current)
+                })
+            }
+
+            if (force) {
+                applyFlush()
+                return
+            }
+
+            if (streamFlushTimerRef.current) return
+            streamFlushTimerRef.current = setTimeout(applyFlush, 40)
+        },
+        [updateLastMessage]
+    )
+
+    const handleCitationClick = useCallback(
+        (citation: { title: string; source: string }) => {
+            queueSearchQuery(`${citation.title} ${citation.source}`)
+            setActiveTab('search')
+        },
+        [queueSearchQuery, setActiveTab]
+    )
 
     const handleVoiceToggle = useCallback(() => {
         toggleRecording(
@@ -318,9 +370,10 @@ export function ChatInterface() {
             }
 
             let buffer = ''
-            let assistantContent = ''
             let currentEventType = ''
             let reasoningSteps: ReasoningStep[] = INITIAL_REASONING_STEPS.map((s) => ({ ...s }))
+            assistantContentRef.current = ''
+            streamBufferRef.current = ''
 
             // Initialize reasoning steps on the assistant message
             updateLastMessageReasoning(reasoningSteps)
@@ -350,6 +403,7 @@ export function ChatInterface() {
 
                     const data = trimmed.slice(5).trim()
                     if (data === '[DONE]') {
+                        flushStreamBuffer(true)
                         setLoading(false)
                         setProgress('')
                         continue
@@ -391,18 +445,19 @@ export function ChatInterface() {
                                 lastMessage.citations = Array.isArray(event) ? event : event.citations
                             }
                         } else if (currentEventType === 'done') {
+                            flushStreamBuffer(true)
                             setLoading(false)
                             setProgress('')
                             // TTS auto-read when chat stream completes
-                            if (assistantContent) triggerTTSAutoRead(assistantContent)
+                            if (assistantContentRef.current) triggerTTSAutoRead(assistantContentRef.current)
                         } else if (currentEventType === 'error') {
+                            flushStreamBuffer(true)
                             console.error('Stream error:', event.message)
                             setLoading(false)
                             setProgress('')
                         } else if (event.content !== undefined) {
-                            // Plain data event with content (streaming text)
-                            assistantContent += event.content
-                            updateLastMessage(assistantContent)
+                            streamBufferRef.current += event.content
+                            flushStreamBuffer()
                         }
                     } catch (e) {
                         console.error('Failed to parse SSE event:', e)
@@ -411,6 +466,7 @@ export function ChatInterface() {
                     currentEventType = ''
                 }
             }
+            flushStreamBuffer(true)
         } catch (error) {
             console.error('Failed to send message:', error)
             updateLastMessage('抱歉，当前对话暂时不可用，请稍后重试。')
@@ -451,7 +507,7 @@ export function ChatInterface() {
             />
 
             {/* Messages */}
-            <MessageList messages={messages} />
+            <MessageList messages={messages} onCitationClick={handleCitationClick} />
 
             {/* Loading indicator */}
             {isLoading && currentProgress && (

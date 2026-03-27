@@ -207,5 +207,102 @@ class TestDocumentSchemas:
         assert resp.meaning == "爱人"
 
 
+class TestBookshelfEndpoints:
+    """Bookshelf document listing/detail endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_documents_returns_bookshelf_payload(self):
+        from routers.document import list_documents
+
+        with patch("routers.document._list_documents", new=AsyncMock(return_value=[
+            {"id": "doc-1", "title": "论语节选", "status": "done", "preview": "学而时习之"},
+        ])):
+            result = await list_documents(limit=10)
+
+        assert result["total"] == 1
+        assert result["documents"][0]["title"] == "论语节选"
+
+    @pytest.mark.asyncio
+    async def test_get_document_returns_detail(self):
+        from routers.document import get_document
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={
+            "id": "doc-1",
+            "title": "论语节选",
+            "original_text": "学而时习之",
+        })):
+            result = await get_document("doc-1")
+
+        assert result["id"] == "doc-1"
+        assert result["title"] == "论语节选"
+
+    @pytest.mark.asyncio
+    async def test_get_document_not_found_raises_404(self):
+        from fastapi import HTTPException
+        from routers.document import get_document
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value=None)):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_document("missing")
+
+        assert exc_info.value.status_code == 404
+
+
+class TestDocumentNotes:
+    """Document note fetch/save endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_get_document_note_returns_saved_note(self):
+        from routers.document import get_document_note
+
+        with patch("routers.document._get_document_note", new=AsyncMock(return_value={
+            "document_id": "doc-1",
+            "note_text": "这里在讲学习与实践。",
+            "updated_at": "2026-03-27T08:00:00",
+        })):
+            result = await get_document_note("doc-1")
+
+        assert result["note_text"] == "这里在讲学习与实践。"
+
+    @pytest.mark.asyncio
+    async def test_save_document_note_uses_upsert(self):
+        from routers.document import DocumentNoteUpdateRequest, save_document_note
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1"})), \
+             patch("routers.document._save_document_note", new=AsyncMock(return_value={
+                 "document_id": "doc-1",
+                 "note_text": "课堂讲义重点",
+                 "updated_at": "2026-03-27T08:00:00",
+             })):
+            result = await save_document_note(
+                "doc-1",
+                DocumentNoteUpdateRequest(note_text="课堂讲义重点"),
+                {"sub": "user-1"},
+            )
+
+        assert result["document_id"] == "doc-1"
+        assert result["note_text"] == "课堂讲义重点"
+
+
+class TestStudyCards:
+    """Study cards endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_study_cards_returns_cards_and_quiz(self):
+        from routers.document import get_study_cards
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={
+            "id": "doc-1",
+            "original_text": "学而时习之，不亦说乎。知之为知之，不知为不知。",
+            "punctuated_text": "学而时习之，不亦说乎。知之为知之，不知为不知。",
+            "translated_text": "学习后经常复习，是很快乐的。知道就是知道，不知道就是不知道。",
+        })):
+            result = await get_study_cards("doc-1")
+
+        assert len(result["cards"]) >= 1
+        assert len(result["quiz"]) >= 1
+        assert result["cards"][0]["front"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

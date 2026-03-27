@@ -38,12 +38,14 @@ interface AppState {
     messages: Message[]
     isLoading: boolean
     currentProgress: string
+    draftMessage: string
     addMessage: (message: Message) => void
     updateLastMessage: (content: string) => void
     updateLastMessageReasoning: (steps: ReasoningStep[]) => void
     updateLastMessagePoem: (poem: Partial<PoemResult>) => void
     setLoading: (loading: boolean) => void
     setProgress: (progress: string) => void
+    setDraftMessage: (message: string) => void
     clearMessages: () => void
 
     // TTS auto-read AI responses (default: off)
@@ -55,6 +57,7 @@ export const useStore = create<AppState>((set) => ({
     messages: [],
     isLoading: false,
     currentProgress: '',
+    draftMessage: '',
     addMessage: (message) =>
         set((state) => ({
             messages: [...state.messages, message],
@@ -92,6 +95,7 @@ export const useStore = create<AppState>((set) => ({
         }),
     setLoading: (loading) => set({ isLoading: loading }),
     setProgress: (progress) => set({ currentProgress: progress }),
+    setDraftMessage: (draftMessage) => set({ draftMessage }),
     clearMessages: () => set({ messages: [] }),
 
     ttsAutoRead: (() => {

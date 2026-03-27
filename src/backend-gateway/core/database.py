@@ -169,6 +169,26 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wordbook_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                word TEXT NOT NULL UNIQUE,
+                meaning TEXT DEFAULT '',
+                allusion TEXT DEFAULT '',
+                citations_json TEXT DEFAULT '[]',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS document_notes (
+                document_id TEXT PRIMARY KEY,
+                note_text TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )
+        """)
+
         await db.commit()
 
 

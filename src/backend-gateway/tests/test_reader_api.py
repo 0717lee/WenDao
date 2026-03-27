@@ -190,5 +190,49 @@ class TestGetFolders:
         assert result == []
 
 
+class TestWordbook:
+    """Wordbook CRUD endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_get_wordbook_returns_entries(self):
+        from routers.reader import get_wordbook
+
+        with patch("routers.reader._list_wordbook_entries", new=AsyncMock(return_value=[
+            {"id": "1", "word": "仁", "meaning": "爱人", "allusion": "克己复礼", "citations": []},
+        ])):
+            result = await get_wordbook(limit=20)
+
+        assert result["total"] == 1
+        assert result["entries"][0]["word"] == "仁"
+
+    @pytest.mark.asyncio
+    async def test_add_wordbook_entry_saves_content(self):
+        from routers.reader import WordbookEntryCreate, add_wordbook_entry
+
+        with patch("routers.reader._save_wordbook_entry", new=AsyncMock(return_value={
+            "id": "1",
+            "word": "仁",
+            "meaning": "爱人",
+            "allusion": "克己复礼",
+            "citations": [],
+        })):
+            result = await add_wordbook_entry(
+                WordbookEntryCreate(word="仁", meaning="爱人", allusion="克己复礼"),
+                {"sub": "user-1"},
+            )
+
+        assert result["word"] == "仁"
+        assert result["meaning"] == "爱人"
+
+    @pytest.mark.asyncio
+    async def test_delete_wordbook_entry_returns_ok(self):
+        from routers.reader import delete_wordbook_entry
+
+        with patch("routers.reader._delete_wordbook_entry", new=AsyncMock(return_value=True)):
+            result = await delete_wordbook_entry("1", {"sub": "user-1"})
+
+        assert result["status"] == "ok"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Loader2, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
+import { useGraphStore } from '../store/useGraphStore';
 
 interface SearchResult {
   id: string;
@@ -25,11 +26,17 @@ const SearchPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const consumeSearchQuery = useGraphStore((state) => state.consumeSearchQuery);
 
-  const handleSearch = async () => {
-    if (!query.trim()) {
+  const handleSearch = async (forcedQuery?: string) => {
+    const nextQuery = (forcedQuery ?? query).trim();
+    if (!nextQuery) {
       setError('请输入搜索关键词');
       return;
+    }
+
+    if (forcedQuery !== undefined) {
+      setQuery(nextQuery);
     }
 
     setLoading(true);
@@ -37,7 +44,7 @@ const SearchPanel: React.FC = () => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/v1/search?q=${encodeURIComponent(query)}&mode=${mode}&limit=10`
+        `${API_BASE}/api/v1/search?q=${encodeURIComponent(nextQuery)}&mode=${mode}&limit=10`
       );
 
       if (!response.ok) {
@@ -54,6 +61,13 @@ const SearchPanel: React.FC = () => {
       setLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    const queued = consumeSearchQuery();
+    if (queued) {
+      handleSearch(queued);
+    }
+  }, [consumeSearchQuery]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -85,7 +99,7 @@ const SearchPanel: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(26,30,35,0.3)' }} />
           </div>
           <button
-            onClick={handleSearch}
+            onClick={() => handleSearch()}
             disabled={loading}
             className="px-5 py-2.5 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
             style={{ backgroundColor: 'var(--gf-gugong-red)' }}

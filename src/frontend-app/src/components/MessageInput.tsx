@@ -40,7 +40,7 @@ export function MessageInput({
                     disabled={disabled}
                     className="flex items-center justify-center w-10 h-10 rounded-xl transition-colors disabled:opacity-30 hover:bg-black/5"
                     style={{ color: 'rgba(26,30,35,0.45)' }}
-                    title="Upload architecture image"
+                    title="上传图片"
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>

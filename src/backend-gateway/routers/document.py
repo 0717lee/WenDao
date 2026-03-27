@@ -9,8 +9,9 @@ import json
 import logging
 import time
 import uuid
+from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -18,6 +19,7 @@ from agents.ocr import OCRAgent
 from agents.translator import TranslatorAgent
 from agents.word_explainer import WordExplainerAgent
 from core import pg_database
+from core.auth import require_auth
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
@@ -59,6 +61,18 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/tiff"}
 class DocumentTextUpdateRequest(BaseModel):
     """Update manually corrected OCR text before further processing."""
     text: str = Field(..., min_length=1, max_length=50000)
+
+
+class DocumentNoteUpdateRequest(BaseModel):
+    """Upsert a note attached to the current document."""
+    note_text: str = Field(default="", max_length=10000)
+
+
+def _split_learning_sentences(text: str) -> list[str]:
+    chunks = [segment.strip() for segment in text.replace("\r", "").splitlines() if segment.strip()]
+    if not chunks:
+        chunks = [segment.strip() for segment in text.replace("。", "。\n").splitlines() if segment.strip()]
+    return chunks[:6]
 
 
 def _make_image_data_url(content_type: str, image_bytes: bytes) -> str:
@@ -126,7 +140,7 @@ async def _get_document(document_id: str) -> dict | None:
             row = await conn.fetchrow(
                 """
                 SELECT id, title, original_text, punctuated_text, translated_text, ocr_confidence,
-                       image_data, entity_ids
+                       image_data, entity_ids, status, created_at, updated_at
                 FROM documents
                 WHERE id = $1::uuid
                 """,
@@ -140,7 +154,7 @@ async def _get_document(document_id: str) -> dict | None:
         cursor = await db.execute(
             """
             SELECT id, title, original_text, punctuated_text, translated_text, ocr_confidence,
-                   image_data, entity_ids
+                   image_data, entity_ids, status, created_at, updated_at
             FROM documents
             WHERE id = ?
             """,
@@ -148,6 +162,155 @@ async def _get_document(document_id: str) -> dict | None:
         )
         row = await cursor.fetchone()
         return dict(row) if row else None
+
+
+async def _list_documents(limit: int = 50) -> list[dict[str, Any]]:
+    """Return bookshelf-ready document metadata ordered by most recently updated."""
+    try:
+        async with get_connection() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT
+                    d.id::text AS id,
+                    d.title,
+                    d.status,
+                    d.created_at,
+                    d.updated_at,
+                    LEFT(COALESCE(NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 140) AS preview,
+                    COALESCE(h.current_paragraph, 0) AS current_paragraph,
+                    COALESCE(h.total_paragraphs, 0) AS total_paragraphs,
+                    CASE
+                        WHEN d.punctuated_text IS NOT NULL AND d.punctuated_text <> '' THEN TRUE
+                        ELSE FALSE
+                    END AS has_processed,
+                    CASE
+                        WHEN n.note_text IS NOT NULL AND n.note_text <> '' THEN TRUE
+                        ELSE FALSE
+                    END AS has_note
+                FROM documents d
+                LEFT JOIN LATERAL (
+                    SELECT current_paragraph, total_paragraphs
+                    FROM reading_history
+                    WHERE document_id = d.id
+                    ORDER BY last_read_at DESC
+                    LIMIT 1
+                ) h ON TRUE
+                LEFT JOIN document_notes n ON n.document_id = d.id
+                ORDER BY COALESCE(d.updated_at, d.created_at) DESC
+                LIMIT $1
+                """,
+                limit,
+            )
+            return [dict(row) for row in rows]
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT
+                d.id,
+                d.title,
+                d.status,
+                d.created_at,
+                d.updated_at,
+                SUBSTR(COALESCE(NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 1, 140) AS preview,
+                COALESCE((
+                    SELECT current_paragraph
+                    FROM reading_history h
+                    WHERE h.document_id = d.id
+                    ORDER BY h.last_read_at DESC
+                    LIMIT 1
+                ), 0) AS current_paragraph,
+                COALESCE((
+                    SELECT total_paragraphs
+                    FROM reading_history h
+                    WHERE h.document_id = d.id
+                    ORDER BY h.last_read_at DESC
+                    LIMIT 1
+                ), 0) AS total_paragraphs,
+                CASE
+                    WHEN d.punctuated_text IS NOT NULL AND d.punctuated_text != '' THEN 1
+                    ELSE 0
+                END AS has_processed,
+                CASE
+                    WHEN n.note_text IS NOT NULL AND n.note_text != '' THEN 1
+                    ELSE 0
+                END AS has_note
+            FROM documents d
+            LEFT JOIN document_notes n ON n.document_id = d.id
+            ORDER BY COALESCE(d.updated_at, d.created_at) DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+async def _get_document_note(document_id: str) -> dict[str, Any]:
+    """Fetch saved note content for one document."""
+    try:
+        async with get_connection() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT document_id::text AS document_id, note_text, updated_at
+                FROM document_notes
+                WHERE document_id = $1::uuid
+                """,
+                document_id,
+            )
+            if row:
+                return dict(row)
+            return {"document_id": document_id, "note_text": "", "updated_at": None}
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT document_id, note_text, updated_at
+            FROM document_notes
+            WHERE document_id = ?
+            """,
+            (document_id,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else {"document_id": document_id, "note_text": "", "updated_at": None}
+
+
+async def _save_document_note(document_id: str, note_text: str) -> dict[str, Any]:
+    """Create or update a note attached to a document."""
+    try:
+        async with get_connection() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO document_notes (document_id, note_text, updated_at)
+                VALUES ($1::uuid, $2, NOW())
+                ON CONFLICT (document_id)
+                DO UPDATE SET note_text = EXCLUDED.note_text, updated_at = NOW()
+                RETURNING document_id::text AS document_id, note_text, updated_at
+                """,
+                document_id,
+                note_text,
+            )
+            return dict(row)
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO document_notes (document_id, note_text, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(document_id) DO UPDATE SET
+                note_text = excluded.note_text,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (document_id, note_text),
+        )
+        await db.commit()
+    return await _get_document_note(document_id)
 
 
 async def _update_document_text(document_id: str, text: str) -> bool:
@@ -222,6 +385,75 @@ async def _update_document_results(
             (punctuated, translated, json.dumps(entity_ids or [], ensure_ascii=False), document_id),
         )
         await db.commit()
+
+
+@router.get("")
+async def list_documents(limit: int = Query(50, ge=1, le=200)):
+    """List documents for the bookshelf/home views."""
+    documents = await _list_documents(limit=limit)
+    return {"documents": documents, "total": len(documents)}
+
+
+@router.get("/{document_id}")
+async def get_document(document_id: str):
+    """Return one document with full text content for reader/book shelf navigation."""
+    row = await _get_document(document_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return row
+
+
+@router.get("/{document_id}/note")
+async def get_document_note(document_id: str):
+    """Fetch the saved note for one document."""
+    return await _get_document_note(document_id)
+
+
+@router.put("/{document_id}/note")
+async def save_document_note(document_id: str, body: DocumentNoteUpdateRequest, _user: dict = Depends(require_auth)):
+    """Create or update a reader note for one document."""
+    document = await _get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return await _save_document_note(document_id, body.note_text.strip())
+
+
+@router.get("/{document_id}/study-cards")
+async def get_study_cards(document_id: str):
+    """Generate lightweight study cards and self-check prompts for one document."""
+    document = await _get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+
+    base_text = document.get("punctuated_text") or document.get("original_text") or ""
+    translated_text = document.get("translated_text") or ""
+    cards = []
+
+    sentences = _split_learning_sentences(base_text)
+    translated_chunks = _split_learning_sentences(translated_text)
+
+    for index, sentence in enumerate(sentences[:5]):
+        cards.append({
+            "id": f"card-{index + 1}",
+            "front": sentence,
+            "back": translated_chunks[index] if index < len(translated_chunks) else "请结合上下文尝试用白话复述这句话。",
+            "hint": "先尝试自己解释，再翻看背面答案。",
+        })
+
+    quiz = [
+        {
+            "id": "quiz-1",
+            "question": "这篇内容主要讨论的核心主题是什么？",
+            "answer": translated_chunks[0] if translated_chunks else "请结合全文概括主旨。",
+        },
+        {
+            "id": "quiz-2",
+            "question": "任选一句原文，用你自己的话解释它。",
+            "answer": "建议先尝试复述，再对照白话译。",
+        },
+    ]
+
+    return {"cards": cards, "quiz": quiz}
 
 
 @router.post("/upload")

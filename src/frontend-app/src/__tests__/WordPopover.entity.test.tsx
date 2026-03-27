@@ -8,6 +8,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 // Mock lucide-react
 vi.mock('lucide-react', () => ({
   X: () => <span data-testid="x-icon">X</span>,
+  BookPlus: () => <span data-testid="bookplus-icon">+</span>,
 }))
 
 describe('WordPopover', () => {

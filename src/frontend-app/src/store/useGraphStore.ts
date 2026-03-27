@@ -26,7 +26,7 @@ export interface PendingNode {
     similar_to?: { id: string; label: string; similarity: number };
 }
 
-type TabType = 'chat' | 'search' | 'reader' | 'graph' | 'history' | 'favorites' | 'analytics';
+type TabType = 'home' | 'chat' | 'search' | 'reader' | 'graph' | 'bookshelf' | 'compare' | 'history' | 'favorites' | 'wordbook';
 
 interface GraphStore {
     // Cross-Tab state
@@ -34,6 +34,7 @@ interface GraphStore {
     selectedEntity: KGNodeRef | null;
     pendingGraphFocus: string | null;
     pendingReaderDocId: string | null;
+    pendingSearchQuery: string;
 
     // Citation chain state
     citationChainMode: boolean;
@@ -62,6 +63,8 @@ interface GraphStore {
     clearGraphFocus: () => void;
     navigateToReader: (docId: string) => void;
     clearReaderNavigation: () => void;
+    queueSearchQuery: (query: string) => void;
+    consumeSearchQuery: () => string;
     enterCitationChain: (rootId: string, chain: CitationNode[]) => void;
     exitCitationChain: () => void;
 }
@@ -71,11 +74,12 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     selectedEntity: null,
     pendingGraphFocus: null,
     pendingReaderDocId: null,
+    pendingSearchQuery: '',
     citationChainMode: false,
     citationChainRoot: null,
     citationChain: [],
     pendingNodes: [],
-    activeTab: 'chat',
+    activeTab: 'home',
     entityFrequencies: {},
 
     setActiveTab: (tab) => set({ activeTab: tab }),
@@ -86,6 +90,12 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     clearGraphFocus: () => set({ pendingGraphFocus: null }),
     navigateToReader: (docId) => set({ pendingReaderDocId: docId }),
     clearReaderNavigation: () => set({ pendingReaderDocId: null }),
+    queueSearchQuery: (query) => set({ pendingSearchQuery: query }),
+    consumeSearchQuery: () => {
+        const query = get().pendingSearchQuery
+        if (query) set({ pendingSearchQuery: '' })
+        return query
+    },
     enterCitationChain: (rootId, chain) => set({
         citationChainMode: true,
         citationChainRoot: rootId,

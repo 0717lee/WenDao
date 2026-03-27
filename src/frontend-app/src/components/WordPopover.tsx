@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { BookPlus, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
+import { authHeaders } from '../store/useAuthStore';
 
 interface WordExplanation {
   meaning: string;
@@ -17,6 +18,8 @@ interface WordPopoverProps {
 export function WordPopover({ word, position, onClose }: WordPopoverProps) {
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -24,6 +27,7 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
       .then(res => res.json())
       .then(data => {
         setExplanation(data);
+        setSaved(false);
         setLoading(false);
       })
       .catch(err => {
@@ -38,6 +42,32 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
     left: Math.min(position.x, window.innerWidth - 320),
     top: Math.min(position.y + 10, window.innerHeight - 300),
     zIndex: 1000,
+  };
+
+  const handleSaveWord = async () => {
+    if (!explanation || saving) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/reader/wordbook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          word,
+          meaning: explanation.meaning,
+          allusion: explanation.allusion,
+          citations: explanation.citations,
+        }),
+      });
+      if (!response.ok) throw new Error('save failed');
+      setSaved(true);
+    } catch (err) {
+      console.error('Failed to save wordbook entry:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -72,6 +102,19 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
             <p className="text-gray-500">加载中...</p>
           ) : explanation ? (
             <>
+              <button
+                onClick={handleSaveWord}
+                disabled={saving || saved}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors disabled:opacity-60"
+                style={{
+                  backgroundColor: saved ? 'rgba(60,138,81,0.12)' : 'rgba(140,26,17,0.08)',
+                  color: saved ? '#3c8a51' : '#8c1a11',
+                }}
+              >
+                <BookPlus className="w-4 h-4" />
+                {saved ? '已加入生词本' : saving ? '保存中...' : '加入生词本'}
+              </button>
+
               {explanation.meaning && (
                 <div>
                   <p className="text-sm font-semibold text-gray-700 mb-1">释义</p>

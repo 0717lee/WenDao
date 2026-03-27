@@ -7,9 +7,10 @@ import { PoemScrollCard } from './PoemScrollCard'
 
 interface MessageListProps {
     messages: Message[]
+    onCitationClick?: (citation: { title: string; source: string }) => void
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, onCitationClick }: MessageListProps) {
     const endRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -69,6 +70,7 @@ export function MessageList({ messages }: MessageListProps) {
                                         key={idx}
                                         title={citation.title}
                                         source={citation.source}
+                                        onClick={() => onCitationClick?.(citation)}
                                     />
                                 ))}
                             </div>

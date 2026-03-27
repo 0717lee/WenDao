@@ -1,0 +1,156 @@
+import { useEffect, useState } from 'react'
+import { HelpCircle, RotateCcw } from 'lucide-react'
+import { API_BASE } from '../lib/api'
+
+interface StudyCard {
+  id: string
+  front: string
+  back: string
+  hint: string
+}
+
+interface QuizItem {
+  id: string
+  question: string
+  answer: string
+}
+
+interface StudyCardsPanelProps {
+  documentId: string
+}
+
+export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
+  const [cards, setCards] = useState<StudyCard[]>([])
+  const [quiz, setQuiz] = useState<QuizItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [index, setIndex] = useState(0)
+  const [showAnswer, setShowAnswer] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-cards`)
+        const data = response.ok ? await response.json() : { cards: [], quiz: [] }
+        if (!cancelled) {
+          setCards(data.cards || [])
+          setQuiz(data.quiz || [])
+          setIndex(0)
+          setShowAnswer(false)
+        }
+      } catch {
+        if (!cancelled) {
+          setCards([])
+          setQuiz([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [documentId])
+
+  const current = cards[index]
+
+  return (
+    <div
+      className="rounded-2xl p-4 md:p-5"
+      style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
+    >
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
+            <HelpCircle className="h-4 w-4" />
+            学习卡片
+          </div>
+          <p className="mt-1 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+            适合课后复习或答辩时展示“读完之后还能继续学”。
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setIndex(0)
+            setShowAnswer(false)
+          }}
+          className="rounded-xl px-3 py-2 text-xs"
+          style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.6)' }}
+        >
+          <RotateCcw className="mr-1 inline h-3.5 w-3.5" />
+          重置
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="rounded-2xl p-6 text-center text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+          正在生成学习卡片...
+        </div>
+      ) : current ? (
+        <div className="space-y-4">
+          <div
+            className="rounded-2xl p-4"
+            style={{ backgroundColor: 'rgba(244,241,225,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-2 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              卡片 {index + 1} / {cards.length}
+            </div>
+            <div className="text-sm leading-7" style={{ color: 'var(--gf-text)' }}>
+              <strong>{showAnswer ? '答案：' : '原句：'}</strong>
+              {showAnswer ? current.back : current.front}
+            </div>
+            <div className="mt-2 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              {current.hint}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setShowAnswer((prev) => !prev)}
+              className="rounded-xl px-4 py-2 text-sm text-white"
+              style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+            >
+              {showAnswer ? '查看原句' : '翻看答案'}
+            </button>
+            <button
+              onClick={() => {
+                setIndex((prev) => (prev + 1) % cards.length)
+                setShowAnswer(false)
+              }}
+              className="rounded-xl px-4 py-2 text-sm"
+              style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'var(--gf-text)' }}
+            >
+              下一张
+            </button>
+          </div>
+
+          {quiz.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                自测提示
+              </h4>
+              {quiz.map((item) => (
+                <details
+                  key={item.id}
+                  className="rounded-xl px-3 py-2"
+                  style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'var(--gf-text)' }}
+                >
+                  <summary className="cursor-pointer text-sm">{item.question}</summary>
+                  <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.62)' }}>
+                    {item.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-2xl p-6 text-center text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.45)' }}>
+          当前文档还无法生成学习卡片。
+        </div>
+      )}
+    </div>
+  )
+}

@@ -18,9 +18,18 @@ function mockChatFetch(mockReader: any) {
         // Default: return empty response for other endpoints
         return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ nodes: [], edges: [], frequencies: [] }),
+            json: () => Promise.resolve({ documents: [], entries: [], nodes: [], edges: [], frequencies: [], top_entities: [], total_nodes: 0, total_edges: 0 }),
         })
     })
+}
+
+async function openChatTab() {
+    fireEvent.click(screen.getByRole('button', { name: '打开导航' }))
+    await waitFor(() => {
+        expect(screen.getByText('对话')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('对话'))
+    await screen.findByPlaceholderText(/输入问题/i)
 }
 
 describe('Chat Integration E2E', () => {
@@ -32,15 +41,16 @@ describe('Chat Integration E2E', () => {
         ;(global.fetch as any).mockImplementation(() =>
             Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve({ nodes: [], edges: [], frequencies: [] }),
+                json: () => Promise.resolve({ documents: [], entries: [], nodes: [], edges: [], frequencies: [], top_entities: [], total_nodes: 0, total_edges: 0 }),
             })
         )
     })
 
-    it('测试1: App.tsx渲染ChatInterface组件', () => {
+    it('测试1: App.tsx可以切换到ChatInterface组件', async () => {
         render(<App />)
 
         expect(screen.getByText('古籍智解')).toBeInTheDocument()
+        await openChatTab()
         expect(screen.getByPlaceholderText(/输入问题/i)).toBeInTheDocument()
     })
 
@@ -66,7 +76,9 @@ describe('Chat Integration E2E', () => {
 
         render(<App />)
 
-        const input = screen.getByPlaceholderText(/输入问题/i)
+        await openChatTab()
+
+        const input = await screen.findByPlaceholderText(/输入问题/i)
         const sendButton = screen.getByRole('button', { name: '发送' })
 
         fireEvent.change(input, { target: { value: '什么是斗拱？' } })
@@ -99,7 +111,9 @@ describe('Chat Integration E2E', () => {
 
         render(<App />)
 
-        const input = screen.getByPlaceholderText(/输入问题/i)
+        await openChatTab()
+
+        const input = await screen.findByPlaceholderText(/输入问题/i)
         fireEvent.change(input, { target: { value: '测试' } })
         fireEvent.click(screen.getByRole('button', { name: '发送' }))
 
@@ -130,7 +144,9 @@ describe('Chat Integration E2E', () => {
 
         render(<App />)
 
-        const input = screen.getByPlaceholderText(/输入问题/i)
+        await openChatTab()
+
+        const input = await screen.findByPlaceholderText(/输入问题/i)
         fireEvent.change(input, { target: { value: '测试引用' } })
         fireEvent.click(screen.getByRole('button', { name: '发送' }))
 

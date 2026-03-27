@@ -40,9 +40,9 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     acm = mock_asyncpg_pool.acquire.return_value
     mock_conn = acm.__aenter__.return_value
 
-    # documents / reading_history / favorite_folders / favorites / users
-    # plus ALTER statements for entity_ids, image_data, email
-    assert mock_conn.execute.call_count == 8
+    # documents / reading_history / favorite_folders / favorites / wordbook_entries /
+    # document_notes / users plus ALTER statements for entity_ids, image_data, email
+    assert mock_conn.execute.call_count == 10
 
     # Verify table names are in the SQL
     calls = [str(c) for c in mock_conn.execute.call_args_list]
@@ -51,6 +51,8 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     assert "reading_history" in all_sql
     assert "favorite_folders" in all_sql
     assert "favorites" in all_sql
+    assert "wordbook_entries" in all_sql
+    assert "document_notes" in all_sql
     assert "users" in all_sql
     assert "image_data" in all_sql
     assert "email" in all_sql

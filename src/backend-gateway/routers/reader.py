@@ -4,9 +4,10 @@ Reader Router
 Reading history tracking, favorite folders, and bookmarks management.
 """
 import json
+from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from core import pg_database
@@ -36,6 +37,112 @@ class FolderCreate(BaseModel):
 class FavoriteAdd(BaseModel):
     document_id: str
     folder_id: str
+
+
+class WordbookEntryCreate(BaseModel):
+    word: str
+    meaning: str = ""
+    allusion: str = ""
+    citations: list[dict[str, Any]] = []
+
+
+async def _list_wordbook_entries(limit: int | None = None) -> list[dict[str, Any]]:
+    """Return wordbook entries ordered by recency."""
+    try:
+        async with get_connection() as conn:
+            sql = """
+                SELECT id::text AS id, word, meaning, allusion, citations_json, created_at
+                FROM wordbook_entries
+                ORDER BY created_at DESC
+            """
+            rows = await conn.fetch(f"{sql} LIMIT $1" if limit is not None else sql, limit) if limit is not None else await conn.fetch(sql)
+            entries = [dict(row) for row in rows]
+    except RuntimeError:
+        async with get_db() as db:
+            sql = """
+                SELECT id, word, meaning, allusion, citations_json, created_at
+                FROM wordbook_entries
+                ORDER BY created_at DESC
+            """
+            cursor = await db.execute(f"{sql} LIMIT ?" if limit is not None else sql, (limit,) if limit is not None else ())
+            entries = [dict(row) for row in await cursor.fetchall()]
+
+    for entry in entries:
+        try:
+            entry["citations"] = json.loads(entry.pop("citations_json") or "[]")
+        except json.JSONDecodeError:
+            entry["citations"] = []
+    return entries
+
+
+async def _save_wordbook_entry(body: WordbookEntryCreate) -> dict[str, Any]:
+    citations_json = json.dumps(body.citations, ensure_ascii=False)
+    try:
+        async with get_connection() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO wordbook_entries (word, meaning, allusion, citations_json)
+                VALUES ($1, $2, $3, $4::jsonb)
+                ON CONFLICT (word)
+                DO UPDATE SET
+                    meaning = EXCLUDED.meaning,
+                    allusion = EXCLUDED.allusion,
+                    citations_json = EXCLUDED.citations_json
+                RETURNING id::text AS id, word, meaning, allusion, citations_json, created_at
+                """,
+                body.word.strip(),
+                body.meaning.strip(),
+                body.allusion.strip(),
+                citations_json,
+            )
+            entry = dict(row)
+    except RuntimeError:
+        async with get_db() as db:
+            await db.execute(
+                """
+                INSERT INTO wordbook_entries (word, meaning, allusion, citations_json)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(word) DO UPDATE SET
+                    meaning = excluded.meaning,
+                    allusion = excluded.allusion,
+                    citations_json = excluded.citations_json
+                """,
+                (body.word.strip(), body.meaning.strip(), body.allusion.strip(), citations_json),
+            )
+            await db.commit()
+        entries = await _list_wordbook_entries()
+        entry = next((item for item in entries if item["word"] == body.word.strip()), {
+            "id": "",
+            "word": body.word.strip(),
+            "meaning": body.meaning.strip(),
+            "allusion": body.allusion.strip(),
+            "citations": body.citations,
+            "created_at": None,
+        })
+
+    try:
+        entry["citations"] = json.loads(entry.pop("citations_json") or "[]")
+    except (KeyError, json.JSONDecodeError):
+        entry.setdefault("citations", body.citations)
+    return entry
+
+
+async def _delete_wordbook_entry(entry_id: str) -> bool:
+    try:
+        async with get_connection() as conn:
+            result = await conn.execute(
+                "DELETE FROM wordbook_entries WHERE id = $1::uuid",
+                entry_id,
+            )
+            return result != "DELETE 0"
+    except RuntimeError:
+        async with get_db() as db:
+            cursor = await db.execute(
+                "DELETE FROM wordbook_entries WHERE id = ?",
+                (entry_id,),
+            )
+            await db.commit()
+            return cursor.rowcount > 0
 
 
 # --- Reading History ---
@@ -206,6 +313,30 @@ async def get_entity_frequency():
         return {"frequencies": frequencies, "total_documents": len(rows)}
     except Exception:
         return {"frequencies": [], "total_documents": 0}
+
+
+@router.get("/wordbook")
+async def get_wordbook(limit: int = Query(100, ge=1, le=500)):
+    """Return saved vocabulary entries for the wordbook view."""
+    entries = await _list_wordbook_entries(limit=limit)
+    return {"entries": entries, "total": len(entries)}
+
+
+@router.post("/wordbook")
+async def add_wordbook_entry(body: WordbookEntryCreate, _user: dict = Depends(require_auth)):
+    """Create or update a wordbook entry."""
+    if not body.word.strip():
+        raise HTTPException(status_code=400, detail="字词不能为空")
+    return await _save_wordbook_entry(body)
+
+
+@router.delete("/wordbook/{entry_id}")
+async def delete_wordbook_entry(entry_id: str, _user: dict = Depends(require_auth)):
+    """Delete a wordbook entry by id."""
+    deleted = await _delete_wordbook_entry(entry_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="生词不存在")
+    return {"status": "ok"}
 
 
 @router.post("/favorites")
