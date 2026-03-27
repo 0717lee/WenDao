@@ -14,12 +14,15 @@ interface DocumentStore {
   currentDocument: Document | null;
   comparisonDocuments: Document[];
   pendingAnchorText: string;
+  pendingReaderPanel: 'notes' | 'study' | null;
   uploadStatus: 'idle' | 'uploading' | 'processing' | 'done' | 'error';
   processProgress: string;
   setDocument: (doc: Document) => void;
   updateDocument: (updates: Partial<Document>) => void;
   setPendingAnchorText: (anchor: string) => void;
   consumePendingAnchorText: () => string;
+  setPendingReaderPanel: (panel: 'notes' | 'study' | null) => void;
+  consumePendingReaderPanel: () => 'notes' | 'study' | null;
   toggleComparisonDocument: (doc: Document) => void;
   removeComparisonDocument: (documentId: string) => void;
   clearComparisonDocuments: () => void;
@@ -32,6 +35,7 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
   currentDocument: null,
   comparisonDocuments: [],
   pendingAnchorText: '',
+  pendingReaderPanel: null,
   uploadStatus: 'idle',
   processProgress: '',
   setDocument: (doc) => set({ currentDocument: doc }),
@@ -47,6 +51,15 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
     })
     return anchor
   },
+  setPendingReaderPanel: (pendingReaderPanel) => set({ pendingReaderPanel }),
+  consumePendingReaderPanel: () => {
+    let panel: 'notes' | 'study' | null = null
+    set((state) => {
+      panel = state.pendingReaderPanel
+      return { pendingReaderPanel: null }
+    })
+    return panel
+  },
   toggleComparisonDocument: (doc) => set((state) => {
     const exists = state.comparisonDocuments.some((item) => item.id === doc.id)
     if (exists) {
@@ -61,5 +74,5 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
   clearComparisonDocuments: () => set({ comparisonDocuments: [] }),
   setUploadStatus: (status) => set({ uploadStatus: status }),
   setProcessProgress: (progress) => set({ processProgress: progress }),
-  reset: () => set({ currentDocument: null, comparisonDocuments: [], pendingAnchorText: '', uploadStatus: 'idle', processProgress: '' }),
+  reset: () => set({ currentDocument: null, comparisonDocuments: [], pendingAnchorText: '', pendingReaderPanel: null, uploadStatus: 'idle', processProgress: '' }),
 }));

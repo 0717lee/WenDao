@@ -52,7 +52,7 @@ function TabLoader() {
 
 function App() {
     const { activeTab, setActiveTab } = useGraphStore();
-    const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, toggleComparisonDocument } = useDocumentStore();
+    const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument } = useDocumentStore();
     const { username, logout } = useAuthStore();
     const { setDraftMessage } = useStore();
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -65,7 +65,7 @@ function App() {
     };
 
     const openDocument = useCallback(
-        async (documentId: string) => {
+        async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
             try {
                 const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`);
                 if (!response.ok) throw new Error('load failed');
@@ -80,12 +80,15 @@ function App() {
                     imageUrl: data.image_data || undefined,
                 });
                 setUploadStatus(data.punctuated_text ? 'done' : 'idle');
+                if (options?.readerPanel) {
+                    setPendingReaderPanel(options.readerPanel);
+                }
                 setActiveTab('reader');
             } catch (error) {
                 console.error('Failed to open document:', error);
             }
         },
-        [setActiveTab, setDocument, setUploadStatus]
+        [setActiveTab, setDocument, setPendingReaderPanel, setUploadStatus]
     );
 
     const jumpToChat = useCallback(
@@ -145,7 +148,7 @@ function App() {
                         onOpenBookshelf={() => setActiveTab('bookshelf')}
                         onOpenWordbook={() => setActiveTab('wordbook')}
                         onOpenCompare={() => setActiveTab('compare')}
-                        onContinueStudy={openDocument}
+                        onContinueStudy={(documentId) => openDocument(documentId, { readerPanel: 'study' })}
                     />
                 );
             case 'chat':

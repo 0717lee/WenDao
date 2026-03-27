@@ -9,7 +9,7 @@ import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
 
 export function ThreeColumnReader() {
-  const { currentDocument, consumePendingAnchorText } = useDocumentStore();
+  const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel } = useDocumentStore();
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -36,7 +36,11 @@ export function ThreeColumnReader() {
     if (nextAnchor) {
       setAnchorText(nextAnchor);
     }
-  }, [currentDocument?.id, consumePendingAnchorText]);
+    const nextPanel = consumePendingReaderPanel();
+    if (nextPanel) {
+      setSidePanel(nextPanel);
+    }
+  }, [currentDocument?.id, consumePendingAnchorText, consumePendingReaderPanel]);
 
   useEffect(() => {
     if (anchorText && anchorRef.current) {
