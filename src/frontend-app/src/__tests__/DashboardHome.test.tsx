@@ -121,7 +121,8 @@ describe('DashboardHome', () => {
     fireEvent.click(await screen.findByText('体验样例 · 《论语·学而》'))
     expect(props.onOpenDocument).toHaveBeenCalledWith('sample-1')
 
-    fireEvent.click(screen.getByRole('button', { name: '孔子' }))
+    const kongziButtons = screen.getAllByRole('button', { name: '孔子' })
+    fireEvent.click(kongziButtons[0])
     expect(props.onSearch).toHaveBeenCalledWith('孔子')
   })
 
@@ -179,5 +180,14 @@ describe('DashboardHome', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /字词沉淀/i }))
     expect(props.onOpenWordbook).toHaveBeenCalled()
+  })
+
+  it('routes hotspot entities to graph focus', async () => {
+    render(<DashboardHome {...props} />)
+
+    const hotspotButton = await screen.findByRole('button', { name: /孔子.*4 关联/i })
+    fireEvent.click(hotspotButton)
+
+    expect(props.onOpenGraphEntity).toHaveBeenCalledWith('kongzi')
   })
 })
