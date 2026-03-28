@@ -6,7 +6,18 @@ interface AuthState {
     username: string | null
     login: (username: string, password: string) => Promise<void>
     register: (username: string, email: string, password: string) => Promise<void>
+    validateStoredAuth: () => Promise<boolean>
     logout: () => void
+}
+
+function persistAuth(token: string, username: string) {
+    localStorage.setItem('texttwin_token', token)
+    localStorage.setItem('texttwin_username', username)
+}
+
+function clearPersistedAuth() {
+    localStorage.removeItem('texttwin_token')
+    localStorage.removeItem('texttwin_username')
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -24,8 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             throw new Error(err.detail || '登录失败')
         }
         const data = await res.json()
-        localStorage.setItem('texttwin_token', data.token)
-        localStorage.setItem('texttwin_username', data.username)
+        persistAuth(data.token, data.username)
         set({ token: data.token, username: data.username })
     },
 
@@ -40,14 +50,39 @@ export const useAuthStore = create<AuthState>((set) => ({
             throw new Error(err.detail || '注册失败')
         }
         const data = await res.json()
-        localStorage.setItem('texttwin_token', data.token)
-        localStorage.setItem('texttwin_username', data.username)
+        persistAuth(data.token, data.username)
         set({ token: data.token, username: data.username })
     },
 
+    validateStoredAuth: async () => {
+        const { token, username } = useAuthStore.getState()
+        if (!token || !username) return false
+
+        try {
+            const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+
+            if (!res.ok) {
+                clearPersistedAuth()
+                set({ token: null, username: null })
+                return false
+            }
+
+            const data = await res.json().catch(() => null)
+            if (data?.username && data.username !== username) {
+                persistAuth(token, data.username)
+                set({ username: data.username })
+            }
+            return true
+        } catch {
+            // Keep the local session on transient network failures.
+            return true
+        }
+    },
+
     logout: () => {
-        localStorage.removeItem('texttwin_token')
-        localStorage.removeItem('texttwin_username')
+        clearPersistedAuth()
         set({ token: null, username: null })
     },
 }))

@@ -4,6 +4,7 @@ Reader Router
 Reading history tracking, favorite folders, and bookmarks management.
 """
 import json
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -15,11 +16,17 @@ from core.auth import require_auth
 from core.database import get_db
 
 router = APIRouter(prefix="/api/v1/reader", tags=["reader"])
+logger = logging.getLogger(__name__)
 
 
 def get_connection():
     """Local wrapper so tests can patch either this symbol or pg_database.get_connection."""
     return pg_database.get_connection()
+
+
+def _raise_reader_error(detail: str, exc: Exception) -> None:
+    logger.exception("%s: %s", detail, exc)
+    raise HTTPException(status_code=500, detail=detail)
 
 
 # --- Request Models ---
@@ -235,8 +242,8 @@ async def get_reading_history():
             """)
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
-    except Exception:
-        return []
+    except Exception as exc:
+        _raise_reader_error("读取阅读记录失败", exc)
 
 
 @router.post("/progress")
@@ -268,7 +275,7 @@ async def update_progress(body: ProgressUpdate, _user: dict = Depends(require_au
                 await db.commit()
         return {"status": "ok"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        _raise_reader_error("保存阅读进度失败", e)
 
 
 # --- Favorite Folders ---
@@ -290,8 +297,8 @@ async def get_folders():
             )
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
-    except Exception:
-        return []
+    except Exception as exc:
+        _raise_reader_error("读取收藏夹失败", exc)
 
 
 @router.post("/folders")
@@ -376,8 +383,8 @@ async def get_entity_frequency():
             reverse=True,
         )
         return {"frequencies": frequencies, "total_documents": len(rows)}
-    except Exception:
-        return {"frequencies": [], "total_documents": 0}
+    except Exception as exc:
+        _raise_reader_error("读取实体频率失败", exc)
 
 
 @router.get("/wordbook")
@@ -429,7 +436,7 @@ async def add_favorite(body: FavoriteAdd, _user: dict = Depends(require_auth)):
                 await db.commit()
         return {"status": "ok"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        _raise_reader_error("加入收藏失败", e)
 
 
 @router.get("/favorites/{folder_id}")
@@ -457,5 +464,5 @@ async def get_favorites(folder_id: str):
             """, (folder_id,))
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
-    except Exception:
-        return []
+    except Exception as exc:
+        _raise_reader_error("读取收藏内容失败", exc)

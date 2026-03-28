@@ -4,12 +4,12 @@
 """
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from core import pg_database
-from core.auth import create_token, hash_password, verify_password
+from core.auth import create_token, hash_password, require_auth, verify_password
 from core.database import get_db
-from models.schemas import TokenResponse, UserLogin, UserRegister
+from models.schemas import AuthMeResponse, TokenResponse, UserLogin, UserRegister
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -109,3 +109,9 @@ async def login(body: UserLogin):
         user_id, username = await _login_sqlite(body.username, body.password)
     token = create_token(user_id, username)
     return TokenResponse(token=token, username=username)
+
+
+@router.get("/me", response_model=AuthMeResponse)
+async def get_current_user(user: dict = Depends(require_auth)):
+    """Validate the current JWT token and return lightweight identity info."""
+    return AuthMeResponse(user_id=str(user["sub"]), username=user["username"])

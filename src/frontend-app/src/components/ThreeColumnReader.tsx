@@ -16,6 +16,7 @@ export function ThreeColumnReader() {
   const [activeTab, setActiveTab] = useState<'original' | 'punctuated' | 'translated'>('original');
   const [sidePanel, setSidePanel] = useState<'notes' | 'study' | null>(null);
   const [anchorText, setAnchorText] = useState('');
+  const [progressSyncError, setProgressSyncError] = useState(false);
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
 
@@ -82,7 +83,17 @@ export function ThreeColumnReader() {
           current_paragraph: currentParagraph,
           total_paragraphs: totalParagraphs,
         }),
-      }).catch(() => {});
+      })
+        .then(async (response) => {
+          const data = await response.json().catch(() => null);
+          if (!response.ok || data?.status === 'error') {
+            throw new Error('progress sync failed');
+          }
+          setProgressSyncError(false);
+        })
+        .catch(() => {
+          setProgressSyncError(true);
+        });
     }, 200);
   };
 
@@ -131,8 +142,8 @@ export function ThreeColumnReader() {
     return (
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
         <div className="flex items-center justify-between border-b px-4 py-2" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.45)' }}>
-          <span className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            阅读进度会自动记录
+          <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
+            {progressSyncError ? '阅读进度暂未同步' : '阅读进度会自动记录'}
           </span>
           <div className="flex gap-2">
             <button
@@ -216,8 +227,8 @@ export function ThreeColumnReader() {
   return (
     <div className="h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
         <div className="flex items-center justify-between px-4 pt-4">
-          <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            当前文档：{currentDocument.title}
+          <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
+            {progressSyncError ? '阅读进度暂未同步' : `当前文档：${currentDocument.title}`}
           </div>
           <div className="flex gap-2">
             <button

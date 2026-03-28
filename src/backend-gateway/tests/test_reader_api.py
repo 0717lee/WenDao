@@ -7,6 +7,7 @@ All DB calls are mocked to avoid requiring a running PostgreSQL instance.
 import os
 import sys
 import pytest
+from fastapi import HTTPException
 from unittest.mock import AsyncMock, patch, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -64,6 +65,22 @@ class TestGetHistoryWithRecords:
         assert result[0]["title"] == "Test Doc"
         assert result[0]["current_paragraph"] == 3
 
+    @pytest.mark.asyncio
+    async def test_get_history_db_error_raises_500(self):
+        from routers.reader import get_reading_history
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_reading_history()
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "读取阅读记录失败"
+
 
 class TestUpdateProgress:
     """Progress update performs upsert correctly."""
@@ -93,6 +110,25 @@ class TestUpdateProgress:
 
         assert result["status"] == "ok"
         assert mock_conn.execute.await_count == 2  # UPDATE + INSERT
+
+    @pytest.mark.asyncio
+    async def test_update_progress_db_error_raises_500(self):
+        from routers.reader import update_progress, ProgressUpdate
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm):
+            with pytest.raises(HTTPException) as exc_info:
+                await update_progress(
+                    ProgressUpdate(document_id="uuid-1", current_paragraph=1, total_paragraphs=10),
+                    {"sub": "user-1"},
+                )
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "保存阅读进度失败"
 
 
 class TestCreateFolder:
@@ -143,6 +179,25 @@ class TestAddFavorite:
 
         assert result["status"] == "ok"
         mock_conn.execute.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_add_favorite_db_error_raises_500(self):
+        from routers.reader import add_favorite, FavoriteAdd
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm):
+            with pytest.raises(HTTPException) as exc_info:
+                await add_favorite(
+                    FavoriteAdd(document_id="doc-uuid", folder_id="folder-uuid"),
+                    {"sub": "user-1"},
+                )
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "加入收藏失败"
 
 
 class TestGetFavorites:

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { Drawer } from './components/Drawer';
@@ -53,10 +53,35 @@ function TabLoader() {
 function App() {
     const { activeTab, setActiveTab, queueSearchQuery } = useGraphStore();
     const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
-    const { username, logout } = useAuthStore();
+    const { token, username, logout, validateStoredAuth } = useAuthStore();
     const { setDraftMessage } = useStore();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [authPage, setAuthPage] = useState<AuthPage>('login');
+    const [authChecking, setAuthChecking] = useState(Boolean(token));
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!token) {
+            setAuthChecking(false);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        setAuthChecking(true);
+        validateStoredAuth()
+            .catch(() => {})
+            .finally(() => {
+                if (!cancelled) {
+                    setAuthChecking(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [token, validateStoredAuth]);
 
     const getReaderView = () => {
         if (!currentDocument) return 'upload';
@@ -198,7 +223,9 @@ function App() {
 
     return (
         <div className="w-full h-screen flex flex-col" style={{ backgroundColor: 'var(--gf-bg)' }}>
-            {!username ? (
+            {authChecking ? (
+                <TabLoader />
+            ) : !username ? (
                 <>
                     {authPage === 'login' && <LoginPage onSwitchToRegister={() => setAuthPage('register')} />}
                     {authPage === 'register' && <RegisterPage onSwitchToLogin={() => setAuthPage('login')} />}

@@ -121,4 +121,50 @@ describe('DashboardHome', () => {
     fireEvent.click(screen.getByRole('button', { name: '孔子' }))
     expect(props.onSearch).toHaveBeenCalledWith('孔子')
   })
+
+  it('keeps sample entry available when one dashboard request fails', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=12')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [] }) })
+      }
+      if (url.includes('/api/v1/documents?limit=6&source_type=sample')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            documents: [
+              {
+                id: 'sample-1',
+                title: '体验样例 · 《论语·学而》',
+                preview: '学习后经常复习实践，不也是快乐的吗？',
+                has_processed: true,
+                current_paragraph: 0,
+                total_paragraphs: 0,
+                source_type: 'sample',
+              },
+            ],
+          }),
+        })
+      }
+      if (url.includes('/api/v1/documents/recommendations')) {
+        return Promise.reject(new Error('network down'))
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      if (url.includes('/api/v1/reader/wordbook')) {
+        return Promise.resolve({ ok: true, json: async () => ({ entries: [] }) })
+      }
+      if (url.includes('/api/v1/analytics/overview')) {
+        return Promise.resolve({ ok: true, json: async () => null })
+      }
+      if (url.includes('/api/v1/reader/study-overview')) {
+        return Promise.resolve({ ok: true, json: async () => null })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    render(<DashboardHome {...props} />)
+
+    expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
+  })
 })

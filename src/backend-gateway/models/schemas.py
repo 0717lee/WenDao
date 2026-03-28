@@ -136,3 +136,9 @@ class TokenResponse(BaseModel):
     """登录成功响应"""
     token: str = Field(..., description="JWT令牌")
     username: str = Field(..., description="用户名")
+
+
+class AuthMeResponse(BaseModel):
+    """登录态校验响应"""
+    user_id: str = Field(..., description="用户ID")
+    username: str = Field(..., description="用户名")

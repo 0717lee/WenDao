@@ -109,25 +109,25 @@ export default function DashboardHome({
 
     async function load() {
       setLoading(true)
-      try {
-        const [docsRes, sampleRes, historyRes, wordbookRes, analyticsRes, recommendationRes, studyRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents?limit=12`),
-          fetch(`${API_BASE}/api/v1/documents?limit=6&source_type=sample`),
-          fetch(`${API_BASE}/api/v1/reader/history`),
-          fetch(`${API_BASE}/api/v1/reader/wordbook?limit=6`),
-          fetch(`${API_BASE}/api/v1/analytics/overview`),
-          fetch(`${API_BASE}/api/v1/documents/recommendations?limit=4`),
-          fetch(`${API_BASE}/api/v1/reader/study-overview`),
-        ])
+      const loadJson = async <T,>(url: string, fallback: T): Promise<T> => {
+        try {
+          const response = await fetch(url)
+          if (!response.ok) return fallback
+          return (await response.json()) as T
+        } catch {
+          return fallback
+        }
+      }
 
+      try {
         const [docsData, sampleData, historyData, wordbookData, analyticsData, recommendationData, studyData] = await Promise.all([
-          docsRes.ok ? docsRes.json() : { documents: [] },
-          sampleRes.ok ? sampleRes.json() : { documents: [] },
-          historyRes.ok ? historyRes.json() : [],
-          wordbookRes.ok ? wordbookRes.json() : { entries: [] },
-          analyticsRes.ok ? analyticsRes.json() : null,
-          recommendationRes.ok ? recommendationRes.json() : { documents: [] },
-          studyRes.ok ? studyRes.json() : null,
+          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [] }),
+          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=6&source_type=sample`, { documents: [] }),
+          loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
+          loadJson<{ entries: WordbookItem[] }>(`${API_BASE}/api/v1/reader/wordbook?limit=6`, { entries: [] }),
+          loadJson<AnalyticsOverview | null>(`${API_BASE}/api/v1/analytics/overview`, null),
+          loadJson<{ documents: RecommendationItem[] }>(`${API_BASE}/api/v1/documents/recommendations?limit=4`, { documents: [] }),
+          loadJson<StudyOverview | null>(`${API_BASE}/api/v1/reader/study-overview`, null),
         ])
 
         if (cancelled) return
@@ -142,15 +142,6 @@ export default function DashboardHome({
         setAnalytics(analyticsData && typeof analyticsData === 'object' ? analyticsData : null)
         setRecommendations(Array.isArray(recommendationData.documents) ? recommendationData.documents : [])
         setStudyOverview(studyData && typeof studyData === 'object' ? studyData : null)
-      } catch {
-        if (cancelled) return
-        setDocuments([])
-        setSampleDocuments([])
-        setHistory([])
-        setWordbook([])
-        setAnalytics(null)
-        setRecommendations([])
-        setStudyOverview(null)
       } finally {
         if (!cancelled) setLoading(false)
       }

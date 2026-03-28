@@ -26,6 +26,9 @@ function mockChatFetch(mockReader: any) {
 }
 
 async function openChatTab() {
+    await waitFor(() => {
+        expect(screen.getByRole('button', { name: '打开导航' })).toBeInTheDocument()
+    })
     fireEvent.click(screen.getByRole('button', { name: '打开导航' }))
     await waitFor(() => {
         expect(screen.getByText('问答')).toBeInTheDocument()
@@ -51,7 +54,9 @@ describe('Chat Integration E2E', () => {
     it('测试1: App.tsx可以切换到ChatInterface组件', async () => {
         render(<App />)
 
-        expect(screen.getByText('古籍智解')).toBeInTheDocument()
+        await waitFor(() => {
+            expect(screen.getByText('古籍智解')).toBeInTheDocument()
+        })
         await openChatTab()
         expect(screen.getByPlaceholderText(chatPlaceholder)).toBeInTheDocument()
     })
