@@ -76,10 +76,21 @@ const ReadingHistory: React.FC<ReadingHistoryProps> = ({ onNavigate }) => {
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="mb-4 md:mb-5">
+          <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
+            学习进度
+          </h2>
+          <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+            这里会记录你从样例阅读、个人文档到继续学习的阅读轨迹。
+          </p>
+        </div>
         {history.length === 0 ? (
           <div className="text-center mt-16 opacity-35">
             <BookOpen className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
             <p style={{ color: 'var(--gf-text)' }}>暂无阅读记录</p>
+            <p className="mt-2 text-sm" style={{ color: 'rgba(26,30,35,0.5)' }}>
+              可以先从体验样例开始，或打开你上传过的文档继续阅读。
+            </p>
           </div>
         ) : (
           <div className="space-y-3">

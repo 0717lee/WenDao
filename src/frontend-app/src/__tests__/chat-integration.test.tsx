@@ -7,6 +7,8 @@ import { useAuthStore } from '../store/useAuthStore'
 // Mock fetch with URL-based routing
 global.fetch = vi.fn()
 
+const chatPlaceholder = /输入人物、典故、概念或一句原文，继续追问/i
+
 function mockChatFetch(mockReader: any) {
     (global.fetch as any).mockImplementation((url: string) => {
         if (typeof url === 'string' && url.includes('/api/v1/chat')) {
@@ -29,7 +31,7 @@ async function openChatTab() {
         expect(screen.getByText('问答')).toBeInTheDocument()
     })
     fireEvent.click(screen.getByText('问答'))
-    await screen.findByPlaceholderText(/输入问题/i)
+    await screen.findByPlaceholderText(chatPlaceholder)
 }
 
 describe('Chat Integration E2E', () => {
@@ -51,7 +53,7 @@ describe('Chat Integration E2E', () => {
 
         expect(screen.getByText('古籍智解')).toBeInTheDocument()
         await openChatTab()
-        expect(screen.getByPlaceholderText(/输入问题/i)).toBeInTheDocument()
+        expect(screen.getByPlaceholderText(chatPlaceholder)).toBeInTheDocument()
     })
 
     it('测试2: 用户可以输入消息并发送', async () => {
@@ -78,7 +80,7 @@ describe('Chat Integration E2E', () => {
 
         await openChatTab()
 
-        const input = await screen.findByPlaceholderText(/输入问题/i)
+        const input = await screen.findByPlaceholderText(chatPlaceholder)
         const sendButton = screen.getByRole('button', { name: '发送' })
 
         fireEvent.change(input, { target: { value: '什么是斗拱？' } })
@@ -113,7 +115,7 @@ describe('Chat Integration E2E', () => {
 
         await openChatTab()
 
-        const input = await screen.findByPlaceholderText(/输入问题/i)
+        const input = await screen.findByPlaceholderText(chatPlaceholder)
         fireEvent.change(input, { target: { value: '测试' } })
         fireEvent.click(screen.getByRole('button', { name: '发送' }))
 
@@ -146,7 +148,7 @@ describe('Chat Integration E2E', () => {
 
         await openChatTab()
 
-        const input = await screen.findByPlaceholderText(/输入问题/i)
+        const input = await screen.findByPlaceholderText(chatPlaceholder)
         fireEvent.change(input, { target: { value: '测试引用' } })
         fireEvent.click(screen.getByRole('button', { name: '发送' }))
 

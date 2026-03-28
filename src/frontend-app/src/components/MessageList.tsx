@@ -24,7 +24,7 @@ export function MessageList({ messages, onCitationClick }: MessageListProps) {
                     <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <p className="text-sm" style={{ color: 'var(--gf-text)' }}>输入古籍原句、人物或典故，开始阅读与追问...</p>
+                    <p className="text-sm" style={{ color: 'var(--gf-text)' }}>从一句原文、一个人物、一个典故开始，慢慢把古籍读懂。</p>
                 </div>
             )}
             {messages.map((message) => (

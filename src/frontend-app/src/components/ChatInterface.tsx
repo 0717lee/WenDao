@@ -18,6 +18,12 @@ const INITIAL_REASONING_STEPS: ReasoningStep[] = [
     { step: 'generation', label: '生成通俗解读', status: 'pending' },
 ]
 
+const QUICK_CHAT_PROMPTS = [
+    '“学而时习之，不亦说乎？”到底在讲什么？',
+    '孔子和孟子的思想有什么联系？',
+    '请解释“逍遥游”里鲲鹏的寓意。',
+]
+
 export function ChatInterface() {
     const [inputValue, setInputValue] = useState('')
     const [attachedImage, setAttachedImage] = useState<File | null>(null)
@@ -543,6 +549,23 @@ export function ChatInterface() {
 
             {/* Messages */}
             <MessageList messages={messages} onCitationClick={handleCitationClick} />
+
+            {messages.length === 0 && (
+                <div className="px-4 pb-2">
+                    <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
+                        {QUICK_CHAT_PROMPTS.map((prompt) => (
+                            <button
+                                key={prompt}
+                                onClick={() => setInputValue(prompt)}
+                                className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.16)]"
+                                style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                            >
+                                {prompt}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Loading indicator */}
             {isLoading && currentProgress && (

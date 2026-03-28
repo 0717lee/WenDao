@@ -6,6 +6,8 @@ import SearchPanel from '../components/SearchPanel';
 global.fetch = vi.fn();
 
 describe('SearchPanel', () => {
+  const searchPlaceholder = /输入人物、典故、概念或一句原文/i;
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -13,7 +15,7 @@ describe('SearchPanel', () => {
   it('renders search input and button', () => {
     render(<SearchPanel />);
     
-    expect(screen.getByPlaceholderText(/输入关键词搜索/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(searchPlaceholder)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /搜索/i })).toBeInTheDocument();
   });
 
@@ -39,7 +41,7 @@ describe('SearchPanel', () => {
 
     render(<SearchPanel />);
     
-    const input = screen.getByPlaceholderText(/输入关键词搜索/i);
+    const input = screen.getByPlaceholderText(searchPlaceholder);
     const button = screen.getByRole('button', { name: /搜索/i });
 
     fireEvent.change(input, { target: { value: '斗拱' } });
@@ -74,7 +76,7 @@ describe('SearchPanel', () => {
 
     render(<SearchPanel />);
     
-    const input = screen.getByPlaceholderText(/输入关键词搜索/i);
+    const input = screen.getByPlaceholderText(searchPlaceholder);
     fireEvent.change(input, { target: { value: '斗拱' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 
@@ -107,7 +109,7 @@ describe('SearchPanel', () => {
 
     render(<SearchPanel />);
     
-    const input = screen.getByPlaceholderText(/输入关键词搜索/i);
+    const input = screen.getByPlaceholderText(searchPlaceholder);
     fireEvent.change(input, { target: { value: '斗拱' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 
@@ -146,7 +148,7 @@ describe('SearchPanel', () => {
 
     render(<SearchPanel />);
     
-    const input = screen.getByPlaceholderText(/输入关键词搜索/i);
+    const input = screen.getByPlaceholderText(searchPlaceholder);
     fireEvent.change(input, { target: { value: '斗拱' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 

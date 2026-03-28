@@ -19,6 +19,8 @@ interface SearchResponse {
 
 type SearchMode = 'FULLTEXT' | 'VECTOR' | 'HYBRID';
 
+const SUGGESTED_QUERIES = ['孔子', '仁义', '逍遥游', '学而时习之'];
+
 const SearchPanel: React.FC = () => {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('HYBRID');
@@ -79,6 +81,15 @@ const SearchPanel: React.FC = () => {
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
       {/* Search Header */}
       <div className="p-4 md:p-6 border-b" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
+        <div className="mb-4">
+          <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+            人物、典故与原句检索
+          </h2>
+          <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+            适合从人物、概念、典故或一句原文切入，快速找到可继续阅读的入口。
+          </p>
+        </div>
+
         {/* Search Input */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1 relative">
@@ -87,7 +98,7 @@ const SearchPanel: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="输入关键词搜索古籍内容..."
+              placeholder="输入人物、典故、概念或一句原文..."
               className="w-full px-4 py-2.5 pl-10 rounded-xl text-sm focus:outline-none focus:ring-2 transition-shadow"
               style={{
                 backgroundColor: 'rgba(255,255,255,0.7)',
@@ -141,6 +152,19 @@ const SearchPanel: React.FC = () => {
             </label>
           ))}
         </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {SUGGESTED_QUERIES.map((item) => (
+            <button
+              key={item}
+              onClick={() => handleSearch(item)}
+              className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.18)]"
+              style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+            >
+              试试 {item}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Error Message */}
@@ -152,10 +176,34 @@ const SearchPanel: React.FC = () => {
 
       {/* Search Results */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        {results.length === 0 && !loading && !error && (
+        {results.length === 0 && !loading && !error && !query && (
           <div className="text-center mt-20 opacity-35">
             <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>输入关键词开始搜索</p>
+            <p style={{ color: 'var(--gf-text)' }}>输入人物、典故或原句开始检索</p>
+          </div>
+        )}
+
+        {results.length === 0 && !loading && !error && !!query && (
+          <div className="text-center mt-20 opacity-45">
+            <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
+            <p className="mb-3" style={{ color: 'var(--gf-text)' }}>
+              没有找到“{query}”的结果
+            </p>
+            <p className="text-sm mb-4" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              可以试试人物名、典故名、关键概念，或换成一句更完整的原文。
+            </p>
+            <div className="flex justify-center flex-wrap gap-2">
+              {SUGGESTED_QUERIES.map((item) => (
+                <button
+                  key={`empty-${item}`}
+                  onClick={() => handleSearch(item)}
+                  className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.18)]"
+                  style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
