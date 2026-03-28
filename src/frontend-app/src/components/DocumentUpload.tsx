@@ -160,7 +160,7 @@ export function DocumentUpload() {
               style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              读古籍入口
+              开始读古籍
             </span>
             <h2
               className="text-2xl leading-tight md:text-3xl"
@@ -169,7 +169,7 @@ export function DocumentUpload() {
               没有古籍图片，也可以马上开始
             </h2>
             <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.58)' }}>
-              左边给普通用户准备了体验样例、片段问答和人物典故检索；右边保留上传 OCR 的专业入口，给手头有扫描页的人使用。
+              想先读懂一段古文，可以从左边的样例、问答和检索开始；手头有扫描页时，再用右边的上传入口。
             </p>
           </div>
         </section>
@@ -183,10 +183,10 @@ export function DocumentUpload() {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                    大众入口 · 体验样例
+                    先从体验样例开始
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    直接打开内置经典片段，进入三栏阅读、字词释义和继续提问
+                    直接打开内置经典片段，进入阅读、释义和继续提问
                   </p>
                 </div>
                 <BookOpen className="h-4 w-4" style={{ color: 'rgba(26,30,35,0.3)' }} />
@@ -216,7 +216,7 @@ export function DocumentUpload() {
 
                 {!loadingSamples && sampleDocuments.length === 0 && (
                   <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                    暂时还没有样例，请稍后再试。
+                    暂时没加载到体验样例，可以先问一句古文，或试试右侧上传。
                   </p>
                 )}
               </div>
@@ -286,13 +286,13 @@ export function DocumentUpload() {
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  专业入口 · 上传古籍图片
-                </h3>
-                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  适合手头已有扫描页、影印件或馆藏图片的用户
-                </p>
-              </div>
+                  <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                    上传古籍图片
+                  </h3>
+                  <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                    如果你手头有影印页、扫描图或馆藏图片，可以从这里开始识别。
+                  </p>
+                </div>
               <ScanText className="h-4 w-4" style={{ color: 'var(--gf-gugong-red)' }} />
             </div>
 
@@ -327,7 +327,7 @@ export function DocumentUpload() {
                         {isDragActive ? '松开上传' : '拖拽图片或点击上传'}
                       </p>
                       <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                        支持 JPG、PNG、TIFF 格式，上传后将进入 OCR、断句和白话翻译流程
+                        支持 JPG、PNG、TIFF 格式，上传后会自动进入 OCR、断句和白话翻译流程
                       </p>
                     </div>
                   </>
@@ -345,13 +345,13 @@ export function DocumentUpload() {
             )}
 
             <div className="mt-4 rounded-2xl px-4 py-4 text-sm leading-7" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.55)' }}>
-              这条链路更适合专业用户：
+              适合这几种情况：
               <br />
-              1. 手头真的有古籍扫描图或影印页。
+              1. 手头有古籍扫描图或影印页。
               <br />
-              2. 需要把图片内容转成可读文本。
+              2. 需要先把图片内容转成可读文本。
               <br />
-              3. 之后再进入三栏阅读和字词释义。
+              3. 想继续进入对照阅读和字词释义。
             </div>
           </div>
         </section>

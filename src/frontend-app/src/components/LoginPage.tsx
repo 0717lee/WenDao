@@ -52,10 +52,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        帮普通人读懂古籍，不必先有一张古籍图片
-                    </p>
-                    <p className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.38)', fontFamily: '"Noto Serif SC", serif' }}>
-                        体验样例、片段问答、人物典故检索与 OCR 专业入口，都可以从这里开始
+                        登录后可保存阅读进度和字词收藏
                     </p>
                 </div>
 
@@ -160,7 +157,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center">
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        先读懂，再继续探索
+                        读懂一句，再继续往下读
                     </p>
                 </div>
             </div>

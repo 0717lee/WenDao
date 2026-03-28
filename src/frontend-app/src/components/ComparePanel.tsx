@@ -26,7 +26,7 @@ export default function ComparePanel() {
             对照阅读
           </h2>
           <p style={{ color: 'rgba(26,30,35,0.45)' }}>
-            先去典籍库挑选 1-2 份体验样例或你的文档加入对照，就可以并排比较原文、标点和白话译。
+            先去典籍库挑选 1-2 份体验样例或你的文档加入对照，就可以把原文、标点和白话放在一起看。
           </p>
         </div>
       </div>
@@ -42,7 +42,7 @@ export default function ComparePanel() {
               多文档对照
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              适合答辩演示“同题异文”或不同资料来源的并排比较。
+              适合并排比较不同版本、不同来源，或同一篇内容的不同处理结果。
             </p>
           </div>
           <button

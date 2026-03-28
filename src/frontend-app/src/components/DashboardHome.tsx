@@ -163,27 +163,29 @@ export default function DashboardHome({
   }, [])
 
   const firstSample = sampleDocuments[0]
+  const primaryActionLabel = firstSample ? '体验样例' : '问一句古文'
+  const primaryAction = () => (firstSample ? onOpenDocument(firstSample.id) : onAsk(QUICK_QUESTION_PROMPTS[0]))
   const audienceCards = [
     {
-      title: '普通学生',
-      description: '没有古籍图片，也会在课本、考试和课堂里遇到古文，最需要的是一句话看懂原文、人物和典故。',
-      actionLabel: '先看课内片段',
+      title: '课内学习',
+      description: '如果你在课本、考试或课堂里遇到古文，可以先从熟悉片段切入，快速看懂原文、人物和典故。',
+      actionLabel: '看课内片段',
       action: () => onAsk('请用白话解释“学而时习之，不亦说乎？”，顺便说说它常见于哪些课堂场景'),
       icon: GraduationCap,
       accent: '#7b5b44',
     },
     {
-      title: '传统文化爱好者',
-      description: '想低门槛读《论语》《孟子》《道德经》这些经典，不想先处理扫描件，也不想被术语挡住。',
-      actionLabel: sampleDocuments[0] ? '打开体验样例' : '看看典籍库',
+      title: '经典入门',
+      description: '如果你想读《论语》《孟子》《道德经》这些经典，可以先从精选样例开始，不用先准备扫描件。',
+      actionLabel: sampleDocuments[0] ? '看经典样例' : '看看典籍库',
       action: () => (sampleDocuments[0] ? onOpenDocument(sampleDocuments[0].id) : onOpenBookshelf()),
       icon: ScrollText,
       accent: 'var(--gf-gold)',
     },
     {
-      title: '少量专业用户',
-      description: '手头真的有影印页、扫描图或馆藏图片，需要走 OCR、断句、翻译和对照阅读这条专业链路。',
-      actionLabel: '上传古籍图片',
+      title: '扫描页整理',
+      description: '如果你手头有影印页、扫描图或馆藏图片，可以直接上传，走 OCR、断句、翻译和对照阅读链路。',
+      actionLabel: '上传扫描页',
       action: onOpenReaderHub,
       icon: ScanText,
       accent: 'var(--gf-gugong-red)',
@@ -247,26 +249,26 @@ export default function DashboardHome({
                   帮普通人读懂古籍，不必先有一张古籍图片
                 </h2>
                 <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  体验样例、经典片段、问题追问和人物典故检索，都是大众入口；上传 OCR 只是给少量专业用户准备的高级入口。
+                  想先读懂一段古文，可以从体验样例、提问或检索开始；手头有扫描页时，再上传识别。
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>适合课堂古文理解</span>
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>适合经典入门阅读</span>
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>支持专业 OCR 解析</span>
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>课内古文</span>
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>经典入门</span>
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>扫描识别</span>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => (firstSample ? onOpenDocument(firstSample.id) : onOpenBookshelf())}
+                  onClick={primaryAction}
                   className="rounded-2xl px-4 py-2.5 text-sm text-white transition-colors"
                   style={{ backgroundColor: 'var(--gf-gugong-red)' }}
                 >
-                  {firstSample ? '从体验样例开始' : '打开典籍库'}
+                  {primaryActionLabel}
                 </button>
                 <button
-                  onClick={() => onAsk(QUICK_QUESTION_PROMPTS[0])}
+                  onClick={onOpenBookshelf}
                   className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
                   style={{
                     backgroundColor: 'rgba(26,30,35,0.04)',
@@ -274,7 +276,7 @@ export default function DashboardHome({
                     border: '1px solid rgba(26,30,35,0.08)',
                   }}
                 >
-                  先问一个问题
+                  浏览典籍
                 </button>
                 <button
                   onClick={onOpenReaderHub}
@@ -285,7 +287,7 @@ export default function DashboardHome({
                     border: '1px solid rgba(201,160,99,0.2)',
                   }}
                 >
-                  上传古籍图片
+                  上传扫描页
                 </button>
               </div>
             </div>
@@ -299,20 +301,20 @@ export default function DashboardHome({
             >
               <div className="mb-4 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
                 <BookOpen className="h-4 w-4" />
-                现在最合理的产品结构
+                三种开始方式
               </div>
               <div className="space-y-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.6)' }}>
                 <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(140,26,17,0.05)' }}>
-                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gugong-red)' }}>主价值</div>
-                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>AI 帮普通人读懂古籍</div>
+                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gugong-red)' }}>先看样例</div>
+                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>打开一篇体验样例，先看懂一段古文</div>
                 </div>
                 <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-                  <div className="text-xs tracking-[0.2em]" style={{ color: 'rgba(26,30,35,0.42)' }}>大众入口</div>
-                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>示例古籍、经典片段、问题追问、人物典故检索</div>
+                  <div className="text-xs tracking-[0.2em]" style={{ color: 'rgba(26,30,35,0.42)' }}>先问一句</div>
+                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>从一句原文、一个人物或一个典故开始</div>
                 </div>
                 <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }}>
-                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gold)' }}>专业入口</div>
-                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>上传古籍图片，走 OCR 解析链路</div>
+                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gold)' }}>再传图片</div>
+                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>手头有影印页或扫描图时，再走识别链路</div>
                 </div>
               </div>
             </div>
@@ -332,7 +334,7 @@ export default function DashboardHome({
               <div className="mb-3 flex items-center justify-between">
                 <item.icon className="h-5 w-5" style={{ color: item.accent }} />
                 <span className="text-xs tracking-[0.2em]" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  目标用户
+                  适用场景
                 </span>
               </div>
               <div className="space-y-2">
@@ -366,7 +368,7 @@ export default function DashboardHome({
                   体验样例
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  不用上传图片，直接进入三栏阅读和字词释义
+                  不用准备图片，直接进入阅读、释义和继续提问
                 </p>
               </div>
               <button
@@ -400,7 +402,7 @@ export default function DashboardHome({
               ))}
               {!loading && sampleDocuments.length === 0 && (
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  暂时还没有样例，先去典籍库看看。
+                  暂时没加载到体验样例，你也可以先问一句古文，或去典籍库看看。
                 </p>
               )}
             </div>
@@ -495,10 +497,10 @@ export default function DashboardHome({
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  我的继续阅读
+                  继续阅读
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  你自己上传过或读过的文档，会在这里继续往下走
+                  读过的样例和你上传的文档，都可以从这里接着往下读。
                 </p>
               </div>
             </div>
@@ -527,7 +529,7 @@ export default function DashboardHome({
               ))}
               {!loading && documents.length === 0 && (
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  还没有你的个人阅读记录，先打开一个体验样例，或者去上传古籍图片。
+                  你还没开始阅读，先打开一个体验样例，或者上传一张古籍图片。
                 </p>
               )}
             </div>
@@ -540,10 +542,10 @@ export default function DashboardHome({
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  最近沉淀
+                  最近积累
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  阅读记录与字词积累，会慢慢变成你自己的古籍学习轨迹
+                  阅读记录和字词收藏，会慢慢串成你的古籍学习线索。
                 </p>
               </div>
             </div>
@@ -593,7 +595,7 @@ export default function DashboardHome({
                   ))}
                   {!loading && wordbook.length === 0 && (
                     <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                      还没有生词，阅读时点词即可收藏。
+                      还没有字词收藏，阅读时点一下字词就能留下记录。
                     </p>
                   )}
                 </div>
@@ -613,7 +615,7 @@ export default function DashboardHome({
                   学习总览
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  记录你用学习卡片复习了多少内容，还剩哪些要回顾
+                  看看最近复习了哪些内容，还有哪些值得再回顾。
                 </p>
               </div>
               {studyOverview?.last_reviewed_document?.document_id && (
@@ -671,7 +673,7 @@ export default function DashboardHome({
                   热门人物与概念
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  可以当成下一步检索和提问的入口
+                  不知道从哪儿开始时，可以先从这些入口读起或问起。
                 </p>
               </div>
             </div>
@@ -702,13 +704,13 @@ export default function DashboardHome({
         >
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                下一步继续读什么
-              </h3>
-              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                基于体验样例、最近阅读和字词积累生成的下一篇建议
-              </p>
-            </div>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  下一步继续读什么
+                </h3>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  根据你最近读过的内容和字词收藏，推荐下一篇继续读。
+                </p>
+              </div>
             <div className="flex gap-2">
               <button
                 onClick={onOpenCompare}

@@ -62,7 +62,7 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
               字词本
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              阅读过程中收藏的字词，会沉淀在这里，方便继续追问、复习和扩展典故背景。
+              阅读时收藏的字词、释义和典故，会集中留在这里，方便以后继续追问。
             </p>
           </div>
           <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
@@ -77,7 +77,7 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
         ) : entries.length === 0 ? (
           <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.65)' }}>
             <BookHeart className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.25)' }} />
-            <p style={{ color: 'rgba(26,30,35,0.45)' }}>阅读时点击字词并加入字词本，这里就会慢慢积累你的古籍学习痕迹。</p>
+            <p style={{ color: 'rgba(26,30,35,0.45)' }}>阅读时点一下字词并收藏，这里就会慢慢积累起来。</p>
           </div>
         ) : (
           <div className="space-y-3">

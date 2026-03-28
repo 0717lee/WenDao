@@ -63,10 +63,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        注册后即可保存阅读进度、字词沉淀与继续阅读路径
-                    </p>
-                    <p className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.38)', fontFamily: '"Noto Serif SC", serif' }}>
-                        没有古籍图片也能从体验样例和片段问答开始
+                        注册后即可保存阅读进度和字词收藏
                     </p>
                 </div>
 
@@ -229,7 +226,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center">
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        把阅读、追问和积累留在同一个书房里
+                        从一句古文开始，把阅读慢慢留下来
                     </p>
                 </div>
             </div>

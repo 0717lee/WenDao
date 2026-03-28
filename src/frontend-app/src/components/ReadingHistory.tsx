@@ -81,7 +81,7 @@ const ReadingHistory: React.FC<ReadingHistoryProps> = ({ onNavigate }) => {
             学习进度
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            这里会记录你从样例阅读、个人文档到继续学习的阅读轨迹。
+            这里会记下你读过的样例和文档，方便下次接着读。
           </p>
         </div>
         {history.length === 0 ? (
@@ -89,7 +89,7 @@ const ReadingHistory: React.FC<ReadingHistoryProps> = ({ onNavigate }) => {
             <BookOpen className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
             <p style={{ color: 'var(--gf-text)' }}>暂无阅读记录</p>
             <p className="mt-2 text-sm" style={{ color: 'rgba(26,30,35,0.5)' }}>
-              可以先从体验样例开始，或打开你上传过的文档继续阅读。
+              可以先打开一篇体验样例，或上传一张古籍图片开始阅读。
             </p>
           </div>
         ) : (
