@@ -51,8 +51,8 @@ function TabLoader() {
 }
 
 function App() {
-    const { activeTab, setActiveTab } = useGraphStore();
-    const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument } = useDocumentStore();
+    const { activeTab, setActiveTab, queueSearchQuery } = useGraphStore();
+    const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
     const { username, logout } = useAuthStore();
     const { setDraftMessage } = useStore();
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -99,6 +99,19 @@ function App() {
         [setActiveTab, setDraftMessage]
     );
 
+    const jumpToSearch = useCallback(
+        (query: string) => {
+            queueSearchQuery(query);
+            setActiveTab('search');
+        },
+        [queueSearchQuery, setActiveTab]
+    );
+
+    const openReaderHub = useCallback(() => {
+        clearCurrentDocument();
+        setActiveTab('reader');
+    }, [clearCurrentDocument, setActiveTab]);
+
     const toggleCompare = useCallback(
         async (documentId: string) => {
             const existing = comparisonDocuments.find((item) => item.id === documentId);
@@ -127,15 +140,15 @@ function App() {
     );
 
     const tabs = [
-        { key: 'home' as const, label: '书房' },
-        { key: 'chat' as const, label: '对话' },
-        { key: 'reader' as const, label: '阅读' },
-        { key: 'search' as const, label: '搜索' },
-        { key: 'bookshelf' as const, label: '书架' },
+        { key: 'home' as const, label: '首页' },
+        { key: 'reader' as const, label: '读古籍' },
+        { key: 'chat' as const, label: '问答' },
+        { key: 'search' as const, label: '检索' },
+        { key: 'bookshelf' as const, label: '典籍库' },
         { key: 'compare' as const, label: '对照' },
-        { key: 'history' as const, label: '历史' },
+        { key: 'history' as const, label: '进度' },
         { key: 'favorites' as const, label: '收藏' },
-        { key: 'wordbook' as const, label: '生词本' },
+        { key: 'wordbook' as const, label: '字词本' },
     ];
 
     const renderActiveTab = () => {
@@ -145,6 +158,8 @@ function App() {
                     <DashboardHome
                         onOpenDocument={openDocument}
                         onAsk={jumpToChat}
+                        onSearch={jumpToSearch}
+                        onOpenReaderHub={openReaderHub}
                         onOpenBookshelf={() => setActiveTab('bookshelf')}
                         onOpenWordbook={() => setActiveTab('wordbook')}
                         onOpenCompare={() => setActiveTab('compare')}
@@ -214,7 +229,7 @@ function App() {
                                         古籍智解
                                     </h1>
                                     <span className="text-xs tracking-wider ml-1 hidden sm:inline" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                                        AI 古籍知识探索平台
+                                        帮普通人读懂古籍
                                     </span>
                                 </div>
                             </div>
@@ -241,7 +256,7 @@ function App() {
                         side="left"
                         open={drawerOpen}
                         onClose={() => setDrawerOpen(false)}
-                        title="功能导航"
+                        title="学习入口"
                         icon={
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />

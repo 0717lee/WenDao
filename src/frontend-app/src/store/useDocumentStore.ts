@@ -19,6 +19,7 @@ interface DocumentStore {
   processProgress: string;
   setDocument: (doc: Document) => void;
   updateDocument: (updates: Partial<Document>) => void;
+  clearCurrentDocument: () => void;
   setPendingAnchorText: (anchor: string) => void;
   consumePendingAnchorText: () => string;
   setPendingReaderPanel: (panel: 'notes' | 'study' | null) => void;
@@ -42,6 +43,7 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
   updateDocument: (updates) => set((state) => ({
     currentDocument: state.currentDocument ? { ...state.currentDocument, ...updates } : null,
   })),
+  clearCurrentDocument: () => set({ currentDocument: null, uploadStatus: 'idle', processProgress: '' }),
   setPendingAnchorText: (pendingAnchorText) => set({ pendingAnchorText }),
   consumePendingAnchorText: () => {
     let anchor = ''

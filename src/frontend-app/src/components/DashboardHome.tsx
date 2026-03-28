@@ -1,10 +1,24 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Brain, Clock3, LibraryBig, Sparkles, Star } from 'lucide-react'
+import {
+  ArrowRight,
+  BookOpen,
+  Brain,
+  Clock3,
+  GraduationCap,
+  LibraryBig,
+  ScanText,
+  Search,
+  Sparkles,
+  Star,
+  ScrollText,
+} from 'lucide-react'
 import { API_BASE } from '../lib/api'
 
 interface DashboardHomeProps {
   onOpenDocument: (documentId: string) => void
   onAsk: (prompt: string) => void
+  onSearch: (query: string) => void
+  onOpenReaderHub: () => void
   onOpenBookshelf: () => void
   onOpenWordbook: () => void
   onOpenCompare: () => void
@@ -18,6 +32,7 @@ interface BookshelfItem {
   has_processed: boolean
   current_paragraph: number
   total_paragraphs: number
+  source_type?: string
 }
 
 interface HistoryItem {
@@ -55,11 +70,13 @@ interface StudyOverview {
   last_reviewed_document?: { document_id: string; title: string; created_at?: string } | null
 }
 
-const SAMPLE_PROMPTS = [
+const QUICK_QUESTION_PROMPTS = [
   '“学而时习之”到底在讲什么？',
   '请用白话解释《道德经》第一章',
   '孔子和孟子的思想有什么联系？',
 ]
+
+const SEARCH_TOPICS = ['孔子', '仁义', '逍遥游', '关雎']
 
 function formatTimeLabel(value?: string) {
   if (!value) return '刚刚整理'
@@ -71,6 +88,8 @@ function formatTimeLabel(value?: string) {
 export default function DashboardHome({
   onOpenDocument,
   onAsk,
+  onSearch,
+  onOpenReaderHub,
   onOpenBookshelf,
   onOpenWordbook,
   onOpenCompare,
@@ -78,6 +97,7 @@ export default function DashboardHome({
 }: DashboardHomeProps) {
   const [loading, setLoading] = useState(true)
   const [documents, setDocuments] = useState<BookshelfItem[]>([])
+  const [sampleDocuments, setSampleDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [wordbook, setWordbook] = useState<WordbookItem[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
@@ -90,8 +110,9 @@ export default function DashboardHome({
     async function load() {
       setLoading(true)
       try {
-        const [docsRes, historyRes, wordbookRes, analyticsRes, recommendationRes, studyRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents?limit=6`),
+        const [docsRes, sampleRes, historyRes, wordbookRes, analyticsRes, recommendationRes, studyRes] = await Promise.all([
+          fetch(`${API_BASE}/api/v1/documents?limit=12`),
+          fetch(`${API_BASE}/api/v1/documents?limit=6&source_type=sample`),
           fetch(`${API_BASE}/api/v1/reader/history`),
           fetch(`${API_BASE}/api/v1/reader/wordbook?limit=6`),
           fetch(`${API_BASE}/api/v1/analytics/overview`),
@@ -99,8 +120,9 @@ export default function DashboardHome({
           fetch(`${API_BASE}/api/v1/reader/study-overview`),
         ])
 
-        const [docsData, historyData, wordbookData, analyticsData, recommendationData, studyData] = await Promise.all([
+        const [docsData, sampleData, historyData, wordbookData, analyticsData, recommendationData, studyData] = await Promise.all([
           docsRes.ok ? docsRes.json() : { documents: [] },
+          sampleRes.ok ? sampleRes.json() : { documents: [] },
           historyRes.ok ? historyRes.json() : [],
           wordbookRes.ok ? wordbookRes.json() : { entries: [] },
           analyticsRes.ok ? analyticsRes.json() : null,
@@ -109,7 +131,12 @@ export default function DashboardHome({
         ])
 
         if (cancelled) return
-        setDocuments(Array.isArray(docsData.documents) ? docsData.documents : [])
+
+        const allDocuments = Array.isArray(docsData.documents) ? docsData.documents : []
+        const builtInSamples = Array.isArray(sampleData.documents) ? sampleData.documents : []
+
+        setDocuments(allDocuments.filter((item: BookshelfItem) => item.source_type !== 'sample'))
+        setSampleDocuments(builtInSamples)
         setHistory(Array.isArray(historyData) ? historyData : [])
         setWordbook(Array.isArray(wordbookData.entries) ? wordbookData.entries : [])
         setAnalytics(analyticsData && typeof analyticsData === 'object' ? analyticsData : null)
@@ -118,6 +145,7 @@ export default function DashboardHome({
       } catch {
         if (cancelled) return
         setDocuments([])
+        setSampleDocuments([])
         setHistory([])
         setWordbook([])
         setAnalytics(null)
@@ -134,30 +162,58 @@ export default function DashboardHome({
     }
   }, [])
 
+  const firstSample = sampleDocuments[0]
+  const audienceCards = [
+    {
+      title: '普通学生',
+      description: '没有古籍图片，也会在课本、考试和课堂里遇到古文，最需要的是一句话看懂原文、人物和典故。',
+      actionLabel: '先看课内片段',
+      action: () => onAsk('请用白话解释“学而时习之，不亦说乎？”，顺便说说它常见于哪些课堂场景'),
+      icon: GraduationCap,
+      accent: '#7b5b44',
+    },
+    {
+      title: '传统文化爱好者',
+      description: '想低门槛读《论语》《孟子》《道德经》这些经典，不想先处理扫描件，也不想被术语挡住。',
+      actionLabel: sampleDocuments[0] ? '打开体验样例' : '看看典籍库',
+      action: () => (sampleDocuments[0] ? onOpenDocument(sampleDocuments[0].id) : onOpenBookshelf()),
+      icon: ScrollText,
+      accent: 'var(--gf-gold)',
+    },
+    {
+      title: '少量专业用户',
+      description: '手头真的有影印页、扫描图或馆藏图片，需要走 OCR、断句、翻译和对照阅读这条专业链路。',
+      actionLabel: '上传古籍图片',
+      action: onOpenReaderHub,
+      icon: ScanText,
+      accent: 'var(--gf-gugong-red)',
+    },
+  ]
+
   const statCards = [
     {
-      label: '书架文档',
-      value: documents.length,
+      label: '体验样例',
+      value: sampleDocuments.length,
       icon: LibraryBig,
       accent: 'var(--gf-gugong-red)',
     },
     {
-      label: '图谱节点',
-      value: analytics?.total_nodes ?? 0,
-      icon: Brain,
-      accent: 'var(--gf-gold)',
-    },
-    {
-      label: '阅读记录',
+      label: '最近阅读',
       value: history.length,
       icon: Clock3,
       accent: '#5b8aab',
     },
     {
-      label: '生词本',
+      label: '字词沉淀',
       value: wordbook.length,
       icon: Star,
       accent: '#3c8a51',
+    },
+    {
+      label: '图谱实体',
+      value: analytics?.total_nodes ?? 0,
+      icon: Brain,
+      accent: 'var(--gf-gold)',
     },
   ]
 
@@ -165,66 +221,245 @@ export default function DashboardHome({
     <div className="h-full overflow-y-auto px-4 py-5 md:px-6 md:py-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
       <div className="mx-auto max-w-6xl space-y-5">
         <section
-          className="rounded-3xl p-6 md:p-8"
+          className="rounded-[32px] p-6 md:p-8"
           style={{
             background:
-              'linear-gradient(135deg, rgba(255,255,255,0.78) 0%, rgba(244,241,225,0.88) 100%)',
+              'linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(244,241,225,0.92) 45%, rgba(247,246,243,0.96) 100%)',
             border: '1px solid rgba(26,30,35,0.06)',
             boxShadow: '0 24px 48px rgba(26,30,35,0.06)',
           }}
         >
-          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-3">
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+            <div className="space-y-4">
               <span
-                className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs tracking-widest"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs tracking-[0.24em]"
                 style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                古籍书房
+                AI 古籍入门助手
               </span>
-              <div className="space-y-2">
+
+              <div className="space-y-3">
                 <h2
-                  className="text-2xl md:text-3xl tracking-wider"
+                  className="max-w-3xl text-3xl leading-tight md:text-4xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  把上传、阅读、追问和沉淀放进同一个书房
+                  帮普通人读懂古籍，不必先有一张古籍图片
                 </h2>
-                <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  从 OCR 导入，到三栏阅读、生词积累、图谱探索，再到继续追问，所有主链路都可以从这里进入。
+                <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
+                  体验样例、经典片段、问题追问和人物典故检索，都是大众入口；上传 OCR 只是给少量专业用户准备的高级入口。
                 </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>适合课堂古文理解</span>
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>适合经典入门阅读</span>
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>支持专业 OCR 解析</span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => (firstSample ? onOpenDocument(firstSample.id) : onOpenBookshelf())}
+                  className="rounded-2xl px-4 py-2.5 text-sm text-white transition-colors"
+                  style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                >
+                  {firstSample ? '从体验样例开始' : '打开典籍库'}
+                </button>
+                <button
+                  onClick={() => onAsk(QUICK_QUESTION_PROMPTS[0])}
+                  className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(26,30,35,0.04)',
+                    color: 'var(--gf-text)',
+                    border: '1px solid rgba(26,30,35,0.08)',
+                  }}
+                >
+                  先问一个问题
+                </button>
+                <button
+                  onClick={onOpenReaderHub}
+                  className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(201,160,99,0.12)',
+                    color: 'var(--gf-gold)',
+                    border: '1px solid rgba(201,160,99,0.2)',
+                  }}
+                >
+                  上传古籍图片
+                </button>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div
+              className="rounded-[28px] p-5"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.6)',
+                border: '1px solid rgba(26,30,35,0.06)',
+              }}
+            >
+              <div className="mb-4 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
+                <BookOpen className="h-4 w-4" />
+                现在最合理的产品结构
+              </div>
+              <div className="space-y-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.6)' }}>
+                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(140,26,17,0.05)' }}>
+                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gugong-red)' }}>主价值</div>
+                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>AI 帮普通人读懂古籍</div>
+                </div>
+                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+                  <div className="text-xs tracking-[0.2em]" style={{ color: 'rgba(26,30,35,0.42)' }}>大众入口</div>
+                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>示例古籍、经典片段、问题追问、人物典故检索</div>
+                </div>
+                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }}>
+                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gold)' }}>专业入口</div>
+                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>上传古籍图片，走 OCR 解析链路</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-3">
+          {audienceCards.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-2xl p-5"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.68)',
+                border: '1px solid rgba(26,30,35,0.06)',
+              }}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <item.icon className="h-5 w-5" style={{ color: item.accent }} />
+                <span className="text-xs tracking-[0.2em]" style={{ color: 'rgba(26,30,35,0.35)' }}>
+                  目标用户
+                </span>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  {item.title}
+                </h3>
+                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.55)' }}>
+                  {item.description}
+                </p>
+              </div>
+              <button
+                onClick={item.action}
+                className="mt-4 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm transition-colors"
+                style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
+              >
+                {item.actionLabel}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </section>
+
+        <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <div
+            className="rounded-2xl p-4 md:p-5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  体验样例
+                </h3>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  不用上传图片，直接进入三栏阅读和字词释义
+                </p>
+              </div>
               <button
                 onClick={onOpenBookshelf}
-                className="rounded-2xl px-4 py-2.5 text-sm text-white transition-colors"
-                style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                className="rounded-xl px-3 py-1.5 text-xs"
+                style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
               >
-                打开书架
+                查看全部
               </button>
-              <button
-                onClick={onOpenWordbook}
-                className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
-                style={{
-                  backgroundColor: 'rgba(26,30,35,0.04)',
-                  color: 'var(--gf-text)',
-                  border: '1px solid rgba(26,30,35,0.08)',
-                }}
-              >
-                查看生词本
-              </button>
-              <button
-                onClick={onOpenCompare}
-                className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
-                style={{
-                  backgroundColor: 'rgba(201,160,99,0.12)',
-                  color: 'var(--gf-gold)',
-                  border: '1px solid rgba(201,160,99,0.2)',
-                }}
-              >
-                对照阅读
-              </button>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {sampleDocuments.slice(0, 4).map((doc) => (
+                <button
+                  key={doc.id}
+                  onClick={() => onOpenDocument(doc.id)}
+                  className="rounded-2xl px-4 py-4 text-left transition-colors hover:bg-[rgba(26,30,35,0.03)]"
+                  style={{ border: '1px solid rgba(26,30,35,0.08)' }}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                      {doc.title}
+                    </span>
+                    <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}>
+                      体验
+                    </span>
+                  </div>
+                  <div className="line-clamp-3 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                    {doc.preview || '打开后即可查看原文、标点和白话对照。'}
+                  </div>
+                </button>
+              ))}
+              {!loading && sampleDocuments.length === 0 && (
+                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
+                  暂时还没有样例，先去典籍库看看。
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-5">
+            <div
+              className="rounded-2xl p-4 md:p-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-4">
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  片段问答
+                </h3>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  适合第一次体验，也适合课堂、考试和阅读时的即时追问
+                </p>
+              </div>
+              <div className="space-y-2">
+                {QUICK_QUESTION_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => onAsk(prompt)}
+                    className="w-full rounded-2xl px-4 py-3 text-left text-sm transition-colors hover:bg-[rgba(140,26,17,0.05)]"
+                    style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className="rounded-2xl p-4 md:p-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                    问题检索
+                  </h3>
+                  <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                    从人物、概念和典故切入，适合快速找入口
+                  </p>
+                </div>
+                <Search className="h-4 w-4" style={{ color: 'rgba(26,30,35,0.35)' }} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {SEARCH_TOPICS.map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => onSearch(topic)}
+                    className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.16)]"
+                    style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                  >
+                    {topic}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -252,69 +487,6 @@ export default function DashboardHome({
           ))}
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-          <div
-            className="rounded-2xl p-4 md:p-5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  推荐提问
-                </h3>
-                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  适合答辩演示和首次体验的稳定问题
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {SAMPLE_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => onAsk(prompt)}
-                  className="w-full rounded-2xl px-4 py-3 text-left text-sm transition-colors hover:bg-[rgba(140,26,17,0.05)]"
-                  style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="rounded-2xl p-4 md:p-5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  图谱热点
-                </h3>
-                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  当前知识图谱中连接度最高的实体
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {(analytics?.top_entities || []).slice(0, 5).map((entity) => (
-                <div
-                  key={entity.id}
-                  className="flex items-center justify-between rounded-xl px-3 py-2 text-sm"
-                  style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'var(--gf-text)' }}
-                >
-                  <span>{entity.label}</span>
-                  <span style={{ color: 'rgba(26,30,35,0.45)' }}>{entity.count} 关联</span>
-                </div>
-              ))}
-              {!loading && (analytics?.top_entities || []).length === 0 && (
-                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  暂无可展示数据
-                </p>
-              )}
-            </div>
-          </div>
-        </section>
-
         <section className="grid gap-5 lg:grid-cols-2">
           <div
             className="rounded-2xl p-4 md:p-5"
@@ -323,10 +495,10 @@ export default function DashboardHome({
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  最近文档
+                  我的继续阅读
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  从书架里继续打开已经处理过的古籍
+                  你自己上传过或读过的文档，会在这里继续往下走
                 </p>
               </div>
             </div>
@@ -355,7 +527,7 @@ export default function DashboardHome({
               ))}
               {!loading && documents.length === 0 && (
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  还没有文档，先去阅读页上传一张古籍图片。
+                  还没有你的个人阅读记录，先打开一个体验样例，或者去上传古籍图片。
                 </p>
               )}
             </div>
@@ -371,7 +543,7 @@ export default function DashboardHome({
                   最近沉淀
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  阅读记录与生词本共同构成你的学习轨迹
+                  阅读记录与字词积累，会慢慢变成你自己的古籍学习轨迹
                 </p>
               </div>
             </div>
@@ -406,7 +578,7 @@ export default function DashboardHome({
               <div>
                 <div className="mb-2 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
                   <Star className="h-4 w-4" />
-                  最近生词
+                  最近字词
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {wordbook.slice(0, 6).map((entry) => (
@@ -430,6 +602,100 @@ export default function DashboardHome({
           </div>
         </section>
 
+        <section className="grid gap-5 lg:grid-cols-[1fr_0.92fr]">
+          <div
+            className="rounded-2xl p-4 md:p-5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  学习总览
+                </h3>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  记录你用学习卡片复习了多少内容，还剩哪些要回顾
+                </p>
+              </div>
+              {studyOverview?.last_reviewed_document?.document_id && (
+                <button
+                  onClick={() => onContinueStudy(studyOverview.last_reviewed_document!.document_id)}
+                  className="rounded-2xl px-4 py-2 text-sm text-white"
+                  style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                >
+                  继续复习
+                </button>
+              )}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+                <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>复习次数</div>
+                <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                  {studyOverview?.sessions_count ?? 0}
+                </div>
+              </div>
+              <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+                <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>复习文档</div>
+                <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                  {studyOverview?.reviewed_documents_count ?? 0}
+                </div>
+              </div>
+              <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+                <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>掌握率</div>
+                <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                  {Math.round((studyOverview?.mastery_rate ?? 0) * 100)}%
+                </div>
+              </div>
+              <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+                <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>需复习卡片</div>
+                <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                  {studyOverview?.review_again_cards ?? 0}
+                </div>
+              </div>
+            </div>
+
+            {studyOverview?.last_reviewed_document?.title && (
+              <div className="mt-4 text-sm" style={{ color: 'rgba(26,30,35,0.52)' }}>
+                最近一次复习：{studyOverview.last_reviewed_document.title}
+              </div>
+            )}
+          </div>
+
+          <div
+            className="rounded-2xl p-4 md:p-5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  热门人物与概念
+                </h3>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  可以当成下一步检索和提问的入口
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(analytics?.top_entities || []).slice(0, 5).map((entity) => (
+                <button
+                  key={entity.id}
+                  onClick={() => onSearch(entity.label)}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-[rgba(26,30,35,0.05)]"
+                  style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'var(--gf-text)' }}
+                >
+                  <span>{entity.label}</span>
+                  <span style={{ color: 'rgba(26,30,35,0.45)' }}>{entity.count} 关联</span>
+                </button>
+              ))}
+              {!loading && (analytics?.top_entities || []).length === 0 && (
+                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
+                  暂无可展示数据
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
         <section
           className="rounded-2xl p-4 md:p-5"
           style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
@@ -437,68 +703,28 @@ export default function DashboardHome({
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                学习总览
+                下一步继续读什么
               </h3>
               <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                记录你通过学习卡片完成的复习次数与掌握率
+                基于体验样例、最近阅读和字词积累生成的下一篇建议
               </p>
             </div>
-            {studyOverview?.last_reviewed_document?.document_id && (
+            <div className="flex gap-2">
               <button
-                onClick={() => onContinueStudy(studyOverview.last_reviewed_document!.document_id)}
-                className="rounded-2xl px-4 py-2 text-sm text-white"
-                style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                onClick={onOpenCompare}
+                className="rounded-xl px-3 py-1.5 text-xs"
+                style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
               >
-                继续复习
+                打开对照阅读
               </button>
-            )}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>复习次数</div>
-              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
-                {studyOverview?.sessions_count ?? 0}
-              </div>
+              <button
+                onClick={onOpenWordbook}
+                className="rounded-xl px-3 py-1.5 text-xs"
+                style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
+              >
+                查看字词本
+              </button>
             </div>
-            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>复习文档</div>
-              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
-                {studyOverview?.reviewed_documents_count ?? 0}
-              </div>
-            </div>
-            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>掌握率</div>
-              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
-                {Math.round((studyOverview?.mastery_rate ?? 0) * 100)}%
-              </div>
-            </div>
-            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>需复习卡片</div>
-              <div className="mt-2 text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
-                {studyOverview?.review_again_cards ?? 0}
-              </div>
-            </div>
-          </div>
-
-          {studyOverview?.last_reviewed_document?.title && (
-            <div className="mt-4 text-sm" style={{ color: 'rgba(26,30,35,0.52)' }}>
-              最近一次复习：{studyOverview.last_reviewed_document.title}
-            </div>
-          )}
-        </section>
-
-        <section
-          className="rounded-2xl p-4 md:p-5"
-          style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
-        >
-          <div className="mb-4">
-            <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-              推荐继续阅读
-            </h3>
-            <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              基于图谱实体、生词本和最近阅读生成的下一步建议
-            </p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -524,7 +750,7 @@ export default function DashboardHome({
             ))}
             {!loading && recommendations.length === 0 && (
               <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                暂无推荐，先读一篇古籍试试看。
+                暂无推荐，先读一篇样例或上传一张古籍图片试试看。
               </p>
             )}
           </div>

@@ -26,9 +26,9 @@ function mockChatFetch(mockReader: any) {
 async function openChatTab() {
     fireEvent.click(screen.getByRole('button', { name: '打开导航' }))
     await waitFor(() => {
-        expect(screen.getByText('对话')).toBeInTheDocument()
+        expect(screen.getByText('问答')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('对话'))
+    fireEvent.click(screen.getByText('问答'))
     await screen.findByPlaceholderText(/输入问题/i)
 }
 

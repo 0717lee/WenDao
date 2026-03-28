@@ -171,16 +171,17 @@ async def _get_document(document_id: str) -> dict | None:
         return dict(row) if row else None
 
 
-async def _list_documents(limit: int = 50) -> list[dict[str, Any]]:
+async def _list_documents(limit: int = 50, source_type: str | None = None) -> list[dict[str, Any]]:
     """Return bookshelf-ready document metadata ordered by most recently updated."""
+    where_clause = "WHERE d.source_type = $2" if source_type else ""
     try:
         async with get_connection() as conn:
-            rows = await conn.fetch(
-                """
+            sql = f"""
                 SELECT
                     d.id::text AS id,
                     d.title,
                     d.status,
+                    d.source_type,
                     d.created_at,
                     d.updated_at,
                     LEFT(COALESCE(NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 140) AS preview,
@@ -203,22 +204,26 @@ async def _list_documents(limit: int = 50) -> list[dict[str, Any]]:
                     LIMIT 1
                 ) h ON TRUE
                 LEFT JOIN document_notes n ON n.document_id = d.id
-                ORDER BY COALESCE(d.updated_at, d.created_at) DESC
+                {where_clause}
+                ORDER BY CASE WHEN d.source_type = 'sample' THEN 0 ELSE 1 END, COALESCE(d.updated_at, d.created_at) DESC
                 LIMIT $1
-                """,
+                """
+            rows = await conn.fetch(
+                sql,
                 limit,
-            )
+                source_type,
+            ) if source_type else await conn.fetch(sql, limit)
             return [dict(row) for row in rows]
     except RuntimeError:
         pass
 
     async with get_db() as db:
-        cursor = await db.execute(
-            """
+        sql = """
             SELECT
                 d.id,
                 d.title,
                 d.status,
+                d.source_type,
                 d.created_at,
                 d.updated_at,
                 SUBSTR(COALESCE(NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 1, 140) AS preview,
@@ -246,10 +251,14 @@ async def _list_documents(limit: int = 50) -> list[dict[str, Any]]:
                 END AS has_note
             FROM documents d
             LEFT JOIN document_notes n ON n.document_id = d.id
-            ORDER BY COALESCE(d.updated_at, d.created_at) DESC
+            {where_clause_sqlite}
+            ORDER BY CASE WHEN d.source_type = 'sample' THEN 0 ELSE 1 END, COALESCE(d.updated_at, d.created_at) DESC
             LIMIT ?
-            """,
-            (limit,),
+            """
+        where_clause_sqlite = "WHERE d.source_type = ?" if source_type else ""
+        cursor = await db.execute(
+            sql.format(where_clause_sqlite=where_clause_sqlite),
+            (limit, source_type) if source_type else (limit,),
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
@@ -634,9 +643,9 @@ async def _update_document_results(
 
 
 @router.get("")
-async def list_documents(limit: int = Query(50, ge=1, le=200)):
+async def list_documents(limit: int = Query(50, ge=1, le=200), source_type: str | None = Query(default=None)):
     """List documents for the bookshelf/home views."""
-    documents = await _list_documents(limit=limit)
+    documents = await _list_documents(limit=limit, source_type=source_type)
     return {"documents": documents, "total": len(documents)}
 
 

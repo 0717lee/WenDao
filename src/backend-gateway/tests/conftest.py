@@ -173,6 +173,7 @@ def mock_asyncpg_pool():
     """
     mock_conn = AsyncMock()
     mock_conn.execute = AsyncMock(return_value="CREATE TABLE")
+    mock_conn.executemany = AsyncMock(return_value=None)
     mock_conn.fetchrow = AsyncMock(return_value={"id": "test-uuid", "title": "test"})
     mock_conn.fetchval = AsyncMock(return_value=1)
     mock_conn.fetch = AsyncMock(return_value=[])

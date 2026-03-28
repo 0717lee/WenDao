@@ -1,12 +1,71 @@
 /**
  * DocumentUpload & useDocumentStore Tests
- * Coverage: Document state management, drag-and-drop upload, OCR API call
+ * Coverage: Document state management, dual-entry page, OCR upload flow
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useDocumentStore } from '../store/useDocumentStore'
 import { DocumentUpload } from '../components/DocumentUpload'
 import { API_BASE } from '../lib/api'
+
+const SAMPLE_LIST = {
+  documents: [
+    {
+      id: 'sample-1',
+      title: '体验样例 · 《论语·学而》',
+      preview: '学习后经常复习实践，不也是快乐的吗？',
+    },
+  ],
+}
+
+const SAMPLE_DETAIL = {
+  id: 'sample-1',
+  title: '体验样例 · 《论语·学而》',
+  original_text: '学而时习之不亦说乎',
+  punctuated_text: '学而时习之，不亦说乎？',
+  translated_text: '学习后经常复习实践，不也是快乐的吗？',
+  ocr_confidence: 1,
+  image_data: null,
+}
+
+function installFetchMock(options?: {
+  uploadResponse?: Response | Promise<Response>
+  sampleListResponse?: Response | Promise<Response>
+  sampleDetailResponse?: Response | Promise<Response>
+}) {
+  ;(global.fetch as any).mockImplementation((url: string) => {
+    if (typeof url === 'string' && url.includes('/api/v1/documents?limit=6&source_type=sample')) {
+      return options?.sampleListResponse ?? Promise.resolve({
+        ok: true,
+        json: async () => SAMPLE_LIST,
+      } as Response)
+    }
+
+    if (typeof url === 'string' && url.includes('/api/v1/documents/sample-1')) {
+      return options?.sampleDetailResponse ?? Promise.resolve({
+        ok: true,
+        json: async () => SAMPLE_DETAIL,
+      } as Response)
+    }
+
+    if (typeof url === 'string' && url.includes('/api/v1/documents/upload')) {
+      return options?.uploadResponse ?? Promise.resolve({
+        ok: true,
+        json: async () => ({
+          document_id: 'doc-123',
+          text: 'OCR recognized text',
+          confidence: 0.92,
+          image_url: 'data:image/png;base64,ZmFrZQ==',
+        }),
+      } as Response)
+    }
+
+    return Promise.resolve({
+      ok: true,
+      json: async () => ({ documents: [] }),
+    } as Response)
+  })
+}
 
 describe('useDocumentStore', () => {
   beforeEach(() => {
@@ -71,30 +130,49 @@ describe('DocumentUpload', () => {
   beforeEach(() => {
     useDocumentStore.getState().reset()
     vi.mocked(global.fetch).mockReset()
+    installFetchMock()
   })
 
-  it('renders drag-and-drop zone', () => {
+  it('renders dual-entry page with upload zone and sample area', async () => {
     render(<DocumentUpload />)
-    expect(screen.getByText(/拖拽图片|点击上传/)).toBeTruthy()
+
+    expect(screen.getByText(/没有古籍图片，也可以马上开始/)).toBeInTheDocument()
+    expect(screen.getByText(/拖拽图片|点击上传/)).toBeInTheDocument()
+    expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
+  })
+
+  it('opens a sample document and stores full reader content', async () => {
+    render(<DocumentUpload />)
+
+    fireEvent.click(await screen.findByText('体验样例 · 《论语·学而》'))
+
+    await waitFor(() => {
+      const state = useDocumentStore.getState()
+      expect(state.currentDocument?.id).toBe('sample-1')
+      expect(state.currentDocument?.punctuatedText).toBe('学而时习之，不亦说乎？')
+      expect(state.currentDocument?.translatedText).toBe('学习后经常复习实践，不也是快乐的吗？')
+      expect(state.uploadStatus).toBe('done')
+    })
   })
 
   it('calls upload API on file drop and stores result', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        document_id: 'doc-123',
-        text: 'OCR recognized text',
-        confidence: 0.92,
-        image_url: 'data:image/png;base64,ZmFrZQ==',
-      }),
-    } as Response)
+    installFetchMock({
+      uploadResponse: Promise.resolve({
+        ok: true,
+        json: async () => ({
+          document_id: 'doc-123',
+          text: 'OCR recognized text',
+          confidence: 0.92,
+          image_url: 'data:image/png;base64,ZmFrZQ==',
+        }),
+      } as Response),
+    })
 
     render(<DocumentUpload />)
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     const file = new File(['image data'], 'ancient-text.png', { type: 'image/png' })
 
-    // Simulate file drop via the hidden input
     fireEvent.change(input, { target: { files: [file] } })
 
     await waitFor(() => {
@@ -113,11 +191,13 @@ describe('DocumentUpload', () => {
   })
 
   it('shows error state on upload failure', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: async () => ({ detail: 'Server error' }),
-    } as Response)
+    installFetchMock({
+      uploadResponse: Promise.resolve({
+        ok: false,
+        status: 500,
+        json: async () => ({ detail: 'Server error' }),
+      } as Response),
+    })
 
     render(<DocumentUpload />)
 
@@ -129,6 +209,7 @@ describe('DocumentUpload', () => {
     await waitFor(() => {
       const state = useDocumentStore.getState()
       expect(state.uploadStatus).toBe('error')
+      expect(screen.getByText(/上传失败/)).toBeInTheDocument()
     })
   })
 })

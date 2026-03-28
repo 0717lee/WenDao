@@ -5,9 +5,12 @@ SQLite异步数据库管理模块。
 当 PostgreSQL 不可用时，这里承担项目的真实降级存储职责，而不只是保存聊天记录。
 """
 from contextlib import asynccontextmanager
+import json
 from typing import AsyncGenerator
 
 import aiosqlite
+
+from core.sample_documents import SAMPLE_DOCUMENTS
 
 
 async def _ensure_column(
@@ -108,6 +111,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         await _ensure_column(db, "documents", "image_data", "TEXT")
         await _ensure_column(db, "documents", "status", "TEXT DEFAULT 'ocr_complete'")
         await _ensure_column(db, "documents", "entity_ids", "TEXT DEFAULT '[]'")
+        await _ensure_column(db, "documents", "source_type", "TEXT DEFAULT 'user'")
         await _ensure_column(db, "documents", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
 
         # 如果是旧表，尽量把历史 content 迁移到 original_text
@@ -201,6 +205,30 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
             )
         """)
+
+        await db.executemany(
+            """
+            INSERT OR IGNORE INTO documents (
+                id, title, original_text, punctuated_text, translated_text,
+                ocr_confidence, image_data, status, entity_ids, source_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    item["id"],
+                    item["title"],
+                    item["original_text"],
+                    item["punctuated_text"],
+                    item["translated_text"],
+                    1.0,
+                    None,
+                    "done",
+                    json.dumps(item["entity_ids"], ensure_ascii=False),
+                    item["source_type"],
+                )
+                for item in SAMPLE_DOCUMENTS
+            ],
+        )
 
         await db.commit()
 

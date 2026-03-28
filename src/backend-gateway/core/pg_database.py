@@ -4,11 +4,14 @@ PostgreSQL async database module using asyncpg.
 Provides connection pool management and schema initialization for Phase 2 features.
 """
 import os
+import json
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
 
 import asyncpg
+
+from core.sample_documents import SAMPLE_DOCUMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +161,11 @@ async def init_pg_database() -> None:
             ADD COLUMN IF NOT EXISTS image_data TEXT
         """)
 
+        await conn.execute("""
+            ALTER TABLE documents
+            ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT 'user'
+        """)
+
         # Users table for JWT auth
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -174,4 +182,29 @@ async def init_pg_database() -> None:
             ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
         """)
 
-    logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes, study_sessions)")
+        await conn.executemany(
+            """
+            INSERT INTO documents (
+                id, title, original_text, punctuated_text, translated_text,
+                ocr_confidence, image_data, status, entity_ids, source_type
+            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            [
+                (
+                    item["id"],
+                    item["title"],
+                    item["original_text"],
+                    item["punctuated_text"],
+                    item["translated_text"],
+                    1.0,
+                    None,
+                    "done",
+                    json.dumps(item["entity_ids"], ensure_ascii=False),
+                    item["source_type"],
+                )
+                for item in SAMPLE_DOCUMENTS
+            ],
+        )
+
+    logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes, study_sessions, sample docs)")

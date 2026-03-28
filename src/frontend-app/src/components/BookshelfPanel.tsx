@@ -11,6 +11,7 @@ interface BookshelfItem {
   total_paragraphs: number
   has_processed: boolean
   has_note: boolean
+  source_type?: string
   updated_at?: string
 }
 
@@ -56,10 +57,10 @@ export default function BookshelfPanel({ onOpenDocument, onToggleCompare, compar
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
-              我的书架
+              典籍库
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              管理你上传过的古籍，并继续从上次位置打开
+              浏览体验样例和你整理过的古籍，并从上次位置继续打开
             </p>
           </div>
           <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
@@ -92,7 +93,7 @@ export default function BookshelfPanel({ onOpenDocument, onToggleCompare, compar
         ) : documents.length === 0 ? (
           <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.65)' }}>
             <BookMarked className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.25)' }} />
-            <p style={{ color: 'rgba(26,30,35,0.45)' }}>还没有文档，先去阅读页上传一张古籍图片。</p>
+            <p style={{ color: 'rgba(26,30,35,0.45)' }}>还没有加载到文档，可以先去读古籍页体验样例或上传古籍图片。</p>
           </div>
         ) : (
           <div className="grid gap-3">
@@ -118,6 +119,15 @@ export default function BookshelfPanel({ onOpenDocument, onToggleCompare, compar
                         }}
                       >
                         {doc.has_processed ? '已处理' : '待处理'}
+                      </span>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[11px]"
+                        style={{
+                          backgroundColor: doc.source_type === 'sample' ? 'rgba(140,26,17,0.08)' : 'rgba(26,30,35,0.06)',
+                          color: doc.source_type === 'sample' ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.45)',
+                        }}
+                      >
+                        {doc.source_type === 'sample' ? '体验样例' : '我的文档'}
                       </span>
                       {doc.has_note && (
                         <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(60,138,81,0.12)', color: '#3c8a51' }}>
