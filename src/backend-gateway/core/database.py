@@ -208,10 +208,21 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
 
         await db.executemany(
             """
-            INSERT OR IGNORE INTO documents (
+            INSERT INTO documents (
                 id, title, original_text, punctuated_text, translated_text,
                 ocr_confidence, image_data, status, entity_ids, source_type
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                original_text = excluded.original_text,
+                punctuated_text = excluded.punctuated_text,
+                translated_text = excluded.translated_text,
+                ocr_confidence = excluded.ocr_confidence,
+                image_data = excluded.image_data,
+                status = excluded.status,
+                entity_ids = excluded.entity_ids,
+                source_type = excluded.source_type,
+                updated_at = CURRENT_TIMESTAMP
             """,
             [
                 (

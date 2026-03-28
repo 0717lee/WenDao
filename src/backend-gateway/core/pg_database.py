@@ -188,7 +188,17 @@ async def init_pg_database() -> None:
                 id, title, original_text, punctuated_text, translated_text,
                 ocr_confidence, image_data, status, entity_ids, source_type
             ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
-            ON CONFLICT (id) DO NOTHING
+            ON CONFLICT (id) DO UPDATE SET
+                title = EXCLUDED.title,
+                original_text = EXCLUDED.original_text,
+                punctuated_text = EXCLUDED.punctuated_text,
+                translated_text = EXCLUDED.translated_text,
+                ocr_confidence = EXCLUDED.ocr_confidence,
+                image_data = EXCLUDED.image_data,
+                status = EXCLUDED.status,
+                entity_ids = EXCLUDED.entity_ids,
+                source_type = EXCLUDED.source_type,
+                updated_at = NOW()
             """,
             [
                 (

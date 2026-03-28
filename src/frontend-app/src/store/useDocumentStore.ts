@@ -8,6 +8,7 @@ interface Document {
   translatedText?: string;
   confidence?: number;
   imageUrl?: string;
+  sourceType?: string;
 }
 
 interface DocumentStore {

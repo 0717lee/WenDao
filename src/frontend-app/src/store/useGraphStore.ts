@@ -35,6 +35,7 @@ interface GraphStore {
     pendingGraphFocus: string | null;
     pendingReaderDocId: string | null;
     pendingSearchQuery: string;
+    readerReturnTab: TabType | null;
 
     // Citation chain state
     citationChainMode: boolean;
@@ -63,6 +64,7 @@ interface GraphStore {
     clearGraphFocus: () => void;
     navigateToReader: (docId: string) => void;
     clearReaderNavigation: () => void;
+    setReaderReturnTab: (tab: TabType | null) => void;
     queueSearchQuery: (query: string) => void;
     consumeSearchQuery: () => string;
     enterCitationChain: (rootId: string, chain: CitationNode[]) => void;
@@ -75,6 +77,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     pendingGraphFocus: null,
     pendingReaderDocId: null,
     pendingSearchQuery: '',
+    readerReturnTab: null,
     citationChainMode: false,
     citationChainRoot: null,
     citationChain: [],
@@ -90,6 +93,7 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
     clearGraphFocus: () => set({ pendingGraphFocus: null }),
     navigateToReader: (docId) => set({ pendingReaderDocId: docId }),
     clearReaderNavigation: () => set({ pendingReaderDocId: null }),
+    setReaderReturnTab: (readerReturnTab) => set({ readerReturnTab }),
     queueSearchQuery: (query) => set({ pendingSearchQuery: query }),
     consumeSearchQuery: () => {
         const query = get().pendingSearchQuery

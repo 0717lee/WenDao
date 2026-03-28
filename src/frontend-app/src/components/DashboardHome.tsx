@@ -20,7 +20,10 @@ interface DashboardHomeProps {
   onSearch: (query: string) => void
   onOpenReaderHub: () => void
   onOpenBookshelf: () => void
+  onOpenHistory: () => void
   onOpenWordbook: () => void
+  onOpenGraph: () => void
+  onOpenGraphEntity: (entityId: string) => void
   onOpenCompare: () => void
   onContinueStudy: (documentId: string) => void
 }
@@ -91,7 +94,10 @@ export default function DashboardHome({
   onSearch,
   onOpenReaderHub,
   onOpenBookshelf,
+  onOpenHistory,
   onOpenWordbook,
+  onOpenGraph,
+  onOpenGraphEntity,
   onOpenCompare,
   onContinueStudy,
 }: DashboardHomeProps) {
@@ -230,6 +236,7 @@ export default function DashboardHome({
       accent: 'var(--gf-gugong-red)',
       hint: '不用准备图片',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(250,239,236,0.94) 100%)',
+      action: firstSample ? () => onOpenDocument(firstSample.id) : onOpenBookshelf,
     },
     {
       label: '最近阅读',
@@ -238,6 +245,7 @@ export default function DashboardHome({
       accent: '#5b8aab',
       hint: '随时接着往下读',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(237,244,247,0.96) 100%)',
+      action: onOpenHistory,
     },
     {
       label: '字词沉淀',
@@ -246,14 +254,16 @@ export default function DashboardHome({
       accent: '#3c8a51',
       hint: '留住释义与典故',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(239,246,241,0.96) 100%)',
+      action: onOpenWordbook,
     },
     {
       label: '图谱实体',
       value: analytics?.total_nodes ?? 0,
       icon: Brain,
       accent: 'var(--gf-gold)',
-      hint: '人物与典故入口',
+      hint: '点击进入知识图谱',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.98) 100%)',
+      action: onOpenGraph,
     },
   ]
 
@@ -583,9 +593,10 @@ export default function DashboardHome({
 
         <section className="grid gap-4 md:grid-cols-4">
           {statCards.map((item) => (
-            <div
+            <button
               key={item.label}
-              className="rounded-[24px] p-4"
+              onClick={item.action}
+              className="rounded-[24px] p-4 text-left transition-all duration-300 hover:-translate-y-1"
               style={{
                 background: item.surface,
                 border: '1px solid rgba(26,30,35,0.06)',
@@ -606,7 +617,7 @@ export default function DashboardHome({
               <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
                 {item.hint}
               </div>
-            </div>
+            </button>
           ))}
         </section>
 
@@ -825,7 +836,7 @@ export default function DashboardHome({
                   热门人物与概念
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  不知道从哪儿开始时，可以先从这些入口读起或问起。
+                  点击任意条目，直接进入知识图谱查看相关人物、典籍和典故。
                 </p>
               </div>
             </div>
@@ -833,7 +844,7 @@ export default function DashboardHome({
               {(analytics?.top_entities || []).slice(0, 5).map((entity) => (
                 <button
                   key={entity.id}
-                  onClick={() => onSearch(entity.label)}
+                  onClick={() => onOpenGraphEntity(entity.id)}
                   className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-[rgba(26,30,35,0.05)]"
                   style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'var(--gf-text)' }}
                 >

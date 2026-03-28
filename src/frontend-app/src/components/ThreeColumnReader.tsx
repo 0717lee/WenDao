@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
-import { GraduationCap, NotebookText } from 'lucide-react';
+import { ArrowLeft, GraduationCap, NotebookText } from 'lucide-react';
 import { authHeaders } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
+import { useGraphStore } from '../store/useGraphStore';
 import { ReaderNotesPanel } from './ReaderNotesPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
@@ -10,10 +11,12 @@ import { API_BASE } from '../lib/api';
 
 export function ThreeColumnReader() {
   const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel } = useDocumentStore();
+  const readerReturnTab = useGraphStore((state) => state.readerReturnTab);
+  const setAppTab = useGraphStore((state) => state.setActiveTab);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activeTab, setActiveTab] = useState<'original' | 'punctuated' | 'translated'>('original');
+  const [activeReaderTab, setActiveReaderTab] = useState<'original' | 'punctuated' | 'translated'>('original');
   const [sidePanel, setSidePanel] = useState<'notes' | 'study' | null>(null);
   const [anchorText, setAnchorText] = useState('');
   const [progressSyncError, setProgressSyncError] = useState(false);
@@ -47,7 +50,7 @@ export function ThreeColumnReader() {
     if (anchorText && anchorRef.current) {
       anchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [anchorText, activeTab]);
+  }, [anchorText, activeReaderTab]);
 
   if (!currentDocument) return null;
 
@@ -62,6 +65,10 @@ export function ThreeColumnReader() {
   const handleWordClick = (word: string, event: React.MouseEvent) => {
     setSelectedWord(word);
     setPopoverPosition({ x: event.clientX, y: event.clientY });
+  };
+
+  const handleBack = () => {
+    setAppTab(readerReturnTab || 'home');
   };
 
   const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
@@ -142,9 +149,19 @@ export function ThreeColumnReader() {
     return (
       <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
         <div className="flex items-center justify-between border-b px-4 py-2" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.45)' }}>
-          <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-            {progressSyncError ? '阅读进度暂未同步' : '阅读进度会自动记录'}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs"
+              style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.62)' }}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              返回
+            </button>
+            <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
+              {progressSyncError ? '阅读进度暂未同步' : '阅读进度会自动记录'}
+            </span>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
@@ -174,14 +191,14 @@ export function ThreeColumnReader() {
           ].map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setActiveReaderTab(tab.key)}
               className="flex-1 py-3 px-4 text-sm font-medium transition-colors relative"
               style={{
-                color: activeTab === tab.key ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.4)',
+                color: activeReaderTab === tab.key ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.4)',
               }}
             >
               {tab.label}
-              {activeTab === tab.key && (
+              {activeReaderTab === tab.key && (
                 <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full" style={{ backgroundColor: 'var(--gf-gugong-red)' }} />
               )}
             </button>
@@ -196,9 +213,9 @@ export function ThreeColumnReader() {
             reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
           }}
         >
-          {activeTab === 'original' && renderText(currentDocument.originalText, '原文')}
-          {activeTab === 'punctuated' && currentDocument.punctuatedText && renderText(currentDocument.punctuatedText, '标点文')}
-          {activeTab === 'translated' && currentDocument.translatedText && renderText(currentDocument.translatedText, '白话译')}
+          {activeReaderTab === 'original' && renderText(currentDocument.originalText, '原文')}
+          {activeReaderTab === 'punctuated' && currentDocument.punctuatedText && renderText(currentDocument.punctuatedText, '标点文')}
+          {activeReaderTab === 'translated' && currentDocument.translatedText && renderText(currentDocument.translatedText, '白话译')}
         </div>
 
         {sidePanel === 'notes' && (
@@ -227,8 +244,18 @@ export function ThreeColumnReader() {
   return (
     <div className="h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
         <div className="flex items-center justify-between px-4 pt-4">
-          <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-            {progressSyncError ? '阅读进度暂未同步' : `当前文档：${currentDocument.title}`}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs"
+              style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.62)' }}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              返回
+            </button>
+            <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
+              {progressSyncError ? '阅读进度暂未同步' : `当前文档：${currentDocument.title}`}
+            </div>
           </div>
           <div className="flex gap-2">
             <button

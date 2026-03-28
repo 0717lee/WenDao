@@ -73,6 +73,7 @@ export function DocumentUpload() {
           translatedText: data.translated_text || '',
           confidence: data.ocr_confidence,
           imageUrl: data.image_data || undefined,
+          sourceType: data.source_type || 'sample',
         });
         setUploadStatus('done');
       } catch (error) {
@@ -124,6 +125,7 @@ export function DocumentUpload() {
         originalText: data.text,
         confidence: data.confidence,
         imageUrl: data.image_url,
+        sourceType: 'user',
       });
       setUploadStatus('done');
     } catch (error) {

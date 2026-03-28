@@ -7,6 +7,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { act } from 'react'
 import { useDocumentStore } from '../store/useDocumentStore'
 
+const mockGraphStoreState = {
+  readerReturnTab: 'home',
+  setActiveTab: vi.fn(),
+}
+
+vi.mock('../store/useGraphStore', () => ({
+  useGraphStore: vi.fn((selector: any) => selector(mockGraphStoreState)),
+}))
+
 // Mock react-scroll-sync since it requires actual DOM scroll behavior
 vi.mock('react-scroll-sync', () => ({
   ScrollSync: ({ children }: { children: React.ReactNode }) => <div data-testid="scroll-sync">{children}</div>,
@@ -63,6 +72,7 @@ describe('ThreeColumnReader', () => {
     expect(screen.getByText('原文')).toBeTruthy()
     expect(screen.getByText('标点文')).toBeTruthy()
     expect(screen.getByText('白话译')).toBeTruthy()
+    expect(screen.getAllByText('返回').length).toBeGreaterThan(0)
   })
 
   it('renders tab interface on mobile (<768px)', async () => {

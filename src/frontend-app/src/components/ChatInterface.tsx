@@ -35,6 +35,7 @@ export function ChatInterface() {
     const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
     const { setDocument, setUploadStatus, setPendingAnchorText } = useDocumentStore()
     const setActiveTab = useGraphStore((state) => state.setActiveTab)
+    const setReaderReturnTab = useGraphStore((state) => state.setReaderReturnTab)
     const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery)
     const { isRecording, isTranscribing, toggleRecording } = useVoiceRecorder()
 
@@ -100,9 +101,11 @@ export function ChatInterface() {
                             translatedText: data.translated_text || '',
                             confidence: data.ocr_confidence,
                             imageUrl: data.image_data || undefined,
+                            sourceType: data.source_type || 'user',
                         })
                         setUploadStatus(data.punctuated_text ? 'done' : 'idle')
                         setPendingAnchorText(resolveData.match.anchor_text || citation.excerpt || citation.source)
+                        setReaderReturnTab('chat')
                         setActiveTab('reader')
                         return
                     }
@@ -114,7 +117,7 @@ export function ChatInterface() {
             queueSearchQuery(`${citation.title} ${citation.source}`)
             setActiveTab('search')
         },
-        [queueSearchQuery, setActiveTab, setDocument, setPendingAnchorText, setUploadStatus]
+        [queueSearchQuery, setActiveTab, setDocument, setPendingAnchorText, setReaderReturnTab, setUploadStatus]
     )
 
     const handleVoiceToggle = useCallback(() => {

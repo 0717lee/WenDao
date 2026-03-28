@@ -16,6 +16,7 @@ const FavoritesList = lazy(() => import('./components/FavoritesList'));
 const BookshelfPanel = lazy(() => import('./components/BookshelfPanel'));
 const ComparePanel = lazy(() => import('./components/ComparePanel'));
 const WordbookPanel = lazy(() => import('./components/WordbookPanel'));
+const KnowledgeGraphPanel = lazy(() => import('./components/KnowledgeGraphPanel').then((m) => ({ default: m.KnowledgeGraphPanel })));
 const DocumentUpload = lazy(() => import('./components/DocumentUpload').then((m) => ({ default: m.DocumentUpload })));
 const OCRPreview = lazy(() => import('./components/OCRPreview').then((m) => ({ default: m.OCRPreview })));
 const ThreeColumnReader = lazy(() => import('./components/ThreeColumnReader').then((m) => ({ default: m.ThreeColumnReader })));
@@ -24,6 +25,7 @@ const TAB_ICONS: Record<string, string> = {
     home: 'M3 10.5l9-7 9 7M5.25 9.75V20h13.5V9.75',
     chat: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
     search: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
+    graph: 'M9 5a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM6 15a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4zM8 7h4m4 0h-4M7 15l3-6m4 0l3 6',
     reader: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
     bookshelf: 'M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v15H6.5A2.5 2.5 0 004 19.5v-15z',
     compare: 'M8 7h8M8 12h8M8 17h8M4 7h.01M4 12h.01M4 17h.01M20 7h.01M20 12h.01M20 17h.01',
@@ -51,7 +53,7 @@ function TabLoader() {
 }
 
 function App() {
-    const { activeTab, setActiveTab, queueSearchQuery } = useGraphStore();
+    const { activeTab, setActiveTab, queueSearchQuery, setReaderReturnTab, focusEntityInGraph } = useGraphStore();
     const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
     const { token, username, logout, validateStoredAuth } = useAuthStore();
     const { setDraftMessage } = useStore();
@@ -103,17 +105,19 @@ function App() {
                     translatedText: data.translated_text || '',
                     confidence: data.ocr_confidence,
                     imageUrl: data.image_data || undefined,
+                    sourceType: data.source_type || 'user',
                 });
                 setUploadStatus(data.punctuated_text ? 'done' : 'idle');
                 if (options?.readerPanel) {
                     setPendingReaderPanel(options.readerPanel);
                 }
+                setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab);
                 setActiveTab('reader');
             } catch (error) {
                 console.error('Failed to open document:', error);
             }
         },
-        [setActiveTab, setDocument, setPendingReaderPanel, setUploadStatus]
+        [activeTab, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
     );
 
     const jumpToChat = useCallback(
@@ -134,8 +138,21 @@ function App() {
 
     const openReaderHub = useCallback(() => {
         clearCurrentDocument();
+        setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab);
         setActiveTab('reader');
-    }, [clearCurrentDocument, setActiveTab]);
+    }, [activeTab, clearCurrentDocument, setActiveTab, setReaderReturnTab]);
+
+    const openGraph = useCallback(() => {
+        setActiveTab('graph');
+    }, [setActiveTab]);
+
+    const openGraphEntity = useCallback(
+        (entityId: string) => {
+            focusEntityInGraph(entityId);
+            setActiveTab('graph');
+        },
+        [focusEntityInGraph, setActiveTab]
+    );
 
     const toggleCompare = useCallback(
         async (documentId: string) => {
@@ -169,6 +186,7 @@ function App() {
         { key: 'reader' as const, label: '读古籍' },
         { key: 'chat' as const, label: '问答' },
         { key: 'search' as const, label: '检索' },
+        { key: 'graph' as const, label: '图谱' },
         { key: 'bookshelf' as const, label: '典籍库' },
         { key: 'compare' as const, label: '对照' },
         { key: 'history' as const, label: '进度' },
@@ -186,7 +204,10 @@ function App() {
                         onSearch={jumpToSearch}
                         onOpenReaderHub={openReaderHub}
                         onOpenBookshelf={() => setActiveTab('bookshelf')}
+                        onOpenHistory={() => setActiveTab('history')}
                         onOpenWordbook={() => setActiveTab('wordbook')}
+                        onOpenGraph={openGraph}
+                        onOpenGraphEntity={openGraphEntity}
                         onOpenCompare={() => setActiveTab('compare')}
                         onContinueStudy={(documentId) => openDocument(documentId, { readerPanel: 'study' })}
                     />
@@ -195,6 +216,8 @@ function App() {
                 return <ChatInterface />;
             case 'search':
                 return <SearchPanel />;
+            case 'graph':
+                return <KnowledgeGraphPanel />;
             case 'reader':
                 if (getReaderView() === 'upload') return <DocumentUpload />;
                 if (getReaderView() === 'preview') return <OCRPreview />;

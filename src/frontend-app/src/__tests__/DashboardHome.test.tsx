@@ -91,7 +91,10 @@ describe('DashboardHome', () => {
     onSearch: vi.fn(),
     onOpenReaderHub: vi.fn(),
     onOpenBookshelf: vi.fn(),
+    onOpenHistory: vi.fn(),
     onOpenWordbook: vi.fn(),
+    onOpenGraph: vi.fn(),
+    onOpenGraphEntity: vi.fn(),
     onOpenCompare: vi.fn(),
     onContinueStudy: vi.fn(),
   }
@@ -166,5 +169,15 @@ describe('DashboardHome', () => {
     render(<DashboardHome {...props} />)
 
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
+  })
+
+  it('routes stat cards to graph and wordbook entry points', async () => {
+    render(<DashboardHome {...props} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /图谱实体/i }))
+    expect(props.onOpenGraph).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /字词沉淀/i }))
+    expect(props.onOpenWordbook).toHaveBeenCalled()
   })
 })
