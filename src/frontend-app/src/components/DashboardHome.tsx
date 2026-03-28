@@ -266,6 +266,12 @@ export default function DashboardHome({
     },
   ]
 
+  const hasLearningTrail =
+    documents.length > 0 ||
+    history.length > 0 ||
+    wordbook.length > 0 ||
+    (studyOverview?.sessions_count ?? 0) > 0
+
   return (
     <div className="relative h-full overflow-y-auto px-4 py-5 md:px-6 md:py-7" style={{ backgroundColor: 'var(--gf-bg)' }}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -502,9 +508,26 @@ export default function DashboardHome({
                 </button>
               ))}
               {!loading && sampleDocuments.length === 0 && (
-                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  暂时没加载到体验样例，你也可以先问一句古文，或去典籍库看看。
-                </p>
+                <div
+                  className="rounded-[24px] px-4 py-4"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.06)' }}
+                >
+                  <p className="text-sm mb-3" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                    暂时没加载到体验样例，你也可以先从问题入口开始。
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {QUICK_QUESTION_PROMPTS.slice(0, 2).map((prompt) => (
+                      <button
+                        key={`fallback-${prompt}`}
+                        onClick={() => onAsk(prompt)}
+                        className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                        style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -596,120 +619,151 @@ export default function DashboardHome({
           ))}
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-2">
-          <div
-            className="rounded-2xl p-4 md:p-5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  继续阅读
-                </h3>
-                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  读过的样例和你上传的文档，都可以从这里接着往下读。
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {documents.slice(0, 4).map((doc) => (
-                <button
-                  key={doc.id}
-                  onClick={() => onOpenDocument(doc.id)}
-                  className="w-full rounded-2xl px-4 py-3 text-left transition-colors hover:bg-[rgba(26,30,35,0.03)]"
-                  style={{ border: '1px solid rgba(26,30,35,0.08)' }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                        {doc.title}
-                      </div>
-                      <div className="line-clamp-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                        {doc.preview || '暂无摘要'}
-                      </div>
-                    </div>
-                    <span className="shrink-0 text-[11px]" style={{ color: doc.has_processed ? 'var(--gf-gold)' : 'rgba(26,30,35,0.35)' }}>
-                      {doc.has_processed ? '已处理' : '待处理'}
-                    </span>
-                  </div>
-                </button>
-              ))}
-              {!loading && documents.length === 0 && (
-                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  你还没开始阅读，先打开一个体验样例，或者上传一张古籍图片。
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div
-            className="rounded-2xl p-4 md:p-5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  最近积累
-                </h3>
-                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  阅读记录和字词收藏，会慢慢串成你的古籍学习线索。
-                </p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <div className="mb-2 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
-                  <BookOpen className="h-4 w-4" />
-                  最近阅读
+        {hasLearningTrail ? (
+          <section className="grid gap-5 lg:grid-cols-2">
+            <div
+              className="rounded-2xl p-4 md:p-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                    继续阅读
+                  </h3>
+                  <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                    读过的样例和你上传的文档，都可以从这里接着往下读。
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  {history.slice(0, 3).map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => onOpenDocument(item.id)}
-                      className="w-full rounded-xl px-3 py-2 text-left text-sm"
-                      style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'var(--gf-text)' }}
-                    >
-                      <span>{item.title}</span>
-                      <span className="ml-2 text-xs" style={{ color: 'rgba(26,30,35,0.4)' }}>
-                        {formatTimeLabel(item.last_read_at)}
+              </div>
+              <div className="space-y-2">
+                {documents.slice(0, 4).map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => onOpenDocument(doc.id)}
+                    className="w-full rounded-2xl px-4 py-3 text-left transition-colors hover:bg-[rgba(26,30,35,0.03)]"
+                    style={{ border: '1px solid rgba(26,30,35,0.08)' }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                          {doc.title}
+                        </div>
+                        <div className="line-clamp-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                          {doc.preview || '暂无摘要'}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-[11px]" style={{ color: doc.has_processed ? 'var(--gf-gold)' : 'rgba(26,30,35,0.35)' }}>
+                        {doc.has_processed ? '已处理' : '待处理'}
                       </span>
-                    </button>
-                  ))}
-                  {!loading && history.length === 0 && (
-                    <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                      还没有阅读记录。
-                    </p>
-                  )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className="rounded-2xl p-4 md:p-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                    最近积累
+                  </h3>
+                  <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                    阅读记录和字词收藏，会慢慢串成你的古籍学习线索。
+                  </p>
                 </div>
               </div>
-
-              <div>
-                <div className="mb-2 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
-                  <Star className="h-4 w-4" />
-                  最近字词
+              <div className="space-y-3">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
+                    <BookOpen className="h-4 w-4" />
+                    最近阅读
+                  </div>
+                  <div className="space-y-2">
+                    {history.slice(0, 3).map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => onOpenDocument(item.id)}
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm"
+                        style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'var(--gf-text)' }}
+                      >
+                        <span>{item.title}</span>
+                        <span className="ml-2 text-xs" style={{ color: 'rgba(26,30,35,0.4)' }}>
+                          {formatTimeLabel(item.last_read_at)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {wordbook.slice(0, 6).map((entry) => (
-                    <button
-                      key={entry.id}
-                      onClick={() => onAsk(`请解释“${entry.word}”在古籍中的含义和用法`)}
-                      className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(140,26,17,0.08)]"
-                      style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
-                    >
-                      {entry.word}
-                    </button>
-                  ))}
-                  {!loading && wordbook.length === 0 && (
-                    <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                      还没有字词收藏，阅读时点一下字词就能留下记录。
-                    </p>
-                  )}
+
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
+                    <Star className="h-4 w-4" />
+                    最近字词
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {wordbook.slice(0, 6).map((entry) => (
+                      <button
+                        key={entry.id}
+                        onClick={() => onAsk(`请解释“${entry.word}”在古籍中的含义和用法`)}
+                        className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(140,26,17,0.08)]"
+                        style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                      >
+                        {entry.word}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : (
+          <section
+            className="rounded-[30px] p-5 md:p-6"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)',
+              border: '1px solid rgba(26,30,35,0.06)',
+              boxShadow: '0 18px 34px rgba(26,30,35,0.04)',
+            }}
+          >
+            <div className="grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
+              <div className="space-y-3">
+                <div className="text-[11px] tracking-[0.28em]" style={{ color: 'var(--gf-gugong-red)' }}>
+                  新手上手
+                </div>
+                <h3 className="text-xl font-medium" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                  第一次来这里，可以先这样用
+                </h3>
+                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
+                  先读一篇样例，点一下难词，再追问一句原文，通常就能很快进入状态。
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {heroEntryWays.map((item) => (
+                  <button
+                    key={`starter-${item.key}`}
+                    onClick={item.action}
+                    className="rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    style={{ backgroundColor: item.accentSoft, border: '1px solid rgba(26,30,35,0.05)' }}
+                  >
+                    <div className="text-[11px] tracking-[0.24em]" style={{ color: item.accent }}>
+                      {item.eyebrow}
+                    </div>
+                    <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                      {item.title}
+                    </div>
+                    <div className="mt-2 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.56)' }}>
+                      {item.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="grid gap-5 lg:grid-cols-[1fr_0.92fr]">
           <div
