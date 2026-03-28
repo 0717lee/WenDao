@@ -10,6 +10,8 @@ import sys
 import re
 import json
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

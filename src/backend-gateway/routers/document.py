@@ -649,6 +649,24 @@ async def list_documents(limit: int = Query(50, ge=1, le=200), source_type: str 
     return {"documents": documents, "total": len(documents)}
 
 
+@router.get("/resolve-citation")
+async def resolve_citation(
+    title: str = Query(..., min_length=1),
+    source: str = Query(..., min_length=1),
+    excerpt: str = Query(""),
+):
+    """Try to resolve a citation to an uploaded document and anchor text."""
+    result = await _resolve_citation_reference(title=title, source=source, excerpt=excerpt)
+    return {"match": result}
+
+
+@router.get("/recommendations")
+async def get_recommendations(document_id: str | None = Query(default=None), limit: int = Query(6, ge=1, le=20)):
+    """Recommend next documents using reading history, wordbook, and shared entities."""
+    items = await _get_recommendations(document_id=document_id, limit=limit)
+    return {"documents": items, "total": len(items)}
+
+
 @router.get("/{document_id}")
 async def get_document(document_id: str):
     """Return one document with full text content for reader/book shelf navigation."""
@@ -727,24 +745,6 @@ async def save_study_progress(document_id: str, body: StudyProgressUpdateRequest
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
     return await _save_study_session(document_id, body)
-
-
-@router.get("/resolve-citation")
-async def resolve_citation(
-    title: str = Query(..., min_length=1),
-    source: str = Query(..., min_length=1),
-    excerpt: str = Query(""),
-):
-    """Try to resolve a citation to an uploaded document and anchor text."""
-    result = await _resolve_citation_reference(title=title, source=source, excerpt=excerpt)
-    return {"match": result}
-
-
-@router.get("/recommendations")
-async def get_recommendations(document_id: str | None = Query(default=None), limit: int = Query(6, ge=1, le=20)):
-    """Recommend next documents using reading history, wordbook, and shared entities."""
-    items = await _get_recommendations(document_id=document_id, limit=limit)
-    return {"documents": items, "total": len(items)}
 
 
 @router.post("/upload")
