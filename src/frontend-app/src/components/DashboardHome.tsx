@@ -173,6 +173,9 @@ export default function DashboardHome({
       action: () => onAsk('请用白话解释“学而时习之，不亦说乎？”，顺便说说它常见于哪些课堂场景'),
       icon: GraduationCap,
       accent: '#7b5b44',
+      surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,242,233,0.96) 100%)',
+      borderTone: 'rgba(123,91,68,0.14)',
+      tag: '课堂场景',
     },
     {
       title: '经典入门',
@@ -181,6 +184,9 @@ export default function DashboardHome({
       action: () => (sampleDocuments[0] ? onOpenDocument(sampleDocuments[0].id) : onOpenBookshelf()),
       icon: ScrollText,
       accent: 'var(--gf-gold)',
+      surface: 'linear-gradient(180deg, rgba(252,248,238,0.96) 0%, rgba(255,255,255,0.88) 100%)',
+      borderTone: 'rgba(201,160,99,0.16)',
+      tag: '经典阅读',
     },
     {
       title: '扫描页整理',
@@ -189,6 +195,39 @@ export default function DashboardHome({
       action: onOpenReaderHub,
       icon: ScanText,
       accent: 'var(--gf-gugong-red)',
+      surface: 'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(250,239,236,0.98) 100%)',
+      borderTone: 'rgba(140,26,17,0.14)',
+      tag: '图片整理',
+    },
+  ]
+
+  const heroEntryWays = [
+    {
+      key: 'sample',
+      eyebrow: '样例起步',
+      title: firstSample ? '先读一篇体验样例' : '先去看看典籍库',
+      description: '不用准备图片，直接进入阅读、释义和继续提问。',
+      action: primaryAction,
+      accent: 'var(--gf-gugong-red)',
+      accentSoft: 'rgba(140,26,17,0.08)',
+    },
+    {
+      key: 'ask',
+      eyebrow: '问题切入',
+      title: '先问一句古文',
+      description: '从一句原文、一个人物或一个典故开始，马上得到解释。',
+      action: () => onAsk(QUICK_QUESTION_PROMPTS[0]),
+      accent: '#7b5b44',
+      accentSoft: 'rgba(123,91,68,0.08)',
+    },
+    {
+      key: 'scan',
+      eyebrow: '扫描整理',
+      title: '上传影印页或扫描图',
+      description: '手头有图片时，再进入 OCR、断句和对照阅读。',
+      action: onOpenReaderHub,
+      accent: 'var(--gf-gold)',
+      accentSoft: 'rgba(201,160,99,0.12)',
     },
   ]
 
@@ -198,93 +237,129 @@ export default function DashboardHome({
       value: sampleDocuments.length,
       icon: LibraryBig,
       accent: 'var(--gf-gugong-red)',
+      hint: '不用准备图片',
+      surface: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(250,239,236,0.94) 100%)',
     },
     {
       label: '最近阅读',
       value: history.length,
       icon: Clock3,
       accent: '#5b8aab',
+      hint: '随时接着往下读',
+      surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(237,244,247,0.96) 100%)',
     },
     {
       label: '字词沉淀',
       value: wordbook.length,
       icon: Star,
       accent: '#3c8a51',
+      hint: '留住释义与典故',
+      surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(239,246,241,0.96) 100%)',
     },
     {
       label: '图谱实体',
       value: analytics?.total_nodes ?? 0,
       icon: Brain,
       accent: 'var(--gf-gold)',
+      hint: '人物与典故入口',
+      surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.98) 100%)',
     },
   ]
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-5 md:px-6 md:py-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
-      <div className="mx-auto max-w-6xl space-y-5">
+    <div className="relative h-full overflow-y-auto px-4 py-5 md:px-6 md:py-7" style={{ backgroundColor: 'var(--gf-bg)' }}>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-[6%] top-4 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }} />
+        <div className="absolute right-[10%] top-24 h-80 w-80 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.08)' }} />
+        <div className="absolute inset-x-0 top-0 h-48" style={{ background: 'linear-gradient(180deg, rgba(244,241,225,0.92), rgba(247,246,243,0))' }} />
+      </div>
+
+      <div className="relative mx-auto max-w-6xl space-y-6">
         <section
-          className="rounded-[32px] p-6 md:p-8"
+          className="relative overflow-hidden rounded-[38px] p-6 md:p-10"
           style={{
             background:
-              'linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(244,241,225,0.92) 45%, rgba(247,246,243,0.96) 100%)',
+              'linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(249,244,230,0.96) 48%, rgba(247,246,243,0.98) 100%)',
             border: '1px solid rgba(26,30,35,0.06)',
-            boxShadow: '0 24px 48px rgba(26,30,35,0.06)',
+            boxShadow: '0 28px 64px rgba(26,30,35,0.08)',
           }}
         >
-          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
-            <div className="space-y-4">
-              <span
-                className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs tracking-[0.24em]"
-                style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                AI 古籍入门助手
-              </span>
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-y-8 left-8 w-px" style={{ background: 'linear-gradient(180deg, rgba(140,26,17,0), rgba(140,26,17,0.22), rgba(140,26,17,0))' }} />
+            <div className="absolute -right-16 top-10 h-56 w-56 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.18)' }} />
+            <div className="absolute bottom-0 left-1/4 h-28 w-80 -translate-x-1/2 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.09)' }} />
+            <div
+              className="absolute inset-0 opacity-40"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(90deg, rgba(26,30,35,0.018) 0, rgba(26,30,35,0.018) 1px, transparent 1px, transparent 84px)',
+              }}
+            />
+          </div>
 
+          <div className="relative grid gap-8 lg:grid-cols-[1.16fr_0.84fr] lg:items-center">
+            <div className="space-y-5">
               <div className="space-y-3">
+                <span
+                  className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] tracking-[0.28em]"
+                  style={{ backgroundColor: 'rgba(140,26,17,0.09)', color: 'var(--gf-gugong-red)' }}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI 古籍入门助手
+                </span>
+                <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
+                  像读一位会讲古文的老师
+                </div>
+              </div>
+
+              <div className="space-y-4">
                 <h2
-                  className="max-w-3xl text-3xl leading-tight md:text-4xl"
+                  className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  帮普通人读懂古籍，不必先有一张古籍图片
+                  帮普通人读懂古籍，
+                  <br className="hidden md:block" />
+                  不必先有一张古籍图片
                 </h2>
-                <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
+                <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
                   想先读懂一段古文，可以从体验样例、提问或检索开始；手头有扫描页时，再上传识别。
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>课内古文</span>
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>经典入门</span>
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(26,30,35,0.04)' }}>扫描识别</span>
+              <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>课内古文</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>经典入门</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>扫描识别</span>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={primaryAction}
-                  className="rounded-2xl px-4 py-2.5 text-sm text-white transition-colors"
-                  style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                  className="rounded-2xl px-5 py-3 text-sm text-white transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'var(--gf-gugong-red)', boxShadow: '0 14px 28px rgba(140,26,17,0.22)' }}
                 >
                   {primaryActionLabel}
                 </button>
                 <button
                   onClick={onOpenBookshelf}
-                  className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
+                  className="rounded-2xl px-5 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5"
                   style={{
-                    backgroundColor: 'rgba(26,30,35,0.04)',
+                    backgroundColor: 'rgba(255,255,255,0.74)',
                     color: 'var(--gf-text)',
                     border: '1px solid rgba(26,30,35,0.08)',
+                    boxShadow: '0 10px 24px rgba(26,30,35,0.05)',
                   }}
                 >
                   浏览典籍
                 </button>
                 <button
                   onClick={onOpenReaderHub}
-                  className="rounded-2xl px-4 py-2.5 text-sm transition-colors"
+                  className="rounded-2xl px-5 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5"
                   style={{
-                    backgroundColor: 'rgba(201,160,99,0.12)',
+                    backgroundColor: 'rgba(255,248,233,0.86)',
                     color: 'var(--gf-gold)',
-                    border: '1px solid rgba(201,160,99,0.2)',
+                    border: '1px solid rgba(201,160,99,0.24)',
+                    boxShadow: '0 10px 22px rgba(201,160,99,0.14)',
                   }}
                 >
                   上传扫描页
@@ -293,62 +368,88 @@ export default function DashboardHome({
             </div>
 
             <div
-              className="rounded-[28px] p-5"
+              className="relative rounded-[30px] p-5 md:p-6"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.6)',
-                border: '1px solid rgba(26,30,35,0.06)',
+                backgroundColor: 'rgba(255,255,255,0.72)',
+                border: '1px solid rgba(26,30,35,0.07)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55)',
+                backdropFilter: 'blur(10px)',
               }}
             >
-              <div className="mb-4 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
+              <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
                 <BookOpen className="h-4 w-4" />
-                三种开始方式
+                30 秒开始
               </div>
-              <div className="space-y-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.6)' }}>
-                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(140,26,17,0.05)' }}>
-                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gugong-red)' }}>先看样例</div>
-                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>打开一篇体验样例，先看懂一段古文</div>
-                </div>
-                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-                  <div className="text-xs tracking-[0.2em]" style={{ color: 'rgba(26,30,35,0.42)' }}>先问一句</div>
-                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>从一句原文、一个人物或一个典故开始</div>
-                </div>
-                <div className="rounded-2xl px-4 py-3" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }}>
-                  <div className="text-xs tracking-[0.2em]" style={{ color: 'var(--gf-gold)' }}>再传图片</div>
-                  <div className="mt-1" style={{ color: 'var(--gf-text)' }}>手头有影印页或扫描图时，再走识别链路</div>
-                </div>
+              <div className="space-y-4">
+                {heroEntryWays.map((item, index) => (
+                  <button
+                    key={item.key}
+                    onClick={item.action}
+                    className="group flex w-full items-start gap-4 rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    style={{
+                      backgroundColor: item.accentSoft,
+                      border: '1px solid rgba(26,30,35,0.05)',
+                    }}
+                  >
+                    <div
+                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm"
+                      style={{ backgroundColor: item.accent, color: '#fff' }}
+                    >
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] tracking-[0.24em]" style={{ color: item.accent }}>
+                        {item.eyebrow}
+                      </div>
+                      <div className="mt-1 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                        {item.title}
+                      </div>
+                      <div className="mt-1 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                        {item.description}
+                      </div>
+                    </div>
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" style={{ color: item.accent }} />
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-3 md:grid-cols-3">
-          {audienceCards.map((item) => (
+        <section className="grid gap-4 md:grid-cols-3">
+          {audienceCards.map((item, index) => (
             <div
               key={item.title}
-              className="rounded-2xl p-5"
+              className={`rounded-[28px] p-5 transition-transform duration-300 hover:-translate-y-1 ${index === 1 ? 'md:-translate-y-3' : ''}`}
               style={{
-                backgroundColor: 'rgba(255,255,255,0.68)',
-                border: '1px solid rgba(26,30,35,0.06)',
+                background: item.surface,
+                border: `1px solid ${item.borderTone}`,
+                boxShadow: '0 18px 32px rgba(26,30,35,0.05)',
               }}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <item.icon className="h-5 w-5" style={{ color: item.accent }} />
-                <span className="text-xs tracking-[0.2em]" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                  适用场景
+              <div className="mb-4 flex items-center justify-between">
+                <div
+                  className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: item.borderTone }}
+                >
+                  <item.icon className="h-5 w-5" style={{ color: item.accent }} />
+                </div>
+                <span className="rounded-full px-3 py-1 text-[11px] tracking-[0.22em]" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.38)' }}>
+                  {item.tag}
                 </span>
               </div>
               <div className="space-y-2">
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
                   {item.title}
                 </h3>
-                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.55)' }}>
+                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
                   {item.description}
                 </p>
               </div>
               <button
                 onClick={item.action}
-                className="mt-4 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm transition-colors"
-                style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
+                className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'var(--gf-text)', border: '1px solid rgba(26,30,35,0.06)' }}
               >
                 {item.actionLabel}
                 <ArrowRight className="h-4 w-4" />
@@ -466,24 +567,30 @@ export default function DashboardHome({
           </div>
         </section>
 
-        <section className="grid gap-3 md:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-4">
           {statCards.map((item) => (
             <div
               key={item.label}
-              className="rounded-2xl p-4"
+              className="rounded-[24px] p-4"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.68)',
+                background: item.surface,
                 border: '1px solid rgba(26,30,35,0.06)',
+                boxShadow: '0 14px 28px rgba(26,30,35,0.04)',
               }}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs tracking-wider" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-[11px] tracking-[0.26em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
                   {item.label}
                 </span>
-                <item.icon className="h-4 w-4" style={{ color: item.accent }} />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.7)' }}>
+                  <item.icon className="h-4 w-4" style={{ color: item.accent }} />
+                </div>
               </div>
-              <div className="text-2xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+              <div className="text-3xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
                 {loading ? '...' : item.value}
+              </div>
+              <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                {item.hint}
               </div>
             </div>
           ))}

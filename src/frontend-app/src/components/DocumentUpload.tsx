@@ -144,16 +144,24 @@ export function DocumentUpload() {
   });
 
   return (
-    <div className="w-full h-full overflow-y-auto p-4 md:p-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
-      <div className="mx-auto max-w-6xl space-y-5">
+    <div className="relative w-full h-full overflow-y-auto p-4 md:p-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-[8%] top-8 h-64 w-64 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.14)' }} />
+        <div className="absolute right-[12%] top-24 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.07)' }} />
+      </div>
+
+      <div className="relative mx-auto max-w-6xl space-y-5">
         <section
-          className="rounded-[28px] p-6 md:p-7"
+          className="relative overflow-hidden rounded-[32px] p-6 md:p-8"
           style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(244,241,225,0.9) 100%)',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.86) 0%, rgba(244,241,225,0.95) 100%)',
             border: '1px solid rgba(26,30,35,0.06)',
-            boxShadow: '0 24px 48px rgba(26,30,35,0.05)',
+            boxShadow: '0 24px 52px rgba(26,30,35,0.06)',
           }}
         >
+          <div className="pointer-events-none absolute inset-0 opacity-35" style={{
+            backgroundImage: 'repeating-linear-gradient(90deg, rgba(26,30,35,0.018) 0, rgba(26,30,35,0.018) 1px, transparent 1px, transparent 82px)',
+          }} />
           <div className="space-y-3">
             <span
               className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs tracking-[0.22em]"
@@ -177,8 +185,12 @@ export function DocumentUpload() {
         <section className="grid gap-5 xl:grid-cols-[1.12fr_0.88fr]">
           <div className="space-y-5">
             <div
-              className="rounded-2xl p-4 md:p-5"
-              style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+              className="rounded-[28px] p-4 md:p-5"
+              style={{
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(250,239,236,0.96) 100%)',
+                border: '1px solid rgba(140,26,17,0.10)',
+                boxShadow: '0 18px 36px rgba(26,30,35,0.04)',
+              }}
             >
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
@@ -197,8 +209,12 @@ export function DocumentUpload() {
                   <button
                     key={doc.id}
                     onClick={() => openSampleDocument(doc.id)}
-                    className="rounded-2xl px-4 py-4 text-left transition-colors hover:bg-[rgba(26,30,35,0.03)]"
-                    style={{ border: '1px solid rgba(26,30,35,0.08)' }}
+                    className="rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    style={{
+                      border: '1px solid rgba(26,30,35,0.07)',
+                      backgroundColor: 'rgba(255,255,255,0.74)',
+                      boxShadow: '0 10px 24px rgba(26,30,35,0.04)',
+                    }}
                   >
                     <div className="mb-2 flex items-center justify-between gap-3">
                       <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
@@ -224,8 +240,12 @@ export function DocumentUpload() {
 
             <div className="grid gap-5 md:grid-cols-2">
               <div
-                className="rounded-2xl p-4 md:p-5"
-                style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+                className="rounded-[26px] p-4 md:p-5"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(247,242,233,0.98) 100%)',
+                  border: '1px solid rgba(123,91,68,0.10)',
+                  boxShadow: '0 16px 30px rgba(26,30,35,0.04)',
+                }}
               >
                 <div className="mb-4">
                   <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
@@ -240,8 +260,12 @@ export function DocumentUpload() {
                     <button
                       key={prompt}
                       onClick={() => askQuestion(prompt)}
-                      className="w-full rounded-2xl px-4 py-3 text-left text-sm transition-colors hover:bg-[rgba(140,26,17,0.05)]"
-                      style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                      className="w-full rounded-[22px] px-4 py-3 text-left text-sm transition-all duration-300 hover:-translate-y-0.5"
+                      style={{
+                        border: '1px solid rgba(26,30,35,0.07)',
+                        color: 'var(--gf-text)',
+                        backgroundColor: 'rgba(255,255,255,0.72)',
+                      }}
                     >
                       {prompt}
                     </button>
@@ -250,8 +274,12 @@ export function DocumentUpload() {
               </div>
 
               <div
-                className="rounded-2xl p-4 md:p-5"
-                style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+                className="rounded-[26px] p-4 md:p-5"
+                style={{
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.98) 100%)',
+                  border: '1px solid rgba(201,160,99,0.12)',
+                  boxShadow: '0 16px 30px rgba(26,30,35,0.04)',
+                }}
               >
                 <div className="mb-4 flex items-center justify-between">
                   <div>
@@ -269,8 +297,8 @@ export function DocumentUpload() {
                     <button
                       key={topic}
                       onClick={() => searchTopic(topic)}
-                      className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.16)]"
-                      style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                      className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                      style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)', backgroundColor: 'rgba(255,255,255,0.74)' }}
                     >
                       {topic}
                     </button>
@@ -281,8 +309,12 @@ export function DocumentUpload() {
           </div>
 
           <div
-            className="rounded-2xl p-4 md:p-5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+            className="rounded-[30px] p-4 md:p-5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,244,233,0.98) 100%)',
+              border: '1px solid rgba(201,160,99,0.16)',
+              boxShadow: '0 22px 42px rgba(26,30,35,0.05)',
+            }}
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -299,18 +331,24 @@ export function DocumentUpload() {
             <div
               {...getRootProps()}
               className={`
-                p-10 border-2 border-dashed rounded-[28px]
-                transition-all cursor-pointer
+                relative overflow-hidden p-10 border-2 border-dashed rounded-[28px]
+                transition-all duration-300 cursor-pointer
                 ${uploadStatus === 'uploading' ? 'opacity-50 cursor-not-allowed' : ''}
               `}
               style={{
                 borderColor: isDragActive ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.12)',
-                backgroundColor: isDragActive ? 'rgba(140,26,17,0.04)' : 'rgba(247,246,243,0.8)',
+                background: isDragActive
+                  ? 'linear-gradient(135deg, rgba(140,26,17,0.08) 0%, rgba(255,255,255,0.76) 100%)'
+                  : 'linear-gradient(135deg, rgba(255,255,255,0.84) 0%, rgba(247,246,243,0.92) 100%)',
+                boxShadow: isDragActive ? '0 18px 36px rgba(140,26,17,0.10)' : 'inset 0 1px 0 rgba(255,255,255,0.55)',
               }}
             >
+              <div className="pointer-events-none absolute inset-0 opacity-40" style={{
+                backgroundImage: 'radial-gradient(circle at top right, rgba(201,160,99,0.18), transparent 32%)',
+              }} />
               <input {...getInputProps()} />
 
-              <div className="flex flex-col items-center gap-4 text-center">
+              <div className="relative flex flex-col items-center gap-4 text-center">
                 {uploadStatus === 'uploading' ? (
                   <>
                     <div
@@ -337,14 +375,14 @@ export function DocumentUpload() {
 
             {uploadStatus === 'error' && (
               <div
-                className="mt-4 rounded-2xl px-4 py-3 text-sm"
+                className="mt-4 rounded-[22px] px-4 py-3 text-sm"
                 style={{ backgroundColor: 'rgba(176,58,58,0.08)', border: '1px solid rgba(176,58,58,0.15)', color: '#b03a3a' }}
               >
                 上传失败，请检查图片格式后再试。
               </div>
             )}
 
-            <div className="mt-4 rounded-2xl px-4 py-4 text-sm leading-7" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.55)' }}>
+            <div className="mt-4 rounded-[22px] px-4 py-4 text-sm leading-7" style={{ backgroundColor: 'rgba(255,255,255,0.62)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.55)' }}>
               适合这几种情况：
               <br />
               1. 手头有古籍扫描图或影印页。

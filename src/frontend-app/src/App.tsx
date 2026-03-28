@@ -207,7 +207,12 @@ function App() {
                 <>
                     <header
                         className="shrink-0 border-b"
-                        style={{ borderColor: 'rgba(26,30,35,0.08)', backgroundColor: 'rgba(247,246,243,0.85)', backdropFilter: 'blur(12px)' }}
+                        style={{
+                            borderColor: 'rgba(26,30,35,0.08)',
+                            background: 'linear-gradient(180deg, rgba(250,248,242,0.92) 0%, rgba(247,246,243,0.82) 100%)',
+                            backdropFilter: 'blur(12px)',
+                            boxShadow: '0 1px 0 rgba(255,255,255,0.55) inset',
+                        }}
                     >
                         <div className="flex items-center justify-between px-4 md:px-6 py-3">
                             <div className="flex items-center gap-3">
@@ -221,14 +226,25 @@ function App() {
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                                     </svg>
                                 </button>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
+                                        style={{ backgroundColor: 'rgba(140,26,17,0.08)', border: '1px solid rgba(140,26,17,0.12)' }}
+                                    >
+                                        <span style={{ color: 'var(--gf-gugong-red)', fontFamily: '"ZCOOL XiaoWei", serif', fontSize: '0.95rem' }}>
+                                            智
+                                        </span>
+                                    </div>
                                     <h1
                                         className="text-lg md:text-xl tracking-widest"
                                         style={{ fontFamily: '"ZCOOL XiaoWei", "Noto Serif SC", serif', color: 'var(--gf-text)' }}
                                     >
                                         古籍智解
                                     </h1>
-                                    <span className="text-xs tracking-wider ml-1 hidden sm:inline" style={{ color: 'rgba(26,30,35,0.35)' }}>
+                                    <span
+                                        className="text-[11px] tracking-[0.24em] hidden md:inline-flex rounded-full px-2.5 py-1"
+                                        style={{ color: 'rgba(26,30,35,0.42)', backgroundColor: 'rgba(255,255,255,0.62)' }}
+                                    >
                                         帮普通人读懂古籍
                                     </span>
                                 </div>

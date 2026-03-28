@@ -73,11 +73,26 @@ export function OCRPreview() {
   };
 
   return (
-    <div className="h-full p-4 md:p-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
-      <div className="max-w-7xl mx-auto h-full flex flex-col">
+    <div className="relative h-full p-4 md:p-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-[8%] top-8 h-60 w-60 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }} />
+        <div className="absolute right-[10%] top-16 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.06)' }} />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto h-full flex flex-col">
         {/* Header */}
-        <div className="mb-4">
-          <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>OCR 识别结果</h2>
+        <div
+          className="mb-4 rounded-[28px] px-5 py-4 md:px-6"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)',
+            border: '1px solid rgba(201,160,99,0.14)',
+            boxShadow: '0 18px 34px rgba(26,30,35,0.04)',
+          }}
+        >
+          <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
+            OCR 校对
+          </div>
+          <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先校对识别结果，再继续整理</h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
             请检查识别结果，如有错误可手动修改，然后点击"继续处理"进行断句和翻译
           </p>
@@ -86,9 +101,16 @@ export function OCRPreview() {
         {/* Two-column layout */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden">
           {/* Left: Image preview */}
-          <div className="rounded-xl shadow-sm p-4 flex flex-col" style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}>
+          <div
+            className="rounded-[28px] shadow-sm p-4 flex flex-col"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,244,233,0.96) 100%)',
+              border: '1px solid rgba(201,160,99,0.12)',
+              boxShadow: '0 18px 34px rgba(26,30,35,0.04)',
+            }}
+          >
             <h3 className="text-base font-medium mb-3" style={{ color: 'var(--gf-text)' }}>原图预览</h3>
-            <div className="flex-1 flex items-center justify-center rounded-lg overflow-hidden" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
+            <div className="flex-1 flex items-center justify-center rounded-[22px] overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.05)' }}>
               {currentDocument.imageUrl ? (
                 <img
                   src={currentDocument.imageUrl}
@@ -102,11 +124,18 @@ export function OCRPreview() {
           </div>
 
           {/* Right: OCR text with editing */}
-          <div className="rounded-xl shadow-sm p-4 flex flex-col" style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}>
+          <div
+            className="rounded-[28px] shadow-sm p-4 flex flex-col"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(250,239,236,0.96) 100%)',
+              border: '1px solid rgba(140,26,17,0.10)',
+              boxShadow: '0 18px 34px rgba(26,30,35,0.04)',
+            }}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>OCR 文本</h3>
               {currentDocument.confidence !== undefined && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)' }}>
                   <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>置信度:</span>
                   <span className={`text-sm font-semibold ${confidenceColor(currentDocument.confidence)}`}>
                     {(currentDocument.confidence * 100).toFixed(1)}%
@@ -123,10 +152,10 @@ export function OCRPreview() {
             <textarea
               value={editedText}
               onChange={(e) => setEditedText(e.target.value)}
-              className="flex-1 w-full p-3 rounded-xl resize-none focus:outline-none focus:ring-2 text-sm"
+              className="flex-1 w-full p-4 rounded-[22px] resize-none focus:outline-none focus:ring-2 text-sm"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.7)',
-                border: '1px solid rgba(26,30,35,0.1)',
+                backgroundColor: 'rgba(255,255,255,0.78)',
+                border: '1px solid rgba(26,30,35,0.08)',
                 color: 'var(--gf-text)',
                 '--tw-ring-color': 'rgba(140,26,17,0.2)',
               } as React.CSSProperties}
@@ -135,9 +164,9 @@ export function OCRPreview() {
             />
 
             {/* Process button */}
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="mt-4 flex flex-col gap-3">
               {processProgress && (
-                <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(26,30,35,0.5)' }}>
+                <div className="flex items-center gap-2 text-sm rounded-full px-3 py-1.5 w-fit" style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.72)' }}>
                   <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(26,30,35,0.1)', borderTopColor: 'var(--gf-gugong-red)' }} />
                   <span>{processProgress}</span>
                 </div>
@@ -145,8 +174,8 @@ export function OCRPreview() {
               <button
                 onClick={handleProcess}
                 disabled={uploadStatus === 'processing' || !editedText.trim()}
-                className="w-full py-3 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
-                style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                className="w-full py-3.5 text-white rounded-[22px] font-medium transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ backgroundColor: 'var(--gf-gugong-red)', boxShadow: '0 14px 26px rgba(140,26,17,0.22)' }}
               >
                 {uploadStatus === 'processing' ? (
                   <>

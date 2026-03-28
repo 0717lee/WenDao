@@ -17,10 +17,14 @@ export default function ComparePanel() {
 
   if (comparisonDocuments.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
+      <div className="relative flex h-full items-center justify-center px-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute left-[12%] top-16 h-64 w-64 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }} />
+          <div className="absolute right-[10%] bottom-10 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.07)' }} />
+        </div>
         <div
-          className="max-w-xl rounded-3xl p-8 text-center"
-          style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
+          className="relative max-w-xl rounded-[32px] p-8 text-center"
+          style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.96) 100%)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 22px 42px rgba(26,30,35,0.05)' }}
         >
           <h2 className="mb-3 text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
             对照阅读
@@ -34,9 +38,15 @@ export default function ComparePanel() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-5 md:px-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
-      <div className="mx-auto max-w-7xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="relative h-full overflow-y-auto px-4 py-5 md:px-6" style={{ backgroundColor: 'var(--gf-bg)' }}>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute left-[6%] top-6 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.10)' }} />
+      </div>
+      <div className="relative mx-auto max-w-7xl space-y-4">
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] px-5 py-4"
+          style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 18px 34px rgba(26,30,35,0.04)' }}
+        >
           <div>
             <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
               多文档对照
@@ -47,8 +57,8 @@ export default function ComparePanel() {
           </div>
           <button
             onClick={clearComparisonDocuments}
-            className="rounded-xl px-3 py-2 text-sm"
-            style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'var(--gf-text)' }}
+            className="rounded-[18px] px-3 py-2 text-sm"
+            style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: 'var(--gf-text)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
             清空对照
           </button>
@@ -58,8 +68,8 @@ export default function ComparePanel() {
           {comparisonDocuments.map((doc) => (
             <div
               key={doc.id}
-              className="rounded-3xl p-4"
-              style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
+              className="rounded-[30px] p-4"
+              style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 18px 34px rgba(26,30,35,0.04)' }}
             >
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
@@ -72,8 +82,8 @@ export default function ComparePanel() {
                 </div>
                 <button
                   onClick={() => removeComparisonDocument(doc.id)}
-                  className="rounded-xl px-3 py-2 text-xs"
-                  style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.55)' }}
+                  className="rounded-[18px] px-3 py-2 text-xs"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: 'rgba(26,30,35,0.55)', border: '1px solid rgba(26,30,35,0.06)' }}
                 >
                   移出对照
                 </button>
@@ -83,8 +93,8 @@ export default function ComparePanel() {
                 {COLUMN_LABELS.map((field) => (
                   <div
                     key={`${doc.id}-${field}`}
-                    className="rounded-2xl p-3"
-                    style={{ backgroundColor: 'rgba(244,241,225,0.6)', border: '1px solid rgba(26,30,35,0.05)' }}
+                    className="rounded-[24px] p-3"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.05)' }}
                   >
                     <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
                       {COLUMN_TITLES[field]}
