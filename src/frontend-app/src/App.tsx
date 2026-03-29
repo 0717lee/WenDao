@@ -180,7 +180,7 @@ function App() {
 
     const tabs = [
         { key: 'home' as const, label: '首页' },
-        { key: 'reader' as const, label: '读古籍' },
+        { key: 'reader' as const, label: '阅读' },
         { key: 'chat' as const, label: '问答' },
         { key: 'search' as const, label: '典籍检索' },
         { key: 'bookshelf' as const, label: '典籍库' },
