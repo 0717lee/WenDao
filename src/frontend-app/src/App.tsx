@@ -269,25 +269,30 @@ function App() {
                                     </svg>
                                 </button>
                                 <div className="flex items-center gap-3">
-                                    <div
-                                        className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
-                                        style={{ backgroundColor: 'rgba(140,26,17,0.08)', border: '1px solid rgba(140,26,17,0.12)' }}
+                                    <button 
+                                        className="flex items-center gap-3 transition-opacity hover:opacity-80"
+                                        onClick={() => setActiveTab('home')}
                                     >
-                                        <span style={{ color: 'var(--gf-gugong-red)', fontFamily: '"ZCOOL XiaoWei", serif', fontSize: '0.95rem' }}>
-                                            智
-                                        </span>
-                                    </div>
-                                    <h1
-                                        className="text-lg md:text-xl tracking-widest"
-                                        style={{ fontFamily: '"ZCOOL XiaoWei", "Noto Serif SC", serif', color: 'var(--gf-text)' }}
-                                    >
-                                        古籍智解
-                                    </h1>
+                                        <div
+                                            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
+                                            style={{ backgroundColor: 'rgba(140,26,17,0.08)', border: '1px solid rgba(140,26,17,0.12)' }}
+                                        >
+                                            <span style={{ color: 'var(--gf-gugong-red)', fontFamily: '"ZCOOL XiaoWei", serif', fontSize: '0.95rem' }}>
+                                                智
+                                            </span>
+                                        </div>
+                                        <h1
+                                            className="text-lg md:text-xl tracking-widest"
+                                            style={{ fontFamily: '"ZCOOL XiaoWei", "Noto Serif SC", serif', color: 'var(--gf-text)' }}
+                                        >
+                                            古籍智解
+                                        </h1>
+                                    </button>
                                     <span
                                         className="text-[11px] tracking-[0.24em] hidden md:inline-flex rounded-full px-2.5 py-1"
                                         style={{ color: 'rgba(26,30,35,0.42)', backgroundColor: 'rgba(255,255,255,0.62)' }}
                                     >
-                                        帮普通人读懂古籍
+                                        帮你读懂古籍
                                     </span>
                                 </div>
                             </div>
