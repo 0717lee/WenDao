@@ -125,7 +125,7 @@ function App() {
             if (options?.readerPanel) {
                 setPendingReaderPanel(options.readerPanel);
             }
-            setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab);
+            setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab === 'home' ? 'bookshelf' : activeTab);
             setActiveTab('reader');
         },
         [activeTab, buildReaderDocument, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
@@ -182,7 +182,7 @@ function App() {
         { key: 'home' as const, label: '首页' },
         { key: 'reader' as const, label: '读古籍' },
         { key: 'chat' as const, label: '问答' },
-        { key: 'search' as const, label: '检索' },
+        { key: 'search' as const, label: '典籍检索' },
         { key: 'bookshelf' as const, label: '典籍库' },
         { key: 'compare' as const, label: '对照' },
         { key: 'history' as const, label: '进度' },

@@ -515,10 +515,10 @@ export default function DashboardHome({
             >
               <div className="mb-4">
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  片段问答
+                  片段问答（AI 解读）
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  适合第一次体验，也适合课堂、考试和阅读时的即时追问
+                  输入一句原文或疑问，AI 会给出白话解释
                 </p>
               </div>
               <div className="space-y-2">
@@ -542,10 +542,10 @@ export default function DashboardHome({
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                    问题检索
+                    典籍定位
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    从人物、概念和典故切入，适合快速找入口
+                    在已入库的典籍中定位原文片段
                   </p>
                 </div>
                 <Search className="h-4 w-4" style={{ color: 'rgba(26,30,35,0.35)' }} />

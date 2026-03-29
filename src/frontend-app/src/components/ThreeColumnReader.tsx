@@ -54,6 +54,8 @@ export function ThreeColumnReader() {
 
   if (!currentDocument) return null;
 
+  const isSample = (currentDocument as any).sourceType === 'sample';
+
   const totalParagraphs = Math.max(
     1,
     (currentDocument.punctuatedText || currentDocument.originalText)
@@ -72,7 +74,7 @@ export function ThreeColumnReader() {
   };
 
   const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
-    if (!currentDocument) return;
+    if (!currentDocument || isSample) return;
     const readableHeight = Math.max(scrollHeight - clientHeight, 1);
     const ratio = Math.min(1, Math.max(0, scrollTop / readableHeight));
     const currentParagraph = Math.min(totalParagraphs, Math.max(1, Math.round(ratio * (totalParagraphs - 1)) + 1));
@@ -159,7 +161,7 @@ export function ThreeColumnReader() {
               返回
             </button>
             <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-              {progressSyncError ? '阅读进度暂未同步' : '阅读进度会自动记录'}
+              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : '阅读进度会自动记录')}
             </span>
           </div>
           <div className="flex gap-2">
@@ -254,7 +256,7 @@ export function ThreeColumnReader() {
               返回
             </button>
             <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-              {progressSyncError ? '阅读进度暂未同步' : `当前文档：${currentDocument.title}`}
+              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : `当前文档：${currentDocument.title}`)}
             </div>
           </div>
           <div className="flex gap-2">
