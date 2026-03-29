@@ -148,7 +148,7 @@ const SearchPanel: React.FC = () => {
       >
         <div className="mb-4">
           <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
-            检索入口
+            典籍检索
           </div>
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
             人物、典故与原句检索

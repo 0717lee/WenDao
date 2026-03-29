@@ -67,8 +67,19 @@ const ReadingHistory: React.FC<ReadingHistoryProps> = ({ onNavigate }) => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
-        <p style={{ color: '#b03a3a' }}>{error}</p>
+      <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mb-4 md:mb-5">
+            <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>学习进度</h2>
+          </div>
+          <div className="text-center mt-16 opacity-35">
+            <BookOpen className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
+            <p style={{ color: 'var(--gf-text)' }}>暂无阅读记录</p>
+            <p className="mt-2 text-sm" style={{ color: 'rgba(26,30,35,0.5)' }}>
+              阅读文档后，进度会自动记录在这里。
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

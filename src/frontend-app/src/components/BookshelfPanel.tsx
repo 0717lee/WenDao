@@ -24,6 +24,7 @@ interface BookshelfPanelProps {
 }
 
 function progressLabel(item: BookshelfItem) {
+  if (item.source_type === 'sample') return '样例全文'
   if (!item.total_paragraphs) return '未开始'
   return `${item.current_paragraph}/${item.total_paragraphs}`
 }
