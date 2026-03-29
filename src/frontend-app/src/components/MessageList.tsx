@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { Message } from '../store/useStore'
 import { CitationCard } from './CitationCard'
 import { ReasoningTimeline } from './ReasoningTimeline'
@@ -28,8 +29,11 @@ export function MessageList({ messages, onCitationClick }: MessageListProps) {
                 </div>
             )}
             {messages.map((message) => (
-                <div
+                <motion.div
                     key={message.id}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                     <div
@@ -81,7 +85,7 @@ export function MessageList({ messages, onCitationClick }: MessageListProps) {
                             <VisionResultCard result={message.visionResult} />
                         )}
                     </div>
-                </div>
+                </motion.div>
             ))}
             <div ref={endRef} />
         </div>
