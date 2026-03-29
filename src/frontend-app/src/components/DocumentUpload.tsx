@@ -5,6 +5,7 @@ import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
 import { API_BASE } from '../lib/api';
+import { getDemoBookshelfDocuments, getDemoDocumentById, toReaderDocument } from '../data/demoDocuments';
 
 interface SampleDocument {
   id: string;
@@ -27,6 +28,8 @@ export function DocumentUpload() {
   const setDraftMessage = useStore((state) => state.setDraftMessage);
   const [sampleDocuments, setSampleDocuments] = useState<SampleDocument[]>([]);
   const [loadingSamples, setLoadingSamples] = useState(true);
+  const [usingDemoSamples, setUsingDemoSamples] = useState(false);
+  const [uploadErrorMessage, setUploadErrorMessage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -37,11 +40,16 @@ export function DocumentUpload() {
         const response = await fetch(`${API_BASE}/api/v1/documents?limit=6&source_type=sample`);
         const data = response.ok ? await response.json() : { documents: [] };
         if (!cancelled) {
-          setSampleDocuments(Array.isArray(data.documents) ? data.documents : []);
+          const nextSamples = Array.isArray(data.documents) && data.documents.length > 0
+            ? data.documents
+            : getDemoBookshelfDocuments();
+          setSampleDocuments(nextSamples);
+          setUsingDemoSamples(!Array.isArray(data.documents) || data.documents.length === 0);
         }
       } catch {
         if (!cancelled) {
-          setSampleDocuments([]);
+          setSampleDocuments(getDemoBookshelfDocuments());
+          setUsingDemoSamples(true);
         }
       } finally {
         if (!cancelled) {
@@ -77,11 +85,24 @@ export function DocumentUpload() {
         });
         setUploadStatus('done');
       } catch (error) {
-        console.error('Open sample error:', error);
+        const demoDocument = getDemoDocumentById(documentId);
+        if (demoDocument) {
+          setDocument(toReaderDocument(demoDocument));
+          setUploadStatus('done');
+        } else {
+          console.error('Open sample error:', error);
+        }
       }
     },
     [setDocument, setUploadStatus]
   );
+
+  const openFallbackSample = useCallback(() => {
+    const candidateId = sampleDocuments[0]?.id ?? getDemoBookshelfDocuments()[0]?.id;
+    if (candidateId) {
+      openSampleDocument(candidateId);
+    }
+  }, [openSampleDocument, sampleDocuments]);
 
   const askQuestion = useCallback(
     (prompt: string) => {
@@ -104,6 +125,7 @@ export function DocumentUpload() {
 
     const file = acceptedFiles[0];
     setUploadStatus('uploading');
+    setUploadErrorMessage('');
 
     try {
       const formData = new FormData();
@@ -115,7 +137,8 @@ export function DocumentUpload() {
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || 'Upload failed');
       }
 
       const data = await response.json();
@@ -130,6 +153,12 @@ export function DocumentUpload() {
       setUploadStatus('done');
     } catch (error) {
       console.error('Upload error:', error);
+      const message = error instanceof Error ? error.message : 'Upload failed';
+      setUploadErrorMessage(
+        message.toLowerCase().includes('fetch')
+          ? '识别服务暂时不可用，建议先打开体验样例继续演示主链路。'
+          : '上传失败，请检查图片格式，或先切换到体验样例继续体验。'
+      );
       setUploadStatus('error');
     }
   }, [setDocument, setUploadStatus]);
@@ -205,6 +234,12 @@ export function DocumentUpload() {
                 </div>
                 <BookOpen className="h-4 w-4" style={{ color: 'rgba(26,30,35,0.3)' }} />
               </div>
+
+              {usingDemoSamples && (
+                <div className="mb-3 rounded-[22px] px-4 py-3 text-xs leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
+                  当前展示的是本地演示样例。即使识别服务暂时不可用，也能先把样例阅读主链路完整跑通。
+                </div>
+              )}
 
               <div className="grid gap-3 md:grid-cols-2">
                 {sampleDocuments.slice(0, 4).map((doc) => (
@@ -380,7 +415,23 @@ export function DocumentUpload() {
                 className="mt-4 rounded-[22px] px-4 py-3 text-sm"
                 style={{ backgroundColor: 'rgba(176,58,58,0.08)', border: '1px solid rgba(176,58,58,0.15)', color: '#b03a3a' }}
               >
-                上传失败，请检查图片格式后再试。
+                <div>{uploadErrorMessage || '上传失败，请检查图片格式后再试。'}</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={openFallbackSample}
+                    className="rounded-full px-3 py-1.5 text-xs transition-colors"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
+                  >
+                    打开体验样例
+                  </button>
+                  <button
+                    onClick={() => askQuestion(QUICK_QUESTION_PROMPTS[0])}
+                    className="rounded-full px-3 py-1.5 text-xs transition-colors"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
+                  >
+                    先问一句古文
+                  </button>
+                </div>
               </div>
             )}
 

@@ -7,6 +7,7 @@ import { useGraphStore } from './store/useGraphStore';
 import { useAuthStore } from './store/useAuthStore';
 import { useStore } from './store/useStore';
 import { API_BASE } from './lib/api';
+import { getDemoDocumentById, toReaderDocument } from './data/demoDocuments';
 
 const DashboardHome = lazy(() => import('./components/DashboardHome'));
 const ChatInterface = lazy(() => import('./components/ChatInterface').then((m) => ({ default: m.ChatInterface })));
@@ -61,6 +62,17 @@ function App() {
     const [authPage, setAuthPage] = useState<AuthPage>('login');
     const [authChecking, setAuthChecking] = useState(Boolean(token));
 
+    const buildReaderDocument = useCallback((data: any) => ({
+        id: data.id,
+        title: data.title,
+        originalText: data.original_text ?? data.originalText,
+        punctuatedText: data.punctuated_text ?? data.punctuatedText ?? '',
+        translatedText: data.translated_text ?? data.translatedText ?? '',
+        confidence: data.ocr_confidence ?? data.confidence,
+        imageUrl: data.image_data ?? data.imageUrl ?? undefined,
+        sourceType: data.source_type ?? data.sourceType ?? 'user',
+    }), []);
+
     useEffect(() => {
         let cancelled = false;
 
@@ -93,31 +105,31 @@ function App() {
 
     const openDocument = useCallback(
         async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
+            let nextDocument: ReturnType<typeof buildReaderDocument> | null = null;
             try {
                 const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`);
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
-                setDocument({
-                    id: data.id,
-                    title: data.title,
-                    originalText: data.original_text,
-                    punctuatedText: data.punctuated_text || '',
-                    translatedText: data.translated_text || '',
-                    confidence: data.ocr_confidence,
-                    imageUrl: data.image_data || undefined,
-                    sourceType: data.source_type || 'user',
-                });
-                setUploadStatus(data.punctuated_text ? 'done' : 'idle');
-                if (options?.readerPanel) {
-                    setPendingReaderPanel(options.readerPanel);
-                }
-                setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab);
-                setActiveTab('reader');
+                nextDocument = buildReaderDocument(data);
             } catch (error) {
-                console.error('Failed to open document:', error);
+                const demoDocument = getDemoDocumentById(documentId);
+                if (demoDocument) {
+                    nextDocument = toReaderDocument(demoDocument);
+                } else {
+                    console.error('Failed to open document:', error);
+                    return;
+                }
             }
+
+            setDocument(nextDocument);
+            setUploadStatus(nextDocument.punctuatedText ? 'done' : 'idle');
+            if (options?.readerPanel) {
+                setPendingReaderPanel(options.readerPanel);
+            }
+            setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab);
+            setActiveTab('reader');
         },
-        [activeTab, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
+        [activeTab, buildReaderDocument, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
     );
 
     const jumpToChat = useCallback(
@@ -165,20 +177,17 @@ function App() {
                 const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`);
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
-                toggleComparisonDocument({
-                    id: data.id,
-                    title: data.title,
-                    originalText: data.original_text,
-                    punctuatedText: data.punctuated_text || '',
-                    translatedText: data.translated_text || '',
-                    confidence: data.ocr_confidence,
-                    imageUrl: data.image_data || undefined,
-                });
+                toggleComparisonDocument(buildReaderDocument(data));
             } catch (error) {
-                console.error('Failed to add document to comparison:', error);
+                const demoDocument = getDemoDocumentById(documentId);
+                if (demoDocument) {
+                    toggleComparisonDocument(toReaderDocument(demoDocument));
+                } else {
+                    console.error('Failed to add document to comparison:', error);
+                }
             }
         },
-        [comparisonDocuments, toggleComparisonDocument]
+        [buildReaderDocument, comparisonDocuments, toggleComparisonDocument]
     );
 
     const tabs = [
@@ -186,12 +195,12 @@ function App() {
         { key: 'reader' as const, label: '读古籍' },
         { key: 'chat' as const, label: '问答' },
         { key: 'search' as const, label: '检索' },
-        { key: 'graph' as const, label: '图谱' },
         { key: 'bookshelf' as const, label: '典籍库' },
         { key: 'compare' as const, label: '对照' },
         { key: 'history' as const, label: '进度' },
         { key: 'favorites' as const, label: '收藏' },
         { key: 'wordbook' as const, label: '字词本' },
+        { key: 'graph' as const, label: '线索（选看）' },
     ];
 
     const renderActiveTab = () => {

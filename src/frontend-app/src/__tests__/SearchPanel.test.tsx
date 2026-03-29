@@ -156,4 +156,19 @@ describe('SearchPanel', () => {
       expect(screen.getByText(/搜索关键词不能为空/i)).toBeInTheDocument();
     });
   });
+
+  it('shows fallback actions when network request cannot reach the search service', async () => {
+    (global.fetch as any).mockRejectedValueOnce(new Error('Failed to fetch'));
+
+    render(<SearchPanel />);
+
+    const input = screen.getByPlaceholderText(searchPlaceholder);
+    fireEvent.change(input, { target: { value: '孔子怎样谈仁' } });
+    fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/离线体验样例结果/i)).toBeInTheDocument();
+      expect(screen.getByText('体验样例 · 《论语·学而》')).toBeInTheDocument();
+    });
+  });
 });

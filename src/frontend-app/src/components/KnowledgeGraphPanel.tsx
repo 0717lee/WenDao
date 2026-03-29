@@ -1,10 +1,13 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { Suspense, lazy, useEffect, useState, useRef, useCallback } from 'react';
 import Graph from 'react-graph-vis';
 import { useGraphStore } from '../store/useGraphStore';
 import { Network, Edge, Node } from 'vis-network';
 import { EntityDetailPanel } from './EntityDetailPanel';
-import { GraphExportDialog } from './GraphExportDialog';
 import { API_BASE } from '../lib/api';
+
+const GraphExportDialog = lazy(() =>
+    import('./GraphExportDialog').then((module) => ({ default: module.GraphExportDialog }))
+);
 
 /* ── 类型 ───────────────────────────────────────────── */
 export interface KGNode {
@@ -83,6 +86,7 @@ export function KnowledgeGraphPanel() {
     const [stabilizationProgress, setStabilizationProgress] = useState(0);
     const [filterGroups, setFilterGroups] = useState<Set<string>>(new Set(['人物', '典籍', '历史事件', '思想流派']));
     const [showFilters, setShowFilters] = useState(false);
+    const [compactMode, setCompactMode] = useState(true);
 
     // Cross-tab highlighting from useGraphStore
     const highlightedEntityIds = useGraphStore(s => s.highlightedEntityIds);
@@ -96,6 +100,7 @@ export function KnowledgeGraphPanel() {
     const pendingNodes = useGraphStore(s => s.pendingNodes);
     const entityFrequencies = useGraphStore(s => s.entityFrequencies);
     const setEntityFrequencies = useGraphStore(s => s.setEntityFrequencies);
+    const queueSearchQuery = useGraphStore(s => s.queueSearchQuery);
     const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     /* ── 加载后端知识图谱 ─────────────────────────── */
@@ -142,9 +147,32 @@ export function KnowledgeGraphPanel() {
             ...mergedNodes,
             ...pendingDisplay.map(n => ({ id: n.id || n.label, label: `${n.label} (待审核)`, group: n.group, desc: n.desc })),
         ];
+        const filteredNodes = allDisplayNodes.filter((node) => filterGroups.has(node.group));
+        const filteredNodeIds = new Set(filteredNodes.map((node) => node.id));
+        const filteredEdges = allEdges.filter((edge) => filteredNodeIds.has(edge.from) && filteredNodeIds.has(edge.to));
 
         if (!center) {
-            // 显示全部节点
+            const visibleIds = new Set<string>();
+            if (compactMode) {
+                const degreeMap = new Map<string, number>();
+                filteredEdges.forEach((edge) => {
+                    degreeMap.set(edge.from, (degreeMap.get(edge.from) || 0) + 1);
+                    degreeMap.set(edge.to, (degreeMap.get(edge.to) || 0) + 1);
+                });
+                const hotspots = [...degreeMap.entries()]
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 12)
+                    .map(([id]) => id);
+
+                hotspots.forEach((id) => visibleIds.add(id));
+                filteredEdges.forEach((edge) => {
+                    if (visibleIds.has(edge.from) || visibleIds.has(edge.to)) {
+                        visibleIds.add(edge.from);
+                        visibleIds.add(edge.to);
+                    }
+                });
+            }
+
             const hasHighlight = highlightedEntityIds.length > 0;
             // Compute frequency scale for node sizing
             const freqValues = Object.values(entityFrequencies);
@@ -153,9 +181,16 @@ export function KnowledgeGraphPanel() {
                 const count = entityFrequencies[id] || 0;
                 return count > 0 ? (count / freqMax) * 10 : 0;  // 0-10 bonus
             };
-            const visNodes = allDisplayNodes.map(n => {
+            const candidateNodes = compactMode
+                ? filteredNodes.filter((node) => visibleIds.has(node.id))
+                : filteredNodes;
+            const candidateEdges = compactMode
+                ? filteredEdges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to))
+                : filteredEdges;
+
+            const visNodes = candidateNodes.map(n => {
                 // 找到连接数最多的节点作为视觉中心
-                const connectionCount = allEdges.filter(e => e.from === n.id || e.to === n.id).length;
+                const connectionCount = candidateEdges.filter(e => e.from === n.id || e.to === n.id).length;
                 const isHub = connectionCount >= 4;
                 const isHighlighted = hasHighlight && highlightedEntityIds.includes(n.id);
                 const isPending = pendingIds.has(n.id);
@@ -178,7 +213,7 @@ export function KnowledgeGraphPanel() {
                     borderDashes: isPending ? [5, 5] : false,
                 };
             });
-            setGraphData({ nodes: visNodes as any, edges: allEdges });
+            setGraphData({ nodes: visNodes as any, edges: candidateEdges as any });
             return;
         }
 
@@ -187,18 +222,18 @@ export function KnowledgeGraphPanel() {
         const layer2 = new Set<string>();
         layer1.add(center);
 
-        allEdges.forEach(e => {
+        filteredEdges.forEach(e => {
             if (e.from === center) layer1.add(e.to);
             if (e.to === center) layer1.add(e.from);
         });
-        allEdges.forEach(e => {
+        filteredEdges.forEach(e => {
             if (layer1.has(e.from) && !layer1.has(e.to)) layer2.add(e.to);
             if (layer1.has(e.to) && !layer1.has(e.from)) layer2.add(e.from);
         });
 
         const allVisible = new Set([...layer1, ...layer2]);
-        const visEdges = allEdges.filter(e => allVisible.has(e.from) && allVisible.has(e.to));
-        const visNodes = allNodes
+        const visEdges = filteredEdges.filter(e => allVisible.has(e.from) && allVisible.has(e.to));
+        const visNodes = filteredNodes
             .filter(n => allVisible.has(n.id))
             .map(n => {
                 const isCenter = n.id === center;
@@ -218,7 +253,7 @@ export function KnowledgeGraphPanel() {
                 };
             });
         setGraphData({ nodes: visNodes as any, edges: visEdges });
-    }, [allNodes, allEdges, highlightedEntityIds, pendingNodes, entityFrequencies, filterGroups]);
+    }, [allNodes, allEdges, compactMode, highlightedEntityIds, pendingNodes, entityFrequencies, filterGroups]);
 
     /* ── 当数据或焦点变化时重建子图 ──────────────── */
     useEffect(() => {
@@ -389,16 +424,28 @@ export function KnowledgeGraphPanel() {
         <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--gf-bg)' }}>
             {/* 标题栏 */}
             <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
-                <h3
-                    className="text-lg font-medium text-[var(--gf-text)] tracking-widest"
-                    style={{ fontFamily: '"ZCOOL XiaoWei", serif' }}
-                >
-                    古籍知识图谱
-                </h3>
+                <div>
+                    <h3
+                        className="text-lg font-medium text-[var(--gf-text)] tracking-widest"
+                        style={{ fontFamily: '"ZCOOL XiaoWei", serif' }}
+                    >
+                        人物与典故线索
+                    </h3>
+                    <p className="mt-1 text-xs leading-5 text-[var(--gf-text)]/45">
+                        这页更适合在你读到某个人物、典故时回头查线索，不必把它当作主阅读入口。
+                    </p>
+                </div>
                 <div className="flex items-center gap-3">
                     <span className="text-[10px] text-[var(--gf-text)]/40 tracking-wider">
                         {stats.nodes} 节点 / {stats.edges} 关系
                     </span>
+                    <button
+                        onClick={() => setCompactMode((prev) => !prev)}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[11px] text-[var(--gf-text)]/60 hover:text-[var(--gf-text)] bg-white/40 hover:bg-white/70 border border-white/40 rounded-lg transition-all"
+                        title="切换简洁模式"
+                    >
+                        {compactMode ? '全图模式' : '简洁模式'}
+                    </button>
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         className="flex items-center gap-1 px-2.5 py-1 text-[11px] text-[var(--gf-text)]/60 hover:text-[var(--gf-text)] bg-white/40 hover:bg-white/70 border border-white/40 rounded-lg transition-all"
@@ -519,6 +566,30 @@ export function KnowledgeGraphPanel() {
 
             {/* 图谱渲染区 */}
             <div className="flex-1 w-full relative" ref={graphContainerRef}>
+                {compactMode && !focusNode && !citationChainMode && (
+                    <div
+                        className="absolute left-4 top-4 z-10 max-w-xs rounded-xl px-3 py-2 text-xs leading-6"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.82)', border: '1px solid rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}
+                    >
+                        当前为简洁模式：先展示更有代表性的人物、典籍和一跳关联。想看全图时可切换到“全图模式”。
+                    </div>
+                )}
+                {graphData.nodes.length === 0 && !stabilizing && (
+                    <div
+                        className="absolute inset-0 z-10 flex items-center justify-center px-6"
+                        style={{ backgroundColor: 'rgba(247,246,243,0.55)', backdropFilter: 'blur(6px)' }}
+                    >
+                        <div
+                            className="max-w-md rounded-[26px] px-6 py-5 text-center"
+                            style={{ backgroundColor: 'rgba(255,255,255,0.86)', border: '1px solid rgba(26,30,35,0.06)' }}
+                        >
+                            <div className="text-base font-medium text-[var(--gf-text)]">当前筛选下没有可展示的线索</div>
+                            <p className="mt-2 text-sm leading-6 text-[var(--gf-text)]/50">
+                                可以打开更多类型，或切换到全图模式看看更完整的关系。
+                            </p>
+                        </div>
+                    </div>
+                )}
                 {/* 稳定化加载指示器 */}
                 {stabilizing && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ backgroundColor: 'rgba(247,246,243,0.7)', backdropFilter: 'blur(8px)' }}>
@@ -547,7 +618,11 @@ export function KnowledgeGraphPanel() {
                     onClose={() => setSelectedNodeDetail(null)}
                     onFocusInGraph={(nodeId) => setFocusNode(nodeId)}
                     onSelectNode={(n) => setSelectedNodeDetail(n)}
-                    onViewRelatedTexts={() => setActiveTab('reader')}
+                    onViewRelatedTexts={(nodeId) => {
+                        const targetNode = allNodes.find((node) => node.id === nodeId)
+                        queueSearchQuery(targetNode?.label || nodeId)
+                        setActiveTab('search')
+                    }}
                 />
             </div>
 
@@ -568,14 +643,18 @@ export function KnowledgeGraphPanel() {
             </div>
 
             {/* 导出对话框 */}
-            <GraphExportDialog
-                open={showExportDialog}
-                onClose={() => setShowExportDialog(false)}
-                graphRef={graphContainerRef}
-                networkRef={networkRef}
-                allNodes={allNodes}
-                allEdges={allEdges}
-            />
+            {showExportDialog && (
+                <Suspense fallback={null}>
+                    <GraphExportDialog
+                        open={showExportDialog}
+                        onClose={() => setShowExportDialog(false)}
+                        graphRef={graphContainerRef}
+                        networkRef={networkRef}
+                        allNodes={allNodes}
+                        allEdges={allEdges}
+                    />
+                </Suspense>
+            )}
         </div>
     );
 }

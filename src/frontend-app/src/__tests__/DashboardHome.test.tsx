@@ -23,7 +23,7 @@ function installFetchMock() {
       })
     }
 
-    if (url.includes('/api/v1/documents?limit=6&source_type=sample')) {
+    if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
       return Promise.resolve({
         ok: true,
         json: async () => ({
@@ -121,9 +121,9 @@ describe('DashboardHome', () => {
     fireEvent.click(await screen.findByText('体验样例 · 《论语·学而》'))
     expect(props.onOpenDocument).toHaveBeenCalledWith('sample-1')
 
-    const kongziButtons = screen.getAllByRole('button', { name: '孔子' })
-    fireEvent.click(kongziButtons[0])
-    expect(props.onSearch).toHaveBeenCalledWith('孔子')
+    const topicButtons = screen.getAllByRole('button', { name: /孔子怎样谈“仁”/ })
+    fireEvent.click(topicButtons[0])
+    expect(props.onSearch).toHaveBeenCalledWith('孔子怎样谈“仁”')
   })
 
   it('keeps sample entry available when one dashboard request fails', async () => {
@@ -131,7 +131,7 @@ describe('DashboardHome', () => {
       if (url.includes('/api/v1/documents?limit=12')) {
         return Promise.resolve({ ok: true, json: async () => ({ documents: [] }) })
       }
-      if (url.includes('/api/v1/documents?limit=6&source_type=sample')) {
+      if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -175,7 +175,7 @@ describe('DashboardHome', () => {
   it('routes stat cards to graph and wordbook entry points', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /图谱实体/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /人物线索/ }))
     expect(props.onOpenGraph).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: /字词沉淀/i }))

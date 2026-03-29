@@ -9,6 +9,7 @@ import { API_BASE } from '../lib/api'
 import { useGraphStore } from '../store/useGraphStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 import type { ReasoningStep } from './ReasoningTimeline'
+import { buildDemoChatResponse, resolveDemoCitation, getDemoDocumentById, toReaderDocument } from '../data/demoDocuments'
 
 // Default reasoning steps template
 const INITIAL_REASONING_STEPS: ReasoningStep[] = [
@@ -32,7 +33,7 @@ export function ChatInterface() {
     const streamBufferRef = useRef('')
     const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const assistantContentRef = useRef('')
-    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
+    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageCitations, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
     const { setDocument, setUploadStatus, setPendingAnchorText } = useDocumentStore()
     const setActiveTab = useGraphStore((state) => state.setActiveTab)
     const setReaderReturnTab = useGraphStore((state) => state.setReaderReturnTab)
@@ -112,6 +113,19 @@ export function ChatInterface() {
                 }
             } catch (error) {
                 console.error('Citation resolution failed:', error)
+            }
+
+            const demoMatch = resolveDemoCitation(citation)
+            if (demoMatch) {
+                const demoDocument = getDemoDocumentById(demoMatch.documentId)
+                if (demoDocument) {
+                    setDocument(toReaderDocument(demoDocument))
+                    setUploadStatus('done')
+                    setPendingAnchorText(demoMatch.anchorText)
+                    setReaderReturnTab('chat')
+                    setActiveTab('reader')
+                    return
+                }
             }
 
             queueSearchQuery(`${citation.title} ${citation.source}`)
@@ -395,6 +409,22 @@ export function ChatInterface() {
             timestamp: Date.now(),
         })
 
+        const applyDemoFallback = () => {
+            const fallback = buildDemoChatResponse(userMessage.content)
+            const demoReasoning: ReasoningStep[] = [
+                { step: 'retrieval', label: '检索体验样例', status: 'complete', duration: 0.02, model: '离线演示', fallback: true },
+                { step: 'entity_extraction', label: '抽取关联实体', status: 'complete', duration: 0.01, model: '离线演示', fallback: true },
+                { step: 'knowledge_linking', label: '知识关联推理', status: 'complete', duration: 0.01, model: '离线演示', fallback: true },
+                { step: 'generation', label: '生成通俗解读', status: 'complete', duration: 0.02, model: '离线演示', fallback: true },
+            ]
+
+            updateLastMessageReasoning(demoReasoning)
+            updateLastMessageCitations(fallback.citations)
+            updateLastMessage(fallback.content)
+            setLoading(false)
+            setProgress('')
+        }
+
         try {
             const response = await fetch(`${API_BASE}/api/v1/chat`, {
                 method: 'POST',
@@ -513,9 +543,7 @@ export function ChatInterface() {
             flushStreamBuffer(true)
         } catch (error) {
             console.error('Failed to send message:', error)
-            updateLastMessage('抱歉，当前对话暂时不可用，请稍后重试。')
-            setLoading(false)
-            setProgress('')
+            applyDemoFallback()
         }
     }
 

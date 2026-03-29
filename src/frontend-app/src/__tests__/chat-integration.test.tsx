@@ -161,4 +161,29 @@ describe('Chat Integration E2E', () => {
             expect(screen.getByText(/营造法式/)).toBeInTheDocument()
         }, { timeout: 3000 })
     })
+
+    it('测试5: 后端不可用时切换到离线演示解读', async () => {
+        ;(global.fetch as any).mockImplementation((url: string) => {
+            if (typeof url === 'string' && url.includes('/api/v1/chat')) {
+                return Promise.reject(new Error('Failed to fetch'))
+            }
+            return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ documents: [], entries: [], nodes: [], edges: [], frequencies: [], top_entities: [], total_nodes: 0, total_edges: 0 }),
+            })
+        })
+
+        render(<App />)
+
+        await openChatTab()
+
+        const input = await screen.findByPlaceholderText(chatPlaceholder)
+        fireEvent.change(input, { target: { value: '学而时习之是什么意思？' } })
+        fireEvent.click(screen.getByRole('button', { name: '发送' }))
+
+        await waitFor(() => {
+            expect(screen.getByText(/离线演示解读/)).toBeInTheDocument()
+            expect(screen.getByText(/体验样例 · 《论语·学而》/)).toBeInTheDocument()
+        })
+    })
 })

@@ -41,6 +41,7 @@ interface AppState {
     draftMessage: string
     addMessage: (message: Message) => void
     updateLastMessage: (content: string) => void
+    updateLastMessageCitations: (citations: NonNullable<Message['citations']>) => void
     updateLastMessageReasoning: (steps: ReasoningStep[]) => void
     updateLastMessagePoem: (poem: Partial<PoemResult>) => void
     setLoading: (loading: boolean) => void
@@ -69,6 +70,16 @@ export const useStore = create<AppState>((set) => ({
             updatedMessages[updatedMessages.length - 1] = {
                 ...updatedMessages[updatedMessages.length - 1],
                 content,
+            }
+            return { messages: updatedMessages }
+        }),
+    updateLastMessageCitations: (citations) =>
+        set((state) => {
+            if (state.messages.length === 0) return state
+            const updatedMessages = [...state.messages]
+            updatedMessages[updatedMessages.length - 1] = {
+                ...updatedMessages[updatedMessages.length - 1],
+                citations,
             }
             return { messages: updatedMessages }
         }),

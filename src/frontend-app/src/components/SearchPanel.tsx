@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Loader2, X } from 'lucide-react';
+import { Search, Loader2, RefreshCcw, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { useGraphStore } from '../store/useGraphStore';
+import { searchDemoDocuments } from '../data/demoDocuments';
 
 interface SearchResult {
   id: string;
@@ -19,7 +20,41 @@ interface SearchResponse {
 
 type SearchMode = 'FULLTEXT' | 'VECTOR' | 'HYBRID';
 
-const SUGGESTED_QUERIES = ['孔子', '仁义', '逍遥游', '学而时习之'];
+const SEARCH_QUERY_POOL = [
+  '孔子怎样理解“仁”与“礼”',
+  '“学而时习之”到底在讲什么',
+  '《逍遥游》里的“大鹏”想表达什么',
+  '孟子为什么强调“舍生取义”',
+  '《道德经》第一章适合怎么入门',
+  '“关关雎鸠”背后的典故和情感',
+  '《礼记》里有哪些适合初学者的句子',
+  '“君子不器”放在今天怎么理解',
+  '庄子为什么会讲“齐物”',
+  '《论语·学而》有哪些值得先读的片段',
+  '“道法自然”在古籍里原本是什么意思',
+  '孔子和孟子对于“义”有什么共同点',
+];
+
+const SUGGESTION_COUNT = 5;
+
+function pickSuggestedQueries(previous: string[] = []) {
+  const pool = [...SEARCH_QUERY_POOL];
+
+  for (let index = pool.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
+  }
+
+  const next = pool.slice(0, SUGGESTION_COUNT);
+  const sameAsPrevious =
+    previous.length === next.length && previous.every((item, index) => item === next[index]);
+
+  if (sameAsPrevious) {
+    next.push(next.shift()!);
+  }
+
+  return next;
+}
 
 const SearchPanel: React.FC = () => {
   const [query, setQuery] = useState('');
@@ -27,8 +62,15 @@ const SearchPanel: React.FC = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoNotice, setDemoNotice] = useState<string | null>(null);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const consumeSearchQuery = useGraphStore((state) => state.consumeSearchQuery);
+  const setActiveTab = useGraphStore((state) => state.setActiveTab);
+  const [suggestedQueries, setSuggestedQueries] = useState(() => pickSuggestedQueries());
+
+  const reshuffleSuggestions = () => {
+    setSuggestedQueries((previous) => pickSuggestedQueries(previous));
+  };
 
   const handleSearch = async (forcedQuery?: string) => {
     const nextQuery = (forcedQuery ?? query).trim();
@@ -43,6 +85,7 @@ const SearchPanel: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setDemoNotice(null);
 
     try {
       const response = await fetch(
@@ -57,8 +100,19 @@ const SearchPanel: React.FC = () => {
       const data: SearchResponse = await response.json();
       setResults(data.results);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '搜索服务不可用');
-      setResults([]);
+      const message = err instanceof Error ? err.message : '搜索服务暂时不可用';
+      const fallbackResults = searchDemoDocuments(nextQuery);
+      if (fallbackResults.length > 0 && message.toLowerCase().includes('fetch')) {
+        setResults(fallbackResults);
+        setDemoNotice('检索服务暂时不可用，当前展示的是离线体验样例结果。');
+      } else {
+        setError(
+          message.includes('Failed to fetch')
+            ? '暂时没有连上检索服务，你可以先去典籍库继续阅读，或换一组更具体的尝试词。'
+            : message
+        );
+        setResults([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -167,15 +221,30 @@ const SearchPanel: React.FC = () => {
           ))}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {SUGGESTED_QUERIES.map((item) => (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
+            可直接点一个更完整的问题试试
+          </div>
+          <button
+            type="button"
+            onClick={reshuffleSuggestions}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)', backgroundColor: 'rgba(255,255,255,0.72)' }}
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+            换一组
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {suggestedQueries.map((item) => (
             <button
               key={item}
               onClick={() => handleSearch(item)}
               className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)', backgroundColor: 'rgba(255,255,255,0.72)' }}
             >
-              试试 {item}
+              {item}
             </button>
           ))}
         </div>
@@ -184,7 +253,31 @@ const SearchPanel: React.FC = () => {
       {/* Error Message */}
       {error && (
         <div className="mx-4 md:mx-6 mt-4 p-3 rounded-[22px] text-sm" style={{ backgroundColor: 'rgba(176,58,58,0.08)', border: '1px solid rgba(176,58,58,0.15)', color: '#b03a3a' }}>
-          {error}
+          <div>{error}</div>
+          {error.includes('检索服务') && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveTab('bookshelf')}
+                className="rounded-full px-3 py-1.5 text-xs transition-colors"
+                style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
+              >
+                去典籍库看看
+              </button>
+              <button
+                onClick={reshuffleSuggestions}
+                className="rounded-full px-3 py-1.5 text-xs transition-colors"
+                style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
+              >
+                换一组尝试词
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {demoNotice && (
+        <div className="mx-4 md:mx-6 mt-4 p-3 rounded-[22px] text-sm" style={{ backgroundColor: 'rgba(201,160,99,0.10)', border: '1px solid rgba(201,160,99,0.20)', color: 'rgba(26,30,35,0.62)' }}>
+          {demoNotice}
         </div>
       )}
 
@@ -207,7 +300,7 @@ const SearchPanel: React.FC = () => {
               可以试试人物名、典故名、关键概念，或换成一句更完整的原文。
             </p>
             <div className="flex justify-center flex-wrap gap-2">
-              {SUGGESTED_QUERIES.map((item) => (
+              {suggestedQueries.map((item) => (
                 <button
                   key={`empty-${item}`}
                   onClick={() => handleSearch(item)}

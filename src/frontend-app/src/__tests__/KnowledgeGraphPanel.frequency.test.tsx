@@ -203,11 +203,11 @@ describe('KnowledgeGraphPanel frequency-based node scaling', () => {
 
     // Check captured graph data for size differences
     const kongziNode = capturedGraphData.nodes.find((n: any) => n.id === 'kongzi')
-    const laoziNode = capturedGraphData.nodes.find((n: any) => n.id === 'laozi')
+    const lunyuNode = capturedGraphData.nodes.find((n: any) => n.id === 'lunyu')
 
-    // kongzi has frequency 5 (max), should have larger size than laozi (no frequency)
+    // kongzi has higher frequency than lunyu, so it should render larger in compact mode too
     expect(kongziNode).toBeTruthy()
-    expect(laoziNode).toBeTruthy()
-    expect(kongziNode.size).toBeGreaterThan(laoziNode.size)
+    expect(lunyuNode).toBeTruthy()
+    expect(kongziNode.size).toBeGreaterThan(lunyuNode.size)
   })
 })

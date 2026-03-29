@@ -13,6 +13,7 @@ import {
   ScrollText,
 } from 'lucide-react'
 import { API_BASE } from '../lib/api'
+import { getDemoBookshelfDocuments } from '../data/demoDocuments'
 
 interface DashboardHomeProps {
   onOpenDocument: (documentId: string) => void
@@ -79,7 +80,14 @@ const QUICK_QUESTION_PROMPTS = [
   '孔子和孟子的思想有什么联系？',
 ]
 
-const SEARCH_TOPICS = ['孔子', '仁义', '逍遥游', '关雎']
+const SEARCH_TOPICS = [
+  '孔子怎样谈“仁”',
+  '“学而时习之”怎么理解',
+  '《逍遥游》里的“大鹏”',
+  '孟子为什么说“舍生取义”',
+  '《道德经》第一章',
+  '“关关雎鸠”讲的是什么',
+]
 
 function formatTimeLabel(value?: string) {
   if (!value) return '刚刚整理'
@@ -109,6 +117,7 @@ export default function DashboardHome({
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null)
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([])
   const [studyOverview, setStudyOverview] = useState<StudyOverview | null>(null)
+  const [usingDemoSamples, setUsingDemoSamples] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -128,7 +137,7 @@ export default function DashboardHome({
       try {
         const [docsData, sampleData, historyData, wordbookData, analyticsData, recommendationData, studyData] = await Promise.all([
           loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [] }),
-          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=6&source_type=sample`, { documents: [] }),
+          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [] }),
           loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
           loadJson<{ entries: WordbookItem[] }>(`${API_BASE}/api/v1/reader/wordbook?limit=6`, { entries: [] }),
           loadJson<AnalyticsOverview | null>(`${API_BASE}/api/v1/analytics/overview`, null),
@@ -140,9 +149,12 @@ export default function DashboardHome({
 
         const allDocuments = Array.isArray(docsData.documents) ? docsData.documents : []
         const builtInSamples = Array.isArray(sampleData.documents) ? sampleData.documents : []
+        const demoSamples = getDemoBookshelfDocuments()
+        const resolvedSamples = builtInSamples.length > 0 ? builtInSamples : demoSamples
 
         setDocuments(allDocuments.filter((item: BookshelfItem) => item.source_type !== 'sample'))
-        setSampleDocuments(builtInSamples)
+        setSampleDocuments(resolvedSamples)
+        setUsingDemoSamples(builtInSamples.length === 0)
         setHistory(Array.isArray(historyData) ? historyData : [])
         setWordbook(Array.isArray(wordbookData.entries) ? wordbookData.entries : [])
         setAnalytics(analyticsData && typeof analyticsData === 'object' ? analyticsData : null)
@@ -257,11 +269,11 @@ export default function DashboardHome({
       action: onOpenWordbook,
     },
     {
-      label: '图谱实体',
+      label: '人物线索（选看）',
       value: analytics?.total_nodes ?? 0,
       icon: Brain,
       accent: 'var(--gf-gold)',
-      hint: '点击进入知识图谱',
+      hint: '读到人物、典故时再展开',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.98) 100%)',
       action: onOpenGraph,
     },
@@ -476,7 +488,7 @@ export default function DashboardHome({
                   体验样例
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  不用准备图片，直接进入阅读、释义和继续提问
+                  不用准备图片，先读更完整一点的起步片段，再决定往哪一部典籍深入
                 </p>
               </div>
               <button
@@ -487,8 +499,13 @@ export default function DashboardHome({
                 查看全部
               </button>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {sampleDocuments.slice(0, 4).map((doc) => (
+            {usingDemoSamples && (
+              <div className="mb-3 rounded-2xl px-4 py-3 text-xs leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', color: 'rgba(26,30,35,0.56)', border: '1px solid rgba(140,26,17,0.10)' }}>
+                当前展示的是本地演示样例。即使后端临时波动，评审时也能完整体验“阅读、释义、追问”的主链路。
+              </div>
+            )}
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {sampleDocuments.slice(0, 6).map((doc) => (
                 <button
                   key={doc.id}
                   onClick={() => onOpenDocument(doc.id)}
@@ -503,7 +520,7 @@ export default function DashboardHome({
                       体验
                     </span>
                   </div>
-                  <div className="line-clamp-3 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                  <div className="line-clamp-4 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
                     {doc.preview || '打开后即可查看原文、标点和白话对照。'}
                   </div>
                 </button>
@@ -836,7 +853,7 @@ export default function DashboardHome({
                   热门人物与概念
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  点击任意条目，直接进入知识图谱查看相关人物、典籍和典故。
+                  点击任意条目，直接进入线索页；这更适合读到人物、典故后回头查，不必当成主入口。
                 </p>
               </div>
             </div>

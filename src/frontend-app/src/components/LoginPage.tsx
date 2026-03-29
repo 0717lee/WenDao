@@ -11,7 +11,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
-    const { login } = useAuthStore()
+    const { login, enterDemoMode } = useAuthStore()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -58,6 +58,9 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                     </h1>
                     <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
                         登录后可保存阅读进度和字词收藏
+                    </p>
+                    <p className="text-xs tracking-wide" style={{ color: 'rgba(26,30,35,0.36)', fontFamily: '"Noto Serif SC", serif' }}>
+                        若现场网络波动，也可以先进入演示模式完成主链路演示
                     </p>
                 </div>
 
@@ -145,10 +148,24 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         >
                             {loading ? '登录中...' : '登录'}
                         </button>
+                        <button
+                            type="button"
+                            onClick={enterDemoMode}
+                            className="w-full py-3 rounded-lg text-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                            style={{
+                                backgroundColor: 'rgba(255,255,255,0.78)',
+                                color: '#1a1e23',
+                                border: '1px solid rgba(26,30,35,0.08)',
+                                fontFamily: '"Noto Serif SC", serif',
+                                fontWeight: 500,
+                            }}
+                        >
+                            先进入演示模式
+                        </button>
                     </form>
 
                     {/* 底部链接 */}
-                    <div className="mt-6 text-center">
+                    <div className="mt-6 text-center space-y-2">
                         <button
                             onClick={onSwitchToRegister}
                             className="text-xs hover:underline transition-colors"
@@ -156,6 +173,9 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         >
                             还没有账号？立即注册
                         </button>
+                        <p className="text-[11px]" style={{ color: 'rgba(26,30,35,0.36)' }}>
+                            演示模式下可体验阅读、检索和问答，进度与笔记不会保存到云端。
+                        </p>
                     </div>
                 </div>
 

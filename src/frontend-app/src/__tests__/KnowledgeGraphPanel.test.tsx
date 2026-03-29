@@ -121,7 +121,7 @@ describe('KnowledgeGraphPanel', () => {
     render(<KnowledgeGraphPanel />)
 
     // Fallback data includes known nodes
-    expect(screen.getByText('古籍知识图谱')).toBeTruthy()
+    expect(screen.getByText('人物与典故线索')).toBeTruthy()
     expect(screen.getByTestId('graph-vis')).toBeTruthy()
   })
 

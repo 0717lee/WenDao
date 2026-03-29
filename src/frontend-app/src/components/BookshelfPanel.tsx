@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BookMarked, ChevronRight } from 'lucide-react'
 import { API_BASE } from '../lib/api'
+import { getDemoBookshelfDocuments } from '../data/demoDocuments'
 
 interface BookshelfItem {
   id: string
@@ -30,6 +31,7 @@ function progressLabel(item: BookshelfItem) {
 export default function BookshelfPanel({ onOpenDocument, onToggleCompare, comparedDocumentIds, onOpenCompare }: BookshelfPanelProps) {
   const [documents, setDocuments] = useState<BookshelfItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [usingDemoDocuments, setUsingDemoDocuments] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -38,9 +40,19 @@ export default function BookshelfPanel({ onOpenDocument, onToggleCompare, compar
       try {
         const response = await fetch(`${API_BASE}/api/v1/documents?limit=100`)
         const data = response.ok ? await response.json() : { documents: [] }
-        if (!cancelled) setDocuments(data.documents || [])
+        const nextDocuments = Array.isArray(data.documents) && data.documents.length > 0
+          ? data.documents
+          : getDemoBookshelfDocuments()
+
+        if (!cancelled) {
+          setDocuments(nextDocuments)
+          setUsingDemoDocuments(!Array.isArray(data.documents) || data.documents.length === 0)
+        }
       } catch {
-        if (!cancelled) setDocuments([])
+        if (!cancelled) {
+          setDocuments(getDemoBookshelfDocuments())
+          setUsingDemoDocuments(true)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -67,6 +79,15 @@ export default function BookshelfPanel({ onOpenDocument, onToggleCompare, compar
             {loading ? '整理中...' : `${documents.length} 份文档`}
           </span>
         </div>
+
+        {usingDemoDocuments && !loading && (
+          <div
+            className="rounded-2xl px-4 py-3 text-sm"
+            style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}
+          >
+            当前为离线演示书架，已自动切换到本地体验样例，方便现场继续完成样例阅读和对照演示。
+          </div>
+        )}
 
         {comparedDocumentIds.length > 0 && (
           <div

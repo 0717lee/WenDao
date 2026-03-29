@@ -210,6 +210,51 @@ describe('DocumentUpload', () => {
       const state = useDocumentStore.getState()
       expect(state.uploadStatus).toBe('error')
       expect(screen.getByText(/上传失败/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '打开体验样例' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '先问一句古文' })).toBeInTheDocument()
+    })
+  })
+
+  it('falls back to local demo samples when sample API is unavailable', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/api/v1/documents?limit=6&source_type=sample')) {
+        return Promise.reject(new Error('network down'))
+      }
+
+      if (typeof url === 'string' && url.includes('/api/v1/documents/')) {
+        return Promise.reject(new Error('network down'))
+      }
+
+      if (typeof url === 'string' && url.includes('/api/v1/documents/upload')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            document_id: 'doc-123',
+            text: 'OCR recognized text',
+            confidence: 0.92,
+            image_url: 'data:image/png;base64,ZmFrZQ==',
+          }),
+        } as Response)
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ documents: [] }),
+      } as Response)
+    })
+
+    render(<DocumentUpload />)
+
+    expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
+    expect(screen.getByText(/本地演示样例/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('体验样例 · 《论语·学而》'))
+
+    await waitFor(() => {
+      const state = useDocumentStore.getState()
+      expect(state.currentDocument?.title).toBe('体验样例 · 《论语·学而》')
+      expect(state.currentDocument?.translatedText).toContain('学习之后经常温习实践')
+      expect(state.uploadStatus).toBe('done')
     })
   })
 })

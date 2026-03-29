@@ -41,4 +41,12 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().token).toBe('good-token')
     expect(useAuthStore.getState().username).toBe('tester')
   })
+
+  it('can enter demo mode without a backend token', () => {
+    useAuthStore.getState().enterDemoMode()
+
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(useAuthStore.getState().username).toBe('演示模式')
+    expect(localStorage.getItem('texttwin_username')).toBe('演示模式')
+  })
 })

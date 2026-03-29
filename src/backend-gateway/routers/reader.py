@@ -5,6 +5,7 @@ Reading history tracking, favorite folders, and bookmarks management.
 """
 import json
 import logging
+import sqlite3
 from typing import Any
 from uuid import uuid4
 
@@ -27,6 +28,16 @@ def get_connection():
 def _raise_reader_error(detail: str, exc: Exception) -> None:
     logger.exception("%s: %s", detail, exc)
     raise HTTPException(status_code=500, detail=detail)
+
+
+def _empty_entity_frequency() -> dict[str, Any]:
+    """Return a stable empty payload for non-critical analytics endpoints."""
+    return {"frequencies": [], "total_documents": 0}
+
+
+def _is_missing_sqlite_table(exc: sqlite3.OperationalError) -> bool:
+    """Detect missing-table errors so analytics can degrade gracefully."""
+    return "no such table" in str(exc).lower()
 
 
 # --- Request Models ---
@@ -353,17 +364,23 @@ async def get_entity_frequency():
                 "frequencies": [{"entity_id": row["entity_id"], "count": row["freq"]} for row in rows],
                 "total_documents": total or 0,
             }
-        except RuntimeError:
-            pass
+        except Exception as exc:
+            logger.warning("PostgreSQL实体频率读取失败，降级到SQLite: %s", exc)
 
-        async with get_db() as db:
-            cursor = await db.execute("""
-                SELECT DISTINCT h.document_id, d.entity_ids
-                FROM reading_history h
-                JOIN documents d ON h.document_id = d.id
-                WHERE d.entity_ids IS NOT NULL AND d.entity_ids != '' AND d.entity_ids != '[]'
-            """)
-            rows = await cursor.fetchall()
+        try:
+            async with get_db() as db:
+                cursor = await db.execute("""
+                    SELECT DISTINCT h.document_id, d.entity_ids
+                    FROM reading_history h
+                    JOIN documents d ON h.document_id = d.id
+                    WHERE d.entity_ids IS NOT NULL AND d.entity_ids != '' AND d.entity_ids != '[]'
+                """)
+                rows = await cursor.fetchall()
+        except sqlite3.OperationalError as exc:
+            if _is_missing_sqlite_table(exc):
+                logger.warning("SQLite实体频率表缺失，返回空统计: %s", exc)
+                return _empty_entity_frequency()
+            raise
 
         frequency_map: dict[str, int] = {}
         for row in rows:
