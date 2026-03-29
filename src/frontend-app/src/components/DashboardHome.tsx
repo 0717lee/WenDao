@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   ArrowRight,
   BookOpen,
-  Brain,
   Clock3,
   GraduationCap,
   LibraryBig,
@@ -23,8 +23,6 @@ interface DashboardHomeProps {
   onOpenBookshelf: () => void
   onOpenHistory: () => void
   onOpenWordbook: () => void
-  onOpenGraph: () => void
-  onOpenGraphEntity: (entityId: string) => void
   onOpenCompare: () => void
   onContinueStudy: (documentId: string) => void
 }
@@ -104,8 +102,6 @@ export default function DashboardHome({
   onOpenBookshelf,
   onOpenHistory,
   onOpenWordbook,
-  onOpenGraph,
-  onOpenGraphEntity,
   onOpenCompare,
   onContinueStudy,
 }: DashboardHomeProps) {
@@ -269,13 +265,13 @@ export default function DashboardHome({
       action: onOpenWordbook,
     },
     {
-      label: '人物线索（选看）',
-      value: analytics?.total_nodes ?? 0,
-      icon: Brain,
+      label: '已读篇目',
+      value: documents.length,
+      icon: ScrollText,
       accent: 'var(--gf-gold)',
-      hint: '读到人物、典故时再展开',
+      hint: '查看全部典籍',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.98) 100%)',
-      action: onOpenGraph,
+      action: onOpenBookshelf,
     },
   ]
 
@@ -288,8 +284,9 @@ export default function DashboardHome({
   return (
     <div className="relative h-full overflow-y-auto px-4 py-5 md:px-6 md:py-7" style={{ backgroundColor: 'var(--gf-bg)' }}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-[6%] top-4 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }} />
-        <div className="absolute right-[10%] top-24 h-80 w-80 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.08)' }} />
+        <div className="ink-wash-blob absolute left-[6%] top-4 h-72 w-72" style={{ backgroundColor: 'rgba(201,160,99,0.14)' }} />
+        <div className="ink-wash-blob absolute right-[10%] top-24 h-80 w-80" style={{ backgroundColor: 'rgba(140,26,17,0.10)', animationDelay: '-4s' }} />
+        <div className="ink-wash-blob absolute left-[40%] bottom-[10%] h-64 w-64" style={{ backgroundColor: 'rgba(201,160,99,0.08)', animationDelay: '-8s' }} />
         <div className="absolute inset-x-0 top-0 h-48" style={{ background: 'linear-gradient(180deg, rgba(244,241,225,0.92), rgba(247,246,243,0))' }} />
       </div>
 
@@ -437,9 +434,17 @@ export default function DashboardHome({
 
         <section className="grid gap-4 md:grid-cols-3">
           {audienceCards.map((item, index) => (
-            <div
+            <motion.div
               key={item.title}
-              className={`rounded-[28px] p-5 transition-transform duration-300 hover:-translate-y-1 ${index === 1 ? 'md:-translate-y-3' : ''}`}
+              className={`card-hover-lift rounded-[28px] p-5 ${index === 1 ? 'md:-translate-y-3' : ''}`}
+              initial={{ opacity: 0, y: 32, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{
+                type: 'spring',
+                stiffness: 260,
+                damping: 24,
+                delay: 0.15 + index * 0.12,
+              }}
               style={{
                 background: item.surface,
                 border: `1px solid ${item.borderTone}`,
@@ -473,7 +478,7 @@ export default function DashboardHome({
                 {item.actionLabel}
                 <ArrowRight className="h-4 w-4" />
               </button>
-            </div>
+            </motion.div>
           ))}
         </section>
 
@@ -505,12 +510,12 @@ export default function DashboardHome({
               </div>
             )}
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {sampleDocuments.slice(0, 6).map((doc) => (
+              {sampleDocuments.slice(0, 6).map((doc, idx) => (
                 <button
                   key={doc.id}
                   onClick={() => onOpenDocument(doc.id)}
-                  className="rounded-2xl px-4 py-4 text-left transition-colors hover:bg-[rgba(26,30,35,0.03)]"
-                  style={{ border: '1px solid rgba(26,30,35,0.08)' }}
+                  className="stagger-fade-up card-hover-lift rounded-2xl px-4 py-4 text-left"
+                  style={{ '--stagger-delay': `${0.05 + idx * 0.06}s`, border: '1px solid rgba(26,30,35,0.08)' } as React.CSSProperties}
                 >
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
@@ -609,16 +614,17 @@ export default function DashboardHome({
         </section>
 
         <section className="grid gap-4 md:grid-cols-4">
-          {statCards.map((item) => (
+          {statCards.map((item, index) => (
             <button
               key={item.label}
               onClick={item.action}
-              className="rounded-[24px] p-4 text-left transition-all duration-300 hover:-translate-y-1"
+              className="stagger-fade-up card-hover-lift rounded-[24px] p-4 text-left"
               style={{
+                '--stagger-delay': `${0.12 + index * 0.08}s`,
                 background: item.surface,
                 border: '1px solid rgba(26,30,35,0.06)',
                 boxShadow: '0 14px 28px rgba(26,30,35,0.04)',
-              }}
+              } as React.CSSProperties}
             >
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-[11px] tracking-[0.26em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
@@ -628,8 +634,8 @@ export default function DashboardHome({
                   <item.icon className="h-4 w-4" style={{ color: item.accent }} />
                 </div>
               </div>
-              <div className="text-3xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
-                {loading ? '...' : item.value}
+              <div className={`text-3xl ${!loading && item.value > 0 ? 'pulse-glow' : ''}`} style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif', borderRadius: '12px' }}>
+                {loading ? <div className="skeleton-shimmer h-9 w-16" /> : item.value}
               </div>
               <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
                 {item.hint}
@@ -690,7 +696,7 @@ export default function DashboardHome({
                     最近积累
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    阅读记录和字词收藏，会慢慢串成你的古籍学习线索。
+                    阅读记录和字词收藏，会慢慢串成你的古籍学习足迹。
                   </p>
                 </div>
               </div>
@@ -853,7 +859,7 @@ export default function DashboardHome({
                   热门人物与概念
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  点击任意条目，直接进入线索页；这更适合读到人物、典故后回头查，不必当成主入口。
+                  点击任意条目，可在问答中追问该人物或典故的更多信息。
                 </p>
               </div>
             </div>
@@ -861,7 +867,7 @@ export default function DashboardHome({
               {(analytics?.top_entities || []).slice(0, 5).map((entity) => (
                 <button
                   key={entity.id}
-                  onClick={() => onOpenGraphEntity(entity.id)}
+                  onClick={() => onAsk(`请介绍"${entity.label}"在古籍中的角色和典故`)}
                   className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition-colors hover:bg-[rgba(26,30,35,0.05)]"
                   style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'var(--gf-text)' }}
                 >

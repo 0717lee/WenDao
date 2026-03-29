@@ -11,7 +11,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
-    const { login, enterDemoMode } = useAuthStore()
+    const { login } = useAuthStore()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -34,8 +34,9 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
             <div className="absolute inset-0 bg-xuan-paper opacity-40" />
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ab1f22] to-transparent opacity-30" />
             <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ab1f22] to-transparent opacity-30" />
-            <div className="absolute left-[12%] top-20 h-64 w-64 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.14)' }} />
-            <div className="absolute right-[10%] bottom-12 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.08)' }} />
+            <div className="ink-wash-blob absolute left-[12%] top-20 h-64 w-64" style={{ backgroundColor: 'rgba(201,160,99,0.16)' }} />
+            <div className="ink-wash-blob absolute right-[10%] bottom-12 h-72 w-72" style={{ backgroundColor: 'rgba(140,26,17,0.10)', animationDelay: '-5s' }} />
+            <div className="ink-wash-blob absolute left-[50%] top-[40%] h-48 w-48" style={{ backgroundColor: 'rgba(201,160,99,0.08)', animationDelay: '-9s' }} />
 
             {/* 主内容 */}
             <div className="relative z-10 w-full max-w-md px-6">
@@ -44,7 +45,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                     <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] tracking-[0.28em] mb-4" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: '#ab1f22' }}>
                         进入书房
                     </div>
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-[26px] flex items-center justify-center relative" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(250,239,236,0.96) 100%)', border: '1px solid rgba(171,31,34,0.12)', boxShadow: '0 18px 32px rgba(26,30,35,0.05)' }}>
+                    <div className="float-up w-20 h-20 mx-auto mb-6 rounded-[26px] flex items-center justify-center relative" style={{ '--float-delay': '0.1s', background: 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(250,239,236,0.96) 100%)', border: '1px solid rgba(171,31,34,0.12)', boxShadow: '0 18px 32px rgba(26,30,35,0.05)' } as React.CSSProperties}>
                         <svg className="w-10 h-10" style={{ color: '#ab1f22' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
@@ -56,18 +57,15 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                     >
                         古籍智解
                     </h1>
-                    <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
+                    <p className="text-sm tracking-wide" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
                         登录后可保存阅读进度和字词收藏
-                    </p>
-                    <p className="text-xs tracking-wide" style={{ color: 'rgba(26,30,35,0.36)', fontFamily: '"Noto Serif SC", serif' }}>
-                        若现场网络波动，也可以先进入演示模式完成主链路演示
                     </p>
                 </div>
 
                 {/* 登录表单 */}
                 <div
-                    className="rounded-[30px] shadow-xl p-8 backdrop-blur-sm"
-                    style={{ background: 'linear-gradient(180deg, rgba(247,246,243,0.94) 0%, rgba(255,255,255,0.84) 100%)', border: '1px solid rgba(26,30,35,0.08)', boxShadow: '0 24px 48px rgba(26,30,35,0.08)' }}
+                    className="float-up glass-card rounded-[30px] shadow-xl p-8"
+                    style={{ '--float-delay': '0.25s' } as React.CSSProperties}
                 >
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
@@ -148,24 +146,10 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         >
                             {loading ? '登录中...' : '登录'}
                         </button>
-                        <button
-                            type="button"
-                            onClick={enterDemoMode}
-                            className="w-full py-3 rounded-lg text-sm transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
-                            style={{
-                                backgroundColor: 'rgba(255,255,255,0.78)',
-                                color: '#1a1e23',
-                                border: '1px solid rgba(26,30,35,0.08)',
-                                fontFamily: '"Noto Serif SC", serif',
-                                fontWeight: 500,
-                            }}
-                        >
-                            先进入演示模式
-                        </button>
                     </form>
 
                     {/* 底部链接 */}
-                    <div className="mt-6 text-center space-y-2">
+                    <div className="mt-6 text-center">
                         <button
                             onClick={onSwitchToRegister}
                             className="text-xs hover:underline transition-colors"
@@ -173,14 +157,11 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         >
                             还没有账号？立即注册
                         </button>
-                        <p className="text-[11px]" style={{ color: 'rgba(26,30,35,0.36)' }}>
-                            演示模式下可体验阅读、检索和问答，进度与笔记不会保存到云端。
-                        </p>
                     </div>
                 </div>
 
                 {/* 底部装饰 */}
-                <div className="mt-8 text-center">
+                <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
                         读懂一句，再继续往下读
                     </p>

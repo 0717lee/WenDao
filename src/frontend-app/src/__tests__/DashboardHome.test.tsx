@@ -93,8 +93,6 @@ describe('DashboardHome', () => {
     onOpenBookshelf: vi.fn(),
     onOpenHistory: vi.fn(),
     onOpenWordbook: vi.fn(),
-    onOpenGraph: vi.fn(),
-    onOpenGraphEntity: vi.fn(),
     onOpenCompare: vi.fn(),
     onContinueStudy: vi.fn(),
   }
@@ -172,22 +170,22 @@ describe('DashboardHome', () => {
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
   })
 
-  it('routes stat cards to graph and wordbook entry points', async () => {
+  it('routes stat cards to bookshelf and wordbook entry points', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /人物线索/ }))
-    expect(props.onOpenGraph).toHaveBeenCalled()
+    fireEvent.click(await screen.findByRole('button', { name: /已读篇目/ }))
+    expect(props.onOpenBookshelf).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: /字词沉淀/i }))
     expect(props.onOpenWordbook).toHaveBeenCalled()
   })
 
-  it('routes hotspot entities to graph focus', async () => {
+  it('routes hotspot entities to chat question', async () => {
     render(<DashboardHome {...props} />)
 
     const hotspotButton = await screen.findByRole('button', { name: /孔子.*4 关联/i })
     fireEvent.click(hotspotButton)
 
-    expect(props.onOpenGraphEntity).toHaveBeenCalledWith('kongzi')
+    expect(props.onAsk).toHaveBeenCalled()
   })
 })

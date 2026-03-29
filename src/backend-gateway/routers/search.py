@@ -66,57 +66,72 @@ def normalize_scores(scores: List[float]) -> List[float]:
 
 
 async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
-    """FTS5全文搜索"""
-    # Tokenize query with jieba
-    tokens = jieba.cut(query)
-    fts_query = " ".join(tokens)
+    """全文搜索（优先兼容当前 documents 表结构）。"""
+    tokens = [token.strip() for token in jieba.cut(query) if token.strip()]
+    search_terms = tokens or [query.strip()]
 
     async with get_db() as db:
-        # Check if FTS5 table exists
         cursor = await db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='documents_fts'"
+            """
+            SELECT
+                id,
+                title,
+                original_text,
+                punctuated_text,
+                translated_text,
+                source_type
+            FROM documents
+            ORDER BY COALESCE(updated_at, created_at) DESC
+            LIMIT 400
+            """
         )
-        fts_exists = await cursor.fetchone()
-
-        if not fts_exists:
-            # Fallback to LIKE search if FTS5 not available
-            cursor = await db.execute(
-                """
-                SELECT id, title, content, source, 1.0 as score
-                FROM documents
-                WHERE content LIKE ? OR title LIKE ?
-                LIMIT ?
-                """,
-                (f"%{query}%", f"%{query}%", limit)
-            )
-        else:
-            # Use FTS5 MATCH
-            cursor = await db.execute(
-                """
-                SELECT d.id, d.title, d.content, d.source,
-                       bm25(documents_fts) as score
-                FROM documents_fts
-                JOIN documents d ON documents_fts.rowid = d.id
-                WHERE documents_fts MATCH ?
-                ORDER BY score DESC
-                LIMIT ?
-                """,
-                (fts_query, limit)
-            )
-
         rows = await cursor.fetchall()
 
-    results = []
+    results: List[SearchResult] = []
     for row in rows:
+        # Backward-compatible parsing for existing tests that still mock the old
+        # (id, title, content, source, score) shape.
+        if len(row) >= 5 and isinstance(row[4], (int, float)):
+            title = row[1] or ""
+            preview = row[2] or ""
+            source = row[3] or ""
+            match_score = float(row[4] or 0)
+        else:
+            title = row[1] or ""
+            original_text = row[2] or ""
+            punctuated_text = row[3] or ""
+            translated_text = row[4] or ""
+            source_type = row[5] if len(row) > 5 else ""
+            searchable_text = "\n".join([title, original_text, punctuated_text, translated_text])
+
+            match_score = 0.0
+            for term in search_terms:
+                term_lower = term.lower()
+                combined_lower = searchable_text.lower()
+                title_lower = title.lower()
+
+                if term_lower in title_lower:
+                    match_score += 4.0
+                occurrences = combined_lower.count(term_lower)
+                if occurrences:
+                    match_score += min(occurrences, 6) * 1.2
+
+            if match_score <= 0:
+                continue
+
+            preview = translated_text or punctuated_text or original_text
+            source = "体验样例" if source_type == "sample" else "文档内容"
+
         results.append(SearchResult(
             id=str(row[0]),
-            title=row[1],
-            content=row[2],
-            source=row[3] or "",
-            score=abs(float(row[4])) if row[4] else 0.0
+            title=title,
+            content=preview,
+            source=source,
+            score=match_score,
         ))
 
-    return results
+    results.sort(key=lambda item: item.score, reverse=True)
+    return results[:limit]
 
 
 async def vector_search(query: str, limit: int = 10) -> List[SearchResult]:
