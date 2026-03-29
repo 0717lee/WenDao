@@ -324,7 +324,7 @@ export default function DashboardHome({
                   AI 古籍入门助手
                 </span>
                 <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
-                  像读一位会讲古文的老师
+                  像有一位会讲古文的老师
                 </div>
               </div>
 
@@ -333,9 +333,9 @@ export default function DashboardHome({
                   className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  帮普通人读懂古籍，
+                  帮你读懂古籍的第一步，
                   <br className="hidden md:block" />
-                  不必先有一张古籍图片
+                  不必先有一张扫描页
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
                   想先读懂一段古文，可以从体验样例、提问或检索开始；手头有扫描页时，再上传识别。
@@ -493,7 +493,7 @@ export default function DashboardHome({
                   体验样例
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  不用准备图片，先读更完整一点的起步片段，再决定往哪一部典籍深入
+                  无需扫描页，先读一段起步片段，再决定深入哪部典籍
                 </p>
               </div>
               <button
@@ -938,7 +938,7 @@ export default function DashboardHome({
             ))}
             {!loading && recommendations.length === 0 && (
               <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                暂无推荐，先读一篇样例或上传一张古籍图片试试看。
+                暂无推荐，先读一篇样例或上传一张扫描页试试看。
               </p>
             )}
           </div>

@@ -107,7 +107,7 @@ describe('DashboardHome', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: '帮普通人读懂古籍，不必先有一张古籍图片',
+        name: '帮你读懂古籍的第一步，不必先有一张扫描页',
       })
     ).toBeInTheDocument()
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()

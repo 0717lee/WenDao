@@ -99,7 +99,7 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
         {/* Content */}
         <div className="p-4 space-y-3">
           {loading ? (
-            <p className="text-gray-500">加载中...</p>
+            <p style={{ color: 'rgba(26,30,35,0.45)' }}>加载中...</p>
           ) : explanation ? (
             <>
               <button

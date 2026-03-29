@@ -114,7 +114,7 @@ export default function BookshelfPanel({ onOpenDocument, onToggleCompare, compar
         ) : documents.length === 0 ? (
           <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.65)' }}>
             <BookMarked className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.25)' }} />
-            <p style={{ color: 'rgba(26,30,35,0.45)' }}>还没有加载到文档，可以先去读古籍页体验样例或上传古籍图片。</p>
+            <p style={{ color: 'rgba(26,30,35,0.45)' }}>还没有典籍记录，可以先去首页体验样例或上传扫描页。</p>
           </div>
         ) : (
           <div className="grid gap-3">
