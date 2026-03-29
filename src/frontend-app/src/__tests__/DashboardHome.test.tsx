@@ -173,7 +173,7 @@ describe('DashboardHome', () => {
   it('routes stat cards to bookshelf and wordbook entry points', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /已读篇目/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /可读篇目/ }))
     expect(props.onOpenBookshelf).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: /字词沉淀/i }))

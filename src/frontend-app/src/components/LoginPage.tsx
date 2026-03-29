@@ -42,9 +42,6 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
             <div className="relative z-10 w-full max-w-md px-6">
                 {/* Logo 和标题 */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] tracking-[0.28em] mb-4" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: '#ab1f22' }}>
-                        进入书房
-                    </div>
                     <div className="float-up w-20 h-20 mx-auto mb-6 rounded-[26px] flex items-center justify-center relative" style={{ '--float-delay': '0.1s', background: 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(250,239,236,0.96) 100%)', border: '1px solid rgba(171,31,34,0.12)', boxShadow: '0 18px 32px rgba(26,30,35,0.05)' } as React.CSSProperties}>
                         <svg className="w-10 h-10" style={{ color: '#ab1f22' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -163,7 +160,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        读懂一句，再继续往下读
+                        一页古籍，一段新知
                     </p>
                 </div>
             </div>

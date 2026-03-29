@@ -154,7 +154,7 @@ const SearchPanel: React.FC = () => {
             人物、典故与原句检索
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            适合从人物、概念、典故或一句原文切入，快速找到可继续阅读的入口。
+            在已入库的典籍中搜索人物、概念和原文片段。
           </p>
         </div>
 

@@ -49,6 +49,7 @@ coverage/
 .pytest_cache/
 
 # 临时文件
+tmp/
 *.tmp
 *.temp
 .cache/

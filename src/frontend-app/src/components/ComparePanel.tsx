@@ -117,7 +117,7 @@ export default function ComparePanel() {
                     <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
                       {COLUMN_TITLES[field]}
                     </div>
-                    <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap text-sm leading-7" style={{ color: 'rgba(26,30,35,0.72)' }}>
+                    <div className="max-h-[360px] overflow-y-auto scrollbar-hide whitespace-pre-wrap text-sm leading-7" style={{ color: 'rgba(26,30,35,0.72)' }}>
                       {doc[field] || '暂无内容'}
                     </div>
                   </div>

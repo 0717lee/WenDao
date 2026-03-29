@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BookOpen,
   Clock3,
-  GraduationCap,
   LibraryBig,
   ScanText,
   Search,
@@ -168,20 +167,8 @@ export default function DashboardHome({
   }, [])
 
   const firstSample = sampleDocuments[0]
-  const primaryActionLabel = firstSample ? '体验样例' : '问一句古文'
   const primaryAction = () => (firstSample ? onOpenDocument(firstSample.id) : onAsk(QUICK_QUESTION_PROMPTS[0]))
   const audienceCards = [
-    {
-      title: '课内学习',
-      description: '如果你在课本、考试或课堂里遇到古文，可以先从熟悉片段切入，快速看懂原文、人物和典故。',
-      actionLabel: '看课内片段',
-      action: () => onAsk('请用白话解释“学而时习之，不亦说乎？”，顺便说说它常见于哪些课堂场景'),
-      icon: GraduationCap,
-      accent: '#7b5b44',
-      surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,242,233,0.96) 100%)',
-      borderTone: 'rgba(123,91,68,0.14)',
-      tag: '课堂场景',
-    },
     {
       title: '经典入门',
       description: '如果你想读《论语》《孟子》《道德经》这些经典，可以先从精选样例开始，不用先准备扫描件。',
@@ -265,8 +252,8 @@ export default function DashboardHome({
       action: onOpenWordbook,
     },
     {
-      label: '已读篇目',
-      value: documents.length,
+      label: '可读篇目',
+      value: documents.length + sampleDocuments.length,
       icon: ScrollText,
       accent: 'var(--gf-gold)',
       hint: '查看全部典籍',
@@ -343,43 +330,9 @@ export default function DashboardHome({
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>课内古文</span>
                 <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>经典入门</span>
                 <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>扫描识别</span>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={primaryAction}
-                  className="rounded-2xl px-5 py-3 text-sm text-white transition-all duration-300 hover:-translate-y-0.5"
-                  style={{ backgroundColor: 'var(--gf-gugong-red)', boxShadow: '0 14px 28px rgba(140,26,17,0.22)' }}
-                >
-                  {primaryActionLabel}
-                </button>
-                <button
-                  onClick={onOpenBookshelf}
-                  className="rounded-2xl px-5 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5"
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.74)',
-                    color: 'var(--gf-text)',
-                    border: '1px solid rgba(26,30,35,0.08)',
-                    boxShadow: '0 10px 24px rgba(26,30,35,0.05)',
-                  }}
-                >
-                  浏览典籍
-                </button>
-                <button
-                  onClick={onOpenReaderHub}
-                  className="rounded-2xl px-5 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5"
-                  style={{
-                    backgroundColor: 'rgba(255,248,233,0.86)',
-                    color: 'var(--gf-gold)',
-                    border: '1px solid rgba(201,160,99,0.24)',
-                    boxShadow: '0 10px 22px rgba(201,160,99,0.14)',
-                  }}
-                >
-                  上传扫描页
-                </button>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>查询追问</span>
               </div>
             </div>
 
@@ -432,7 +385,7 @@ export default function DashboardHome({
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-2">
           {audienceCards.map((item, index) => (
             <motion.div
               key={item.title}
@@ -744,51 +697,7 @@ export default function DashboardHome({
               </div>
             </div>
           </section>
-        ) : (
-          <section
-            className="rounded-[30px] p-5 md:p-6"
-            style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)',
-              border: '1px solid rgba(26,30,35,0.06)',
-              boxShadow: '0 18px 34px rgba(26,30,35,0.04)',
-            }}
-          >
-            <div className="grid gap-5 lg:grid-cols-[0.92fr_1.08fr]">
-              <div className="space-y-3">
-                <div className="text-[11px] tracking-[0.28em]" style={{ color: 'var(--gf-gugong-red)' }}>
-                  新手上手
-                </div>
-                <h3 className="text-xl font-medium" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
-                  第一次来这里，可以先这样用
-                </h3>
-                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                  先读一篇样例，点一下难词，再追问一句原文，通常就能很快进入状态。
-                </p>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                {heroEntryWays.map((item) => (
-                  <button
-                    key={`starter-${item.key}`}
-                    onClick={item.action}
-                    className="rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
-                    style={{ backgroundColor: item.accentSoft, border: '1px solid rgba(26,30,35,0.05)' }}
-                  >
-                    <div className="text-[11px] tracking-[0.24em]" style={{ color: item.accent }}>
-                      {item.eyebrow}
-                    </div>
-                    <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                      {item.title}
-                    </div>
-                    <div className="mt-2 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                      {item.description}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+        ) : null}
 
         <section className="grid gap-5 lg:grid-cols-[1fr_0.92fr]">
           <div
