@@ -273,14 +273,7 @@ function App() {
                                         className="flex items-center gap-3 transition-opacity hover:opacity-80"
                                         onClick={() => setActiveTab('home')}
                                     >
-                                        <div
-                                            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-xl"
-                                            style={{ backgroundColor: 'rgba(140,26,17,0.08)', border: '1px solid rgba(140,26,17,0.12)' }}
-                                        >
-                                            <span style={{ color: 'var(--gf-gugong-red)', fontFamily: '"ZCOOL XiaoWei", serif', fontSize: '0.95rem' }}>
-                                                智
-                                            </span>
-                                        </div>
+                                        <img src="/logo.svg" alt="古籍智解" className="hidden sm:flex h-8 w-8 rounded-lg" />
                                         <h1
                                             className="text-lg md:text-xl tracking-widest"
                                             style={{ fontFamily: '"ZCOOL XiaoWei", "Noto Serif SC", serif', color: 'var(--gf-text)' }}

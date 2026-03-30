@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>TextTwin Logo Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Serif SC', serif; background: #1a1e23; color: #f7f3e8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+    h1 { font-family: 'ZCOOL XiaoWei', serif; font-size: 24px; margin-bottom: 40px; letter-spacing: 4px; opacity: 0.7; }
+    .preview-row { display: flex; gap: 60px; align-items: flex-end; flex-wrap: wrap; justify-content: center; margin-bottom: 40px; }
+    .preview-item { text-align: center; }
+    .preview-item p { margin-top: 12px; font-size: 13px; opacity: 0.5; }
+    .bg-light { background: #f7f6f3; padding: 40px; border-radius: 16px; margin-top: 20px; }
+    .bg-paper { background: #f4f1e1; padding: 40px; border-radius: 16px; margin-top: 20px; }
+    .section-title { font-size: 16px; opacity: 0.5; margin: 40px 0 20px; letter-spacing: 2px; }
+  </style>
+</head>
+<body>
+  <h1>TextTwin · 古籍智解 — Logo 预览</h1>
+
+  <div class="preview-row">
+    <div class="preview-item">
+      <img src="logo.svg" width="256" height="256" alt="Logo 256px">
+      <p>256 × 256</p>
+    </div>
+    <div class="preview-item">
+      <img src="logo.svg" width="128" height="128" alt="Logo 128px">
+      <p>128 × 128</p>
+    </div>
+    <div class="preview-item">
+      <img src="logo.svg" width="64" height="64" alt="Logo 64px">
+      <p>64 × 64</p>
+    </div>
+    <div class="preview-item">
+      <img src="favicon.svg" width="32" height="32" alt="Favicon 32px">
+      <p>Favicon 32px</p>
+    </div>
+    <div class="preview-item">
+      <img src="favicon.svg" width="16" height="16" alt="Favicon 16px">
+      <p>Favicon 16px</p>
+    </div>
+  </div>
+
+  <p class="section-title">浅色背景效果</p>
+  <div class="bg-light preview-row">
+    <div class="preview-item">
+      <img src="logo.svg" width="200" height="200" alt="Logo on light">
+      <p style="color:#1a1e23">月白底 #f7f6f3</p>
+    </div>
+    <div class="preview-item">
+      <img src="favicon.svg" width="48" height="48" alt="Favicon on light">
+      <p style="color:#1a1e23">Favicon</p>
+    </div>
+  </div>
+
+  <div class="bg-paper preview-row">
+    <div class="preview-item">
+      <img src="logo.svg" width="200" height="200" alt="Logo on paper">
+      <p style="color:#1a1e23">古纸底 #f4f1e1</p>
+    </div>
+    <div class="preview-item">
+      <img src="favicon.svg" width="48" height="48" alt="Favicon on paper">
+      <p style="color:#1a1e23">Favicon</p>
+    </div>
+  </div>
+</body>
+</html>

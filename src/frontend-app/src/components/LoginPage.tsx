@@ -42,11 +42,8 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
             <div className="relative z-10 w-full max-w-md px-6">
                 {/* Logo 和标题 */}
                 <div className="text-center mb-8">
-                    <div className="float-up w-20 h-20 mx-auto mb-6 rounded-[26px] flex items-center justify-center relative" style={{ '--float-delay': '0.1s', background: 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(250,239,236,0.96) 100%)', border: '1px solid rgba(171,31,34,0.12)', boxShadow: '0 18px 32px rgba(26,30,35,0.05)' } as React.CSSProperties}>
-                        <svg className="w-10 h-10" style={{ color: '#ab1f22' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        <div className="absolute inset-0 rounded-full border-2 opacity-20" style={{ borderColor: '#ab1f22' }} />
+                    <div className="float-up w-24 h-24 mx-auto mb-6" style={{ '--float-delay': '0.1s' } as React.CSSProperties}>
+                        <img src="/logo.svg" alt="古籍智解" className="w-full h-full rounded-[26px]" style={{ boxShadow: '0 18px 32px rgba(26,30,35,0.08)' }} />
                     </div>
                     <h1
                         className="text-4xl mb-3 tracking-wider"
