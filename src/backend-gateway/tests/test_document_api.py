@@ -382,5 +382,54 @@ class TestCitationResolution:
         assert result["documents"][0]["title"] == "孟子节选"
 
 
+class TestCatalogEndpoints:
+    """Full-source catalog browsing/import endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_catalog_returns_entries(self):
+        from routers.document import list_catalog
+
+        with patch("routers.document._list_catalog_entries", new=AsyncMock(return_value={
+            "entries": [
+                {"repo_id": "KR1h0004", "title": "《论语》", "imported": True, "imported_document_id": "doc-1"},
+            ],
+            "total": 1,
+        })):
+            result = await list_catalog(limit=20)
+
+        assert result["total"] == 1
+        assert result["entries"][0]["repo_id"] == "KR1h0004"
+
+    @pytest.mark.asyncio
+    async def test_import_catalog_document_returns_existing_doc(self):
+        from routers.document import import_catalog_document
+
+        with patch("routers.document._get_document_by_repo_id", new=AsyncMock(return_value={"id": "doc-1", "title": "《论语》"})):
+            result = await import_catalog_document("KR1h0004")
+
+        assert result["imported"] is False
+        assert result["document"]["id"] == "doc-1"
+
+
+class TestTranslationCacheEndpoint:
+    """Corpus translation-cache endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_generate_translation_cache_returns_existing_cache(self):
+        from routers.document import TranslationCacheRequest, generate_translation_cache
+
+        existing_document = {
+            "id": "doc-1",
+            "source_type": "corpus",
+            "translation_cache": [{"title": "学而", "translated": "学习之后..." }],
+        }
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value=existing_document)):
+            result = await generate_translation_cache("doc-1", TranslationCacheRequest(max_segments=2))
+
+        assert result["generated"] is False
+        assert result["document"]["translation_cache"][0]["title"] == "学而"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

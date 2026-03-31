@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
-import { ArrowLeft, GraduationCap, NotebookText } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Loader2, NotebookText } from 'lucide-react';
 import { authHeaders } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
@@ -10,7 +10,7 @@ import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
 
 export function ThreeColumnReader() {
-  const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel } = useDocumentStore();
+  const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel, updateDocument } = useDocumentStore();
   const readerReturnTab = useGraphStore((state) => state.readerReturnTab);
   const setAppTab = useGraphStore((state) => state.setActiveTab);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -20,6 +20,7 @@ export function ThreeColumnReader() {
   const [sidePanel, setSidePanel] = useState<'notes' | 'study' | null>(null);
   const [anchorText, setAnchorText] = useState('');
   const [progressSyncError, setProgressSyncError] = useState(false);
+  const [translationGenerating, setTranslationGenerating] = useState(false);
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
 
@@ -55,6 +56,16 @@ export function ThreeColumnReader() {
   if (!currentDocument) return null;
 
   const isSample = (currentDocument as any).sourceType === 'sample';
+  const documentMeta = [
+    currentDocument.dynasty,
+    currentDocument.author,
+    currentDocument.category,
+    currentDocument.chapterCount ? `${currentDocument.chapterCount}篇` : null,
+  ].filter(Boolean).join(' · ')
+  const chapterPreview = currentDocument.chapterTitles?.slice(0, 5) ?? []
+  const recommendedChapters = currentDocument.recommendedChapters?.slice(0, 4) ?? []
+  const segmentGuides = currentDocument.segmentGuides?.slice(0, 6) ?? []
+  const translationCache = currentDocument.translationCache ?? []
 
   const totalParagraphs = Math.max(
     1,
@@ -146,6 +157,79 @@ export function ThreeColumnReader() {
     </div>
   );
 
+  const renderTranslatedFallback = () => {
+    if (translationCache.length > 0) {
+      return (
+        <div className="space-y-3">
+          {translationCache.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-[18px] px-3 py-3"
+              style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                {item.title}
+              </div>
+              <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                {item.translated}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    if (segmentGuides.length > 0) {
+      return (
+        <div className="space-y-3">
+          {segmentGuides.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-[18px] px-3 py-3"
+              style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                {item.title}
+              </div>
+              <div className="text-xs mb-2" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                原句提示：{item.excerpt}
+              </div>
+              <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                {item.summary}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无白话译</p>
+  }
+
+  const generateTranslationCache = async () => {
+    if (!currentDocument || translationGenerating) return
+    setTranslationGenerating(true)
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/translation-cache`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_segments: 3 }),
+      })
+      if (!response.ok) throw new Error('translation cache failed')
+      const data = await response.json()
+      const document = data?.document
+      if (document) {
+        updateDocument({
+          translatedText: document.translated_text ?? currentDocument.translatedText,
+          translationCache: document.translation_cache ?? currentDocument.translationCache,
+          translationStatus: document.translation_status ?? currentDocument.translationStatus,
+        })
+      }
+    } finally {
+      setTranslationGenerating(false)
+    }
+  }
+
   // Mobile: Tab interface
   if (isMobile) {
     return (
@@ -161,7 +245,7 @@ export function ThreeColumnReader() {
               返回
             </button>
             <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : '阅读进度会自动记录')}
+              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.title))}
             </span>
           </div>
           <div className="flex gap-2">
@@ -215,6 +299,69 @@ export function ThreeColumnReader() {
             reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
           }}
         >
+          {(currentDocument.guideSummary || currentDocument.readingTip || currentDocument.difficulty) && (
+            <div
+              className="mb-4 rounded-[22px] px-4 py-4"
+              style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                  阅读导读
+                </span>
+                {currentDocument.difficulty && (
+                  <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}>
+                    {currentDocument.difficulty}
+                  </span>
+                )}
+              </div>
+              {currentDocument.guideSummary && (
+                <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.62)' }}>
+                  {currentDocument.guideSummary}
+                </div>
+              )}
+              {currentDocument.readingTip && (
+                <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
+                  起读建议：{currentDocument.readingTip}
+                </div>
+              )}
+              {recommendedChapters.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {recommendedChapters.map((title) => (
+                    <span
+                      key={`recommended-${title}`}
+                      className="rounded-full px-3 py-1 text-[11px]"
+                      style={{ backgroundColor: 'rgba(201,160,99,0.14)', color: 'var(--gf-gold)' }}
+                    >
+                      先读：{title}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {!currentDocument.translatedText && translationCache.length === 0 && currentDocument.sourceType === 'corpus' && (
+                <button
+                  onClick={generateTranslationCache}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                >
+                  {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  生成推荐章节白话译
+                </button>
+              )}
+            </div>
+          )}
+          {chapterPreview.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {chapterPreview.map((title) => (
+                <span
+                  key={title}
+                  className="rounded-full px-3 py-1 text-[11px]"
+                  style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.6)' }}
+                >
+                  {title}
+                </span>
+              ))}
+            </div>
+          )}
           {activeReaderTab === 'original' && renderText(currentDocument.originalText, '原文')}
           {activeReaderTab === 'punctuated' && currentDocument.punctuatedText && renderText(currentDocument.punctuatedText, '标点文')}
           {activeReaderTab === 'translated' && currentDocument.translatedText && renderText(currentDocument.translatedText, '白话译')}
@@ -255,8 +402,13 @@ export function ThreeColumnReader() {
               <ArrowLeft className="w-3.5 h-3.5" />
               返回
             </button>
-            <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : `当前文档：${currentDocument.title}`)}
+            <div className="space-y-1">
+              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.6)' }}>
+                {currentDocument.title}
+              </div>
+              <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.42)' }}>
+                {progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.sourceName || '阅读进度会自动记录')}
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
@@ -278,6 +430,48 @@ export function ThreeColumnReader() {
             </button>
           </div>
         </div>
+      {chapterPreview.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-4 pt-3">
+          {chapterPreview.map((title) => (
+            <span
+              key={title}
+              className="rounded-full px-3 py-1 text-[11px]"
+              style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.6)' }}
+            >
+              {title}
+            </span>
+          ))}
+        </div>
+      )}
+      {(currentDocument.guideSummary || currentDocument.readingTip || currentDocument.difficulty) && (
+        <div className="px-4 pt-3">
+          <div
+            className="rounded-[22px] px-4 py-4"
+            style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                阅读导读
+              </span>
+              {currentDocument.difficulty && (
+                <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}>
+                  {currentDocument.difficulty}
+                </span>
+              )}
+            </div>
+            {currentDocument.guideSummary && (
+              <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.62)' }}>
+                {currentDocument.guideSummary}
+              </div>
+            )}
+            {currentDocument.readingTip && (
+              <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
+                起读建议：{currentDocument.readingTip}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <ScrollSync>
         <div className={`grid h-full gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}>
           <ScrollSyncPane>
@@ -312,7 +506,7 @@ export function ThreeColumnReader() {
             >
               {currentDocument.translatedText
                 ? renderText(currentDocument.translatedText, '白话译')
-                : <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无白话译</p>
+                : renderTranslatedFallback()
               }
             </div>
           </ScrollSyncPane>

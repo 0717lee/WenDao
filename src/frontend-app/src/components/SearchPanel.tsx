@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Loader2, RefreshCcw, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { useGraphStore } from '../store/useGraphStore';
+import { useStore } from '../store/useStore';
 import { searchDemoDocuments } from '../data/demoDocuments';
 
 interface SearchResult {
@@ -66,6 +67,7 @@ const SearchPanel: React.FC = () => {
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const consumeSearchQuery = useGraphStore((state) => state.consumeSearchQuery);
   const setActiveTab = useGraphStore((state) => state.setActiveTab);
+  const setDraftMessage = useStore((state) => state.setDraftMessage);
   const [suggestedQueries, setSuggestedQueries] = useState(() => pickSuggestedQueries());
 
   const reshuffleSuggestions = () => {
@@ -108,7 +110,7 @@ const SearchPanel: React.FC = () => {
       } else {
         setError(
           message.includes('Failed to fetch')
-            ? '暂时没有连上检索服务，你可以先去典籍库继续阅读，或换一组更具体的尝试词。'
+            ? '暂时没有连上检索服务，你可以先回到阅读中心继续阅读，或换一组更具体的尝试词。'
             : message
         );
         setResults([]);
@@ -131,6 +133,14 @@ const SearchPanel: React.FC = () => {
     }
   };
 
+  const jumpToChatExplanation = () => {
+    const nextPrompt = query.trim()
+      ? `请用白话解释“${query.trim()}”相关的古籍内容，并说明它为什么重要`
+      : '请用白话解释一段古文，并顺手补充它的背景和关键词'
+    setDraftMessage(nextPrompt)
+    setActiveTab('chat')
+  }
+
   return (
     <div className="relative flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -148,13 +158,13 @@ const SearchPanel: React.FC = () => {
       >
         <div className="mb-4">
           <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
-            典籍检索
+            先找原文
           </div>
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-            人物、典故与原句检索
+            检索页负责帮你定位内容
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            在已入库的典籍中搜索人物、概念和原文片段。
+            适合找人物、典故、概念和原句片段。要是你已经找到一句话但还没看懂，再去问答页让 AI 解释会更合适。
           </p>
         </div>
 
@@ -200,9 +210,9 @@ const SearchPanel: React.FC = () => {
         {/* Search Mode Selection */}
         <div className="flex gap-4 flex-wrap">
           {[
-            { value: 'FULLTEXT' as SearchMode, label: '精确匹配', desc: '按关键词精确查找' },
-            { value: 'VECTOR' as SearchMode, label: '智能理解', desc: '理解语义相关内容' },
-            { value: 'HYBRID' as SearchMode, label: '智能搜索', desc: '推荐使用' },
+            { value: 'FULLTEXT' as SearchMode, label: '按字面找', desc: '适合找原句和人名' },
+            { value: 'VECTOR' as SearchMode, label: '按意思找', desc: '适合只记得大意' },
+            { value: 'HYBRID' as SearchMode, label: '一起找', desc: '默认更稳妥' },
           ].map(opt => (
             <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer group rounded-2xl px-2.5 py-2" style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.58)' }}>
               <input
@@ -223,17 +233,27 @@ const SearchPanel: React.FC = () => {
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            可直接点一个更完整的问题试试
+            先找到内容，再决定要不要去问答页深挖
           </div>
-          <button
-            type="button"
-            onClick={reshuffleSuggestions}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-            style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)', backgroundColor: 'rgba(255,255,255,0.72)' }}
-          >
-            <RefreshCcw className="h-3.5 w-3.5" />
-            换一组
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={jumpToChatExplanation}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              style={{ border: '1px solid rgba(140,26,17,0.12)', color: 'var(--gf-gugong-red)', backgroundColor: 'rgba(140,26,17,0.06)' }}
+            >
+              去问答页解释
+            </button>
+            <button
+              type="button"
+              onClick={reshuffleSuggestions}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)', backgroundColor: 'rgba(255,255,255,0.72)' }}
+            >
+              <RefreshCcw className="h-3.5 w-3.5" />
+              换一组
+            </button>
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -257,11 +277,11 @@ const SearchPanel: React.FC = () => {
           {error.includes('检索服务') && (
             <div className="mt-3 flex flex-wrap gap-2">
               <button
-                onClick={() => setActiveTab('bookshelf')}
+                onClick={() => setActiveTab('reader')}
                 className="rounded-full px-3 py-1.5 text-xs transition-colors"
                 style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
               >
-                去典籍库看看
+                去阅读中心看看
               </button>
               <button
                 onClick={reshuffleSuggestions}

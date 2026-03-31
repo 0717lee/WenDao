@@ -53,6 +53,12 @@ class TestDatabaseInitialization:
             sample_count = await cursor.fetchone()
             assert sample_count[0] >= 5
 
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM documents WHERE source_type = 'corpus'"
+            )
+            corpus_count = await cursor.fetchone()
+            assert corpus_count[0] >= 1
+
         # 清理
         os.remove(test_db)
 

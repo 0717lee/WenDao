@@ -41,9 +41,13 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     mock_conn = acm.__aenter__.return_value
 
     # documents / reading_history / favorite_folders / favorites / wordbook_entries /
-    # document_notes / study_sessions / users plus ALTER statements for entity_ids, image_data, source_type, email
-    assert mock_conn.execute.call_count == 12
-    mock_conn.executemany.assert_called_once()
+    # document_notes / study_sessions / users plus ALTER statements for entity_ids, image_data,
+    # source_type, repo_id, author, dynasty, category, source_name, source_url,
+    # chapter_titles, chapter_count, featured_excerpt, difficulty, guide_summary,
+    # reading_tip, recommended_chapters, segment_guides, translation_cache,
+    # translation_status, email
+    assert mock_conn.execute.call_count == 28
+    assert mock_conn.executemany.call_count == 2
 
     # Verify table names are in the SQL
     calls = [str(c) for c in mock_conn.execute.call_args_list]
@@ -58,6 +62,22 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     assert "users" in all_sql
     assert "image_data" in all_sql
     assert "source_type" in all_sql
+    assert "repo_id" in all_sql
+    assert "author" in all_sql
+    assert "dynasty" in all_sql
+    assert "category" in all_sql
+    assert "source_name" in all_sql
+    assert "source_url" in all_sql
+    assert "chapter_titles" in all_sql
+    assert "chapter_count" in all_sql
+    assert "featured_excerpt" in all_sql
+    assert "difficulty" in all_sql
+    assert "guide_summary" in all_sql
+    assert "reading_tip" in all_sql
+    assert "recommended_chapters" in all_sql
+    assert "segment_guides" in all_sql
+    assert "translation_cache" in all_sql
+    assert "translation_status" in all_sql
     assert "email" in all_sql
 
 

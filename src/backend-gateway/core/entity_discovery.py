@@ -23,15 +23,28 @@ _GRAPH_DATA_PATH = os.path.join(
 VALID_GROUPS = {"人物", "典籍", "历史事件", "思想流派", "建筑", "朝代"}
 
 
+def _env_flag_enabled(name: str) -> bool:
+    """Treat common truthy strings as enabled feature flags."""
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 class EntityDiscovery:
     """Discover NEW entities from AI responses (not in existing graph)."""
 
-    def __init__(self, graph_data: Dict[str, Any], embeddings=None):
+    def __init__(
+        self,
+        graph_data: Dict[str, Any],
+        embeddings=None,
+        enable_llm_extraction: Optional[bool] = None,
+    ):
         self.known_labels = {n["label"] for n in graph_data.get("nodes", [])}
         self.known_ids = {n["id"] for n in graph_data.get("nodes", [])}
         self.known_nodes = {n["label"]: n for n in graph_data.get("nodes", [])}
         self.embeddings = embeddings
         self._label_embeddings: Dict[str, List[float]] = {}
+        if enable_llm_extraction is None:
+            enable_llm_extraction = _env_flag_enabled("ENTITY_DISCOVERY_USE_LLM")
+        self.enable_llm_extraction = enable_llm_extraction
 
     def discover_new_entities(
         self, ai_answer: str, user_query: str
@@ -49,8 +62,13 @@ class EntityDiscovery:
             List of dicts: [{label, group, desc, confidence, similar_to?}]
         """
         try:
+            answer_text = ai_answer.strip()
+            query_text = user_query.strip()
+            if not answer_text:
+                return []
+
             # Step 1: Extract all entities from text
-            all_entities = self._extract_entities_from_text(ai_answer, user_query)
+            all_entities = self._extract_entities_from_text(answer_text, query_text)
             if not all_entities:
                 return []
 
@@ -91,10 +109,11 @@ class EntityDiscovery:
         self, ai_answer: str, user_query: str
     ) -> List[Dict[str, Any]]:
         """Extract entities using GLM-4-flash or fast-path fallback."""
-        # Try GLM-4-flash first
-        extracted = self._extract_with_glm4(ai_answer, user_query)
-        if extracted is not None:
-            return extracted
+        # Live LLM extraction is opt-in so tests and demos stay deterministic.
+        if self.enable_llm_extraction:
+            extracted = self._extract_with_glm4(ai_answer, user_query)
+            if extracted is not None:
+                return extracted
 
         # Fallback: simple pattern-based extraction
         return self._extract_fast_path(ai_answer)
@@ -172,6 +191,10 @@ class EntityDiscovery:
         Looks for quoted terms, book title markers, and common name patterns.
         Returns entities with lower confidence (0.5).
         """
+        text = text.strip()
+        if not text:
+            return []
+
         entities = []
         seen = set()
 

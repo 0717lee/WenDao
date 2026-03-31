@@ -4,7 +4,6 @@ import { API_BASE } from '../lib/api'
 interface AuthState {
     token: string | null
     username: string | null
-    enterDemoMode: () => void
     login: (username: string, password: string) => Promise<void>
     register: (username: string, email: string, password: string) => Promise<void>
     validateStoredAuth: () => Promise<boolean>
@@ -24,12 +23,6 @@ function clearPersistedAuth() {
 export const useAuthStore = create<AuthState>((set) => ({
     token: localStorage.getItem('texttwin_token'),
     username: localStorage.getItem('texttwin_username'),
-
-    enterDemoMode: () => {
-        localStorage.setItem('texttwin_username', '演示模式')
-        localStorage.removeItem('texttwin_token')
-        set({ token: null, username: '演示模式' })
-    },
 
     login: async (username: string, password: string) => {
         const res = await fetch(`${API_BASE}/api/v1/auth/login`, {

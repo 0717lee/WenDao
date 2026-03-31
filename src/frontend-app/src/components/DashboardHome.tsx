@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import {
   ArrowRight,
   BookOpen,
   Clock3,
   LibraryBig,
-  ScanText,
   Search,
   Sparkles,
   Star,
@@ -19,8 +17,6 @@ interface DashboardHomeProps {
   onAsk: (prompt: string) => void
   onSearch: (query: string) => void
   onOpenReaderHub: () => void
-  onOpenBookshelf: () => void
-  onOpenHistory: () => void
   onOpenWordbook: () => void
   onOpenCompare: () => void
   onContinueStudy: (documentId: string) => void
@@ -29,6 +25,10 @@ interface DashboardHomeProps {
 interface BookshelfItem {
   id: string
   title: string
+  author?: string
+  dynasty?: string
+  category?: string
+  chapter_count?: number
   preview: string
   has_processed: boolean
   current_paragraph: number
@@ -98,13 +98,12 @@ export default function DashboardHome({
   onAsk,
   onSearch,
   onOpenReaderHub,
-  onOpenBookshelf,
-  onOpenHistory,
   onOpenWordbook,
   onOpenCompare,
   onContinueStudy,
 }: DashboardHomeProps) {
   const [loading, setLoading] = useState(true)
+  const [corpusDocuments, setCorpusDocuments] = useState<BookshelfItem[]>([])
   const [documents, setDocuments] = useState<BookshelfItem[]>([])
   const [sampleDocuments, setSampleDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
@@ -130,8 +129,9 @@ export default function DashboardHome({
       }
 
       try {
-        const [docsData, sampleData, historyData, wordbookData, analyticsData, recommendationData, studyData] = await Promise.all([
+        const [docsData, corpusData, sampleData, historyData, wordbookData, analyticsData, recommendationData, studyData] = await Promise.all([
           loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [] }),
+          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=8&source_type=corpus`, { documents: [] }),
           loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [] }),
           loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
           loadJson<{ entries: WordbookItem[] }>(`${API_BASE}/api/v1/reader/wordbook?limit=6`, { entries: [] }),
@@ -143,10 +143,12 @@ export default function DashboardHome({
         if (cancelled) return
 
         const allDocuments = Array.isArray(docsData.documents) ? docsData.documents : []
+        const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
         const builtInSamples = Array.isArray(sampleData.documents) ? sampleData.documents : []
         const demoSamples = getDemoBookshelfDocuments()
         const resolvedSamples = builtInSamples.length > 0 ? builtInSamples : demoSamples
 
+        setCorpusDocuments(corpusList)
         setDocuments(allDocuments.filter((item: BookshelfItem) => item.source_type !== 'sample'))
         setSampleDocuments(resolvedSamples)
         setUsingDemoSamples(builtInSamples.length === 0)
@@ -166,57 +168,38 @@ export default function DashboardHome({
     }
   }, [])
 
+  const firstCorpus = corpusDocuments[0]
   const firstSample = sampleDocuments[0]
-  const primaryAction = () => (firstSample ? onOpenDocument(firstSample.id) : onAsk(QUICK_QUESTION_PROMPTS[0]))
-  const audienceCards = [
-    {
-      title: '经典入门',
-      description: '如果你想读《论语》《孟子》《道德经》这些经典，可以先从精选样例开始，不用先准备扫描件。',
-      actionLabel: sampleDocuments[0] ? '看经典样例' : '看看典籍库',
-      action: () => (sampleDocuments[0] ? onOpenDocument(sampleDocuments[0].id) : onOpenBookshelf()),
-      icon: ScrollText,
-      accent: 'var(--gf-gold)',
-      surface: 'linear-gradient(180deg, rgba(252,248,238,0.96) 0%, rgba(255,255,255,0.88) 100%)',
-      borderTone: 'rgba(201,160,99,0.16)',
-      tag: '经典阅读',
-    },
-    {
-      title: '扫描页整理',
-      description: '如果你手头有影印页、扫描图或馆藏图片，可以直接上传，走 OCR、断句、翻译和对照阅读链路。',
-      actionLabel: '上传扫描页',
-      action: onOpenReaderHub,
-      icon: ScanText,
-      accent: 'var(--gf-gugong-red)',
-      surface: 'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(250,239,236,0.98) 100%)',
-      borderTone: 'rgba(140,26,17,0.14)',
-      tag: '图片整理',
-    },
-  ]
-
+  const primaryAction = () => {
+    if (firstCorpus) return onOpenDocument(firstCorpus.id)
+    if (firstSample) return onOpenDocument(firstSample.id)
+    return onAsk(QUICK_QUESTION_PROMPTS[0])
+  }
+  const featuredReadingDocuments = corpusDocuments.length > 0 ? corpusDocuments : sampleDocuments
   const heroEntryWays = [
     {
-      key: 'sample',
-      eyebrow: '样例起步',
-      title: firstSample ? '先读一篇体验样例' : '先去看看典籍库',
-      description: '不用准备图片，直接进入阅读、释义和继续提问。',
+      key: 'corpus',
+      eyebrow: '古籍起步',
+      title: firstCorpus ? '先从古籍库读一部经典' : firstSample ? '先读一篇精选导读' : '先打开阅读中心',
+      description: '主阅读功能现在接入真实古籍库，第一次进入就可以直接开始读。',
       action: primaryAction,
       accent: 'var(--gf-gugong-red)',
       accentSoft: 'rgba(140,26,17,0.08)',
     },
     {
-      key: 'ask',
-      eyebrow: '问题切入',
-      title: '先问一句古文',
-      description: '从一句原文、一个人物或一个典故开始，马上得到解释。',
-      action: () => onAsk(QUICK_QUESTION_PROMPTS[0]),
+      key: 'search',
+      eyebrow: '原句定位',
+      title: '先按问题找原文',
+      description: '从人物、典故或一句原文切入，先定位到相关内容再展开阅读。',
+      action: () => onSearch(SEARCH_TOPICS[0]),
       accent: '#7b5b44',
       accentSoft: 'rgba(123,91,68,0.08)',
     },
     {
       key: 'scan',
-      eyebrow: '扫描整理',
-      title: '上传影印页或扫描图',
-      description: '手头有图片时，再进入 OCR、断句和对照阅读。',
+      eyebrow: '辅助上传',
+      title: '有图片时再上传识别',
+      description: '识别上传保留在后面，需要时再进入 OCR、断句和对照阅读。',
       action: onOpenReaderHub,
       accent: 'var(--gf-gold)',
       accentSoft: 'rgba(201,160,99,0.12)',
@@ -225,22 +208,22 @@ export default function DashboardHome({
 
   const statCards = [
     {
-      label: '体验样例',
-      value: sampleDocuments.length,
-      icon: LibraryBig,
-      accent: 'var(--gf-gugong-red)',
-      hint: '不用准备图片',
-      surface: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(250,239,236,0.94) 100%)',
-      action: firstSample ? () => onOpenDocument(firstSample.id) : onOpenBookshelf,
-    },
-    {
-      label: '最近阅读',
+      label: '继续阅读',
       value: history.length,
       icon: Clock3,
       accent: '#5b8aab',
-      hint: '随时接着往下读',
+      hint: '阅读记录已并入阅读中心',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(237,244,247,0.96) 100%)',
-      action: onOpenHistory,
+      action: onOpenReaderHub,
+    },
+    {
+      label: '古籍库',
+      value: corpusDocuments.length,
+      icon: LibraryBig,
+      accent: 'var(--gf-gugong-red)',
+      hint: '主阅读功能来自真实古籍',
+      surface: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(250,239,236,0.94) 100%)',
+      action: firstCorpus ? () => onOpenDocument(firstCorpus.id) : onOpenReaderHub,
     },
     {
       label: '字词沉淀',
@@ -253,12 +236,12 @@ export default function DashboardHome({
     },
     {
       label: '可读篇目',
-      value: documents.length + sampleDocuments.length,
+      value: documents.length + corpusDocuments.length + sampleDocuments.length,
       icon: ScrollText,
       accent: 'var(--gf-gold)',
-      hint: '查看全部典籍',
+      hint: '阅读与典籍库现已合并',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.98) 100%)',
-      action: onOpenBookshelf,
+      action: onOpenReaderHub,
     },
   ]
 
@@ -308,10 +291,10 @@ export default function DashboardHome({
                   style={{ backgroundColor: 'rgba(140,26,17,0.09)', color: 'var(--gf-gugong-red)' }}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  AI 古籍入门助手
+                  古籍阅读主工具
                 </span>
                 <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
-                  像有一位会讲古文的老师
+                  先读原文，再看解释和出处
                 </div>
               </div>
 
@@ -320,19 +303,20 @@ export default function DashboardHome({
                   className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  帮你读懂古籍的第一步，
+                  这是一个帮你读懂古籍的阅读工具，
                   <br className="hidden md:block" />
-                  不必先有一张扫描页
+                  识别上传只是辅助入口
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  想先读懂一段古文，可以从体验样例、提问或检索开始；手头有扫描页时，再上传识别。
+                  第一次进入，建议先从真实古籍库挑一部开始读、先检索原句，或直接提问；只有手头已经有图片时，再进入识别上传流程。
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
                 <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>经典入门</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>扫描识别</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>查询追问</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>原句检索</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>继续追问</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>图片识别可选</span>
               </div>
             </div>
 
@@ -347,7 +331,7 @@ export default function DashboardHome({
             >
               <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
                 <BookOpen className="h-4 w-4" />
-                30 秒开始
+                第一次进入先这样用
               </div>
               <div className="space-y-4">
                 {heroEntryWays.map((item, index) => (
@@ -385,56 +369,6 @@ export default function DashboardHome({
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          {audienceCards.map((item, index) => (
-            <motion.div
-              key={item.title}
-              className={`card-hover-lift rounded-[28px] p-5 ${index === 1 ? 'md:-translate-y-3' : ''}`}
-              initial={{ opacity: 0, y: 32, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{
-                type: 'spring',
-                stiffness: 260,
-                damping: 24,
-                delay: 0.15 + index * 0.12,
-              }}
-              style={{
-                background: item.surface,
-                border: `1px solid ${item.borderTone}`,
-                boxShadow: '0 18px 32px rgba(26,30,35,0.05)',
-              }}
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <div
-                  className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                  style={{ backgroundColor: item.borderTone }}
-                >
-                  <item.icon className="h-5 w-5" style={{ color: item.accent }} />
-                </div>
-                <span className="rounded-full px-3 py-1 text-[11px] tracking-[0.22em]" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.38)' }}>
-                  {item.tag}
-                </span>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  {item.title}
-                </h3>
-                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                  {item.description}
-                </p>
-              </div>
-              <button
-                onClick={item.action}
-                className="mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm transition-all duration-300 hover:-translate-y-0.5"
-                style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'var(--gf-text)', border: '1px solid rgba(26,30,35,0.06)' }}
-              >
-                {item.actionLabel}
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </motion.div>
-          ))}
-        </section>
-
         <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <div
             className="rounded-2xl p-4 md:p-5"
@@ -443,27 +377,27 @@ export default function DashboardHome({
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  体验样例
+                  {corpusDocuments.length > 0 ? '古籍库精选' : '精选导读'}
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  无需扫描页，先读一段起步片段，再决定深入哪部典籍
+                  {corpusDocuments.length > 0 ? '这里优先展示真实古籍仓库里的首批经典，适合从一部开始读。' : '真实古籍仓库暂时不可用时，先用精选导读完成主阅读体验。'}
                 </p>
               </div>
               <button
-                onClick={onOpenBookshelf}
+                onClick={onOpenReaderHub}
                 className="rounded-xl px-3 py-1.5 text-xs"
                 style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
               >
-                查看全部
+                打开阅读中心
               </button>
             </div>
-            {usingDemoSamples && (
+            {corpusDocuments.length === 0 && usingDemoSamples && (
               <div className="mb-3 rounded-2xl px-4 py-3 text-xs leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', color: 'rgba(26,30,35,0.56)', border: '1px solid rgba(140,26,17,0.10)' }}>
-                当前展示的是本地演示样例。即使后端临时波动，评审时也能完整体验“阅读、释义、追问”的主链路。
+                当前展示的是本地样例内容。就算服务暂时波动，也能先完整体验“阅读、释义、追问”的主链路。
               </div>
             )}
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {sampleDocuments.slice(0, 6).map((doc, idx) => (
+              {featuredReadingDocuments.slice(0, 6).map((doc, idx) => (
                 <button
                   key={doc.id}
                   onClick={() => onOpenDocument(doc.id)}
@@ -474,22 +408,33 @@ export default function DashboardHome({
                     <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
                       {doc.title}
                     </span>
-                    <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}>
-                      体验
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[11px]"
+                      style={{
+                        backgroundColor: doc.source_type === 'corpus' ? 'rgba(201,160,99,0.14)' : 'rgba(140,26,17,0.08)',
+                        color: doc.source_type === 'corpus' ? 'var(--gf-gold)' : 'var(--gf-gugong-red)',
+                      }}
+                    >
+                      {doc.source_type === 'corpus' ? '古籍库' : '导读'}
                     </span>
                   </div>
+                  {(doc.dynasty || doc.author || doc.category) && (
+                    <div className="mb-2 text-[11px]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                      {[doc.dynasty, doc.author, doc.category, doc.chapter_count ? `${doc.chapter_count}篇` : null].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
                   <div className="line-clamp-4 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
                     {doc.preview || '打开后即可查看原文、标点和白话对照。'}
                   </div>
                 </button>
               ))}
-              {!loading && sampleDocuments.length === 0 && (
+              {!loading && featuredReadingDocuments.length === 0 && (
                 <div
                   className="rounded-[24px] px-4 py-4"
                   style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.06)' }}
                 >
                   <p className="text-sm mb-3" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    暂时没加载到体验样例，你也可以先从问题入口开始。
+                    暂时还没有可直接阅读的古籍内容，你也可以先从问题入口开始，或稍后再回到阅读中心。
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {QUICK_QUESTION_PROMPTS.slice(0, 2).map((prompt) => (
@@ -515,10 +460,10 @@ export default function DashboardHome({
             >
               <div className="mb-4">
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  片段问答（AI 解读）
+                  已经找到原文？来问答
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  输入一句原文或疑问，AI 会给出白话解释
+                  更适合解释一句古文、补背景，或把人物关系讲清楚。
                 </p>
               </div>
               <div className="space-y-2">
@@ -542,10 +487,10 @@ export default function DashboardHome({
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                    典籍定位
+                    还没找到原文？先检索
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    在已入库的典籍中定位原文片段
+                    更适合先定位人物、概念和原句片段，再回去深入阅读。
                   </p>
                 </div>
                 <Search className="h-4 w-4" style={{ color: 'rgba(26,30,35,0.35)' }} />

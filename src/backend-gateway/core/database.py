@@ -10,6 +10,7 @@ from typing import AsyncGenerator
 
 import aiosqlite
 
+from core.corpus_documents import load_corpus_documents
 from core.sample_documents import SAMPLE_DOCUMENTS
 
 
@@ -32,6 +33,22 @@ async def _create_documents_table(db: aiosqlite.Connection) -> None:
         CREATE TABLE IF NOT EXISTS documents (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
+            repo_id TEXT,
+            author TEXT,
+            dynasty TEXT,
+            category TEXT,
+            source_name TEXT,
+            source_url TEXT,
+            chapter_titles TEXT DEFAULT '[]',
+            chapter_count INTEGER DEFAULT 0,
+            featured_excerpt TEXT,
+            difficulty TEXT,
+            guide_summary TEXT,
+            reading_tip TEXT,
+            recommended_chapters TEXT DEFAULT '[]',
+            segment_guides TEXT DEFAULT '[]',
+            translation_cache TEXT DEFAULT '[]',
+            translation_status TEXT DEFAULT 'none',
             original_text TEXT NOT NULL DEFAULT '',
             punctuated_text TEXT,
             translated_text TEXT,
@@ -112,6 +129,22 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         await _ensure_column(db, "documents", "status", "TEXT DEFAULT 'ocr_complete'")
         await _ensure_column(db, "documents", "entity_ids", "TEXT DEFAULT '[]'")
         await _ensure_column(db, "documents", "source_type", "TEXT DEFAULT 'user'")
+        await _ensure_column(db, "documents", "repo_id", "TEXT")
+        await _ensure_column(db, "documents", "author", "TEXT")
+        await _ensure_column(db, "documents", "dynasty", "TEXT")
+        await _ensure_column(db, "documents", "category", "TEXT")
+        await _ensure_column(db, "documents", "source_name", "TEXT")
+        await _ensure_column(db, "documents", "source_url", "TEXT")
+        await _ensure_column(db, "documents", "chapter_titles", "TEXT DEFAULT '[]'")
+        await _ensure_column(db, "documents", "chapter_count", "INTEGER DEFAULT 0")
+        await _ensure_column(db, "documents", "featured_excerpt", "TEXT")
+        await _ensure_column(db, "documents", "difficulty", "TEXT")
+        await _ensure_column(db, "documents", "guide_summary", "TEXT")
+        await _ensure_column(db, "documents", "reading_tip", "TEXT")
+        await _ensure_column(db, "documents", "recommended_chapters", "TEXT DEFAULT '[]'")
+        await _ensure_column(db, "documents", "segment_guides", "TEXT DEFAULT '[]'")
+        await _ensure_column(db, "documents", "translation_cache", "TEXT DEFAULT '[]'")
+        await _ensure_column(db, "documents", "translation_status", "TEXT DEFAULT 'none'")
         await _ensure_column(db, "documents", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
 
         # 如果是旧表，尽量把历史 content 迁移到 original_text
@@ -209,11 +242,32 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         await db.executemany(
             """
             INSERT INTO documents (
-                id, title, original_text, punctuated_text, translated_text,
+                id, title, author, dynasty, category, source_name, source_url,
+                repo_id,
+                chapter_titles, chapter_count, featured_excerpt,
+                difficulty, guide_summary, reading_tip, recommended_chapters,
+                segment_guides, translation_cache, translation_status,
+                original_text, punctuated_text, translated_text,
                 ocr_confidence, image_data, status, entity_ids, source_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
+                repo_id = excluded.repo_id,
+                author = excluded.author,
+                dynasty = excluded.dynasty,
+                category = excluded.category,
+                source_name = excluded.source_name,
+                source_url = excluded.source_url,
+                chapter_titles = excluded.chapter_titles,
+                chapter_count = excluded.chapter_count,
+                featured_excerpt = excluded.featured_excerpt,
+                difficulty = excluded.difficulty,
+                guide_summary = excluded.guide_summary,
+                reading_tip = excluded.reading_tip,
+                recommended_chapters = excluded.recommended_chapters,
+                segment_guides = excluded.segment_guides,
+                translation_cache = excluded.translation_cache,
+                translation_status = excluded.translation_status,
                 original_text = excluded.original_text,
                 punctuated_text = excluded.punctuated_text,
                 translated_text = excluded.translated_text,
@@ -228,6 +282,22 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 (
                     item["id"],
                     item["title"],
+                    item.get("repo_id"),
+                    item.get("author"),
+                    item.get("dynasty"),
+                    item.get("category"),
+                    "TextTwin",
+                    None,
+                    "[]",
+                    0,
+                    None,
+                    None,
+                    None,
+                    None,
+                    "[]",
+                    "[]",
+                    "[]",
+                    "none",
                     item["original_text"],
                     item["punctuated_text"],
                     item["translated_text"],
@@ -240,6 +310,80 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 for item in SAMPLE_DOCUMENTS
             ],
         )
+
+        corpus_documents = load_corpus_documents()
+        if corpus_documents:
+            await db.executemany(
+                """
+                INSERT INTO documents (
+                    id, title, author, dynasty, category, source_name, source_url,
+                    repo_id,
+                    chapter_titles, chapter_count, featured_excerpt,
+                    difficulty, guide_summary, reading_tip, recommended_chapters,
+                    segment_guides, translation_cache, translation_status,
+                    original_text, punctuated_text, translated_text,
+                    ocr_confidence, image_data, status, entity_ids, source_type
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    repo_id = excluded.repo_id,
+                    author = excluded.author,
+                    dynasty = excluded.dynasty,
+                    category = excluded.category,
+                    source_name = excluded.source_name,
+                    source_url = excluded.source_url,
+                    chapter_titles = excluded.chapter_titles,
+                    chapter_count = excluded.chapter_count,
+                    featured_excerpt = excluded.featured_excerpt,
+                    difficulty = excluded.difficulty,
+                    guide_summary = excluded.guide_summary,
+                    reading_tip = excluded.reading_tip,
+                    recommended_chapters = excluded.recommended_chapters,
+                    segment_guides = excluded.segment_guides,
+                    translation_cache = excluded.translation_cache,
+                    translation_status = excluded.translation_status,
+                    original_text = excluded.original_text,
+                    punctuated_text = excluded.punctuated_text,
+                    translated_text = excluded.translated_text,
+                    ocr_confidence = excluded.ocr_confidence,
+                    image_data = excluded.image_data,
+                    status = excluded.status,
+                    entity_ids = excluded.entity_ids,
+                    source_type = excluded.source_type,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                [
+                    (
+                        item["id"],
+                        item["title"],
+                        item.get("repo_id"),
+                        item.get("author"),
+                        item.get("dynasty"),
+                        item.get("category"),
+                        item.get("source_name"),
+                        item.get("source_url"),
+                        json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
+                        int(item.get("chapter_count", 0)),
+                        item.get("featured_excerpt"),
+                        item.get("difficulty"),
+                        item.get("guide_summary"),
+                        item.get("reading_tip"),
+                        json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
+                        json.dumps(item.get("segment_guides", []), ensure_ascii=False),
+                        json.dumps(item.get("translation_cache", []), ensure_ascii=False),
+                        item.get("translation_status", "none"),
+                        item["original_text"],
+                        item["punctuated_text"],
+                        item.get("translated_text", ""),
+                        1.0,
+                        None,
+                        "done",
+                        json.dumps(item.get("entity_ids", []), ensure_ascii=False),
+                        item["source_type"],
+                    )
+                    for item in corpus_documents
+                ],
+            )
 
         await db.commit()
 

@@ -90,8 +90,6 @@ describe('DashboardHome', () => {
     onAsk: vi.fn(),
     onSearch: vi.fn(),
     onOpenReaderHub: vi.fn(),
-    onOpenBookshelf: vi.fn(),
-    onOpenHistory: vi.fn(),
     onOpenWordbook: vi.fn(),
     onOpenCompare: vi.fn(),
     onContinueStudy: vi.fn(),
@@ -107,7 +105,7 @@ describe('DashboardHome', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: '帮你读懂古籍的第一步，不必先有一张扫描页',
+        name: '这是一个帮你读懂古籍的阅读工具，识别上传只是辅助入口',
       })
     ).toBeInTheDocument()
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
@@ -170,11 +168,11 @@ describe('DashboardHome', () => {
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
   })
 
-  it('routes stat cards to bookshelf and wordbook entry points', async () => {
+  it('routes stat cards to reader hub and wordbook entry points', async () => {
     render(<DashboardHome {...props} />)
 
     fireEvent.click(await screen.findByRole('button', { name: /可读篇目/ }))
-    expect(props.onOpenBookshelf).toHaveBeenCalled()
+    expect(props.onOpenReaderHub).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: /字词沉淀/i }))
     expect(props.onOpenWordbook).toHaveBeenCalled()

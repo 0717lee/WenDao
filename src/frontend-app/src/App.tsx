@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { Drawer } from './components/Drawer';
-import { useDocumentStore } from './store/useDocumentStore';
+import { useDocumentStore, type Document } from './store/useDocumentStore';
 import { useGraphStore } from './store/useGraphStore';
 import { useAuthStore } from './store/useAuthStore';
 import { useStore } from './store/useStore';
@@ -13,12 +13,10 @@ import { getDemoDocumentById, toReaderDocument } from './data/demoDocuments';
 const DashboardHome = lazy(() => import('./components/DashboardHome'));
 const ChatInterface = lazy(() => import('./components/ChatInterface').then((m) => ({ default: m.ChatInterface })));
 const SearchPanel = lazy(() => import('./components/SearchPanel'));
-const ReadingHistory = lazy(() => import('./components/ReadingHistory'));
 const FavoritesList = lazy(() => import('./components/FavoritesList'));
 const BookshelfPanel = lazy(() => import('./components/BookshelfPanel'));
 const ComparePanel = lazy(() => import('./components/ComparePanel'));
 const WordbookPanel = lazy(() => import('./components/WordbookPanel'));
-const DocumentUpload = lazy(() => import('./components/DocumentUpload').then((m) => ({ default: m.DocumentUpload })));
 const OCRPreview = lazy(() => import('./components/OCRPreview').then((m) => ({ default: m.OCRPreview })));
 const ThreeColumnReader = lazy(() => import('./components/ThreeColumnReader').then((m) => ({ default: m.ThreeColumnReader })));
 
@@ -27,9 +25,7 @@ const TAB_ICONS: Record<string, string> = {
     chat: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
     search: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
     reader: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
-    bookshelf: 'M4 19.5A2.5 2.5 0 016.5 17H20M4 4.5A2.5 2.5 0 016.5 2H20v15H6.5A2.5 2.5 0 004 19.5v-15z',
     compare: 'M8 7h8M8 12h8M8 17h8M4 7h.01M4 12h.01M4 17h.01M20 7h.01M20 12h.01M20 17h.01',
-    history: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
     favorites: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',
     wordbook: 'M12 6v13m0-13c-1.746-.776-3.332-1.253-4.5-1.253S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13c1.168-.776 2.753-1.253 4.5-1.253s3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.747 0-3.332.477-4.5 1.253',
 };
@@ -61,9 +57,24 @@ function App() {
     const [authPage, setAuthPage] = useState<AuthPage>('login');
     const [authChecking, setAuthChecking] = useState(Boolean(token));
 
-    const buildReaderDocument = useCallback((data: any) => ({
+    const buildReaderDocument = useCallback((data: any): Document => ({
         id: data.id,
         title: data.title,
+        author: data.author ?? undefined,
+        dynasty: data.dynasty ?? undefined,
+        category: data.category ?? undefined,
+        sourceName: data.source_name ?? data.sourceName ?? undefined,
+        sourceUrl: data.source_url ?? data.sourceUrl ?? undefined,
+        chapterTitles: data.chapter_titles ?? data.chapterTitles ?? undefined,
+        chapterCount: data.chapter_count ?? data.chapterCount ?? undefined,
+        featuredExcerpt: data.featured_excerpt ?? data.featuredExcerpt ?? undefined,
+        difficulty: data.difficulty ?? undefined,
+        guideSummary: data.guide_summary ?? data.guideSummary ?? undefined,
+        readingTip: data.reading_tip ?? data.readingTip ?? undefined,
+        recommendedChapters: data.recommended_chapters ?? data.recommendedChapters ?? undefined,
+        segmentGuides: data.segment_guides ?? data.segmentGuides ?? undefined,
+        translationCache: data.translation_cache ?? data.translationCache ?? undefined,
+        translationStatus: data.translation_status ?? data.translationStatus ?? undefined,
         originalText: data.original_text ?? data.originalText,
         punctuatedText: data.punctuated_text ?? data.punctuatedText ?? '',
         translatedText: data.translated_text ?? data.translatedText ?? '',
@@ -97,14 +108,14 @@ function App() {
     }, [token, validateStoredAuth]);
 
     const getReaderView = () => {
-        if (!currentDocument) return 'upload';
+        if (!currentDocument) return 'hub';
         if (currentDocument.punctuatedText) return 'reader';
         return 'preview';
     };
 
     const openDocument = useCallback(
         async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
-            let nextDocument: ReturnType<typeof buildReaderDocument> | null = null;
+            let nextDocument: Document | null = null;
             try {
                 const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`);
                 if (!response.ok) throw new Error('load failed');
@@ -125,7 +136,7 @@ function App() {
             if (options?.readerPanel) {
                 setPendingReaderPanel(options.readerPanel);
             }
-            setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab === 'home' ? 'bookshelf' : activeTab);
+            setReaderReturnTab(activeTab);
             setActiveTab('reader');
         },
         [activeTab, buildReaderDocument, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
@@ -149,7 +160,7 @@ function App() {
 
     const openReaderHub = useCallback(() => {
         clearCurrentDocument();
-        setReaderReturnTab(activeTab === 'reader' ? 'home' : activeTab);
+        setReaderReturnTab(activeTab);
         setActiveTab('reader');
     }, [activeTab, clearCurrentDocument, setActiveTab, setReaderReturnTab]);
 
@@ -181,13 +192,11 @@ function App() {
     const tabs = [
         { key: 'home' as const, label: '首页' },
         { key: 'reader' as const, label: '阅读' },
+        { key: 'search' as const, label: '检索' },
         { key: 'chat' as const, label: '问答' },
-        { key: 'search' as const, label: '典籍检索' },
-        { key: 'bookshelf' as const, label: '典籍库' },
-        { key: 'compare' as const, label: '对照' },
-        { key: 'history' as const, label: '进度' },
-        { key: 'favorites' as const, label: '收藏' },
         { key: 'wordbook' as const, label: '字词本' },
+        { key: 'favorites' as const, label: '收藏' },
+        { key: 'compare' as const, label: '对照' },
     ];
 
     const renderActiveTab = () => {
@@ -199,8 +208,6 @@ function App() {
                         onAsk={jumpToChat}
                         onSearch={jumpToSearch}
                         onOpenReaderHub={openReaderHub}
-                        onOpenBookshelf={() => setActiveTab('bookshelf')}
-                        onOpenHistory={() => setActiveTab('history')}
                         onOpenWordbook={() => setActiveTab('wordbook')}
                         onOpenCompare={() => setActiveTab('compare')}
                         onContinueStudy={(documentId) => openDocument(documentId, { readerPanel: 'study' })}
@@ -211,22 +218,20 @@ function App() {
             case 'search':
                 return <SearchPanel />;
             case 'reader':
-                if (getReaderView() === 'upload') return <DocumentUpload />;
+                if (getReaderView() === 'hub') {
+                    return (
+                        <BookshelfPanel
+                            onOpenDocument={openDocument}
+                            onToggleCompare={toggleCompare}
+                            comparedDocumentIds={comparisonDocuments.map((item) => item.id)}
+                            onOpenCompare={() => setActiveTab('compare')}
+                        />
+                    );
+                }
                 if (getReaderView() === 'preview') return <OCRPreview />;
                 return <ThreeColumnReader />;
-            case 'bookshelf':
-                return (
-                    <BookshelfPanel
-                        onOpenDocument={openDocument}
-                        onToggleCompare={toggleCompare}
-                        comparedDocumentIds={comparisonDocuments.map((item) => item.id)}
-                        onOpenCompare={() => setActiveTab('compare')}
-                    />
-                );
             case 'compare':
                 return <ComparePanel />;
-            case 'history':
-                return <ReadingHistory onNavigate={openDocument} />;
             case 'favorites':
                 return <FavoritesList onNavigate={openDocument} />;
             case 'wordbook':
@@ -285,7 +290,7 @@ function App() {
                                         className="text-[11px] tracking-[0.24em] hidden md:inline-flex rounded-full px-2.5 py-1"
                                         style={{ color: 'rgba(26,30,35,0.42)', backgroundColor: 'rgba(255,255,255,0.62)' }}
                                     >
-                                        帮你读懂古籍
+                                        先读原文，再看讲解
                                     </span>
                                 </div>
                             </div>
@@ -321,7 +326,7 @@ function App() {
                         side="left"
                         open={drawerOpen}
                         onClose={() => setDrawerOpen(false)}
-                        title="学习入口"
+                        title="阅读入口"
                         icon={
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />

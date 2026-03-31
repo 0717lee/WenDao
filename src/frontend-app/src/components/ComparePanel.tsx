@@ -32,14 +32,14 @@ export default function ComparePanel() {
             对照阅读
           </h2>
           <p style={{ color: 'rgba(26,30,35,0.45)' }}>
-            先去典籍库挑选 1-2 份体验样例或你的文档加入对照，就可以把原文、标点和白话放在一起看。
+            先去阅读中心挑选 1-2 份体验样例或你的文档加入对照，就可以把原文、标点和白话放在一起看。
           </p>
           <button
-            onClick={() => setActiveTab('bookshelf')}
+            onClick={() => setActiveTab('reader')}
             className="mt-5 rounded-[18px] px-4 py-2.5 text-sm text-white"
             style={{ backgroundColor: 'var(--gf-gugong-red)' }}
           >
-            去典籍库挑样例
+            去阅读中心挑样例
           </button>
         </div>
       </div>
@@ -66,11 +66,11 @@ export default function ComparePanel() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setActiveTab('bookshelf')}
+              onClick={() => setActiveTab('reader')}
               className="rounded-[18px] px-3 py-2 text-sm"
               style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)', border: '1px solid rgba(140,26,17,0.12)' }}
             >
-              继续去典籍库添加
+              继续去阅读中心添加
             </button>
             <button
               onClick={clearComparisonDocuments}

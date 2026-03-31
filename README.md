@@ -4,9 +4,10 @@ AI 驱动的古籍知识探索平台 — 让任何人都能轻松读懂古籍
 
 ## 项目简介
 
-TextTwin 是一个“帮助普通人读懂古籍”的 AI 工具。它不是只服务于“手头正好有古籍扫描图的人”，而是同时提供三类入口：
+TextTwin 是一个“帮助普通人读懂古籍”的 AI 阅读工具。它不是只服务于“手头正好有古籍扫描图的人”，而是把真实古籍库阅读放在最前面，同时保留检索、问答和图片识别这些辅助能力。
 
-- **大众入口**：体验样例、经典片段、问题追问、人物典故检索
+- **主阅读入口**：真实古籍库、精选导读、继续阅读、字词沉淀
+- **辅助理解入口**：问题追问、人物典故检索、原句定位
 - **专业入口**：上传古籍图片，进入 OCR → 断句 → 翻译 → 对照阅读链路
 - **持续学习入口**：生词积累、阅读历史、学习卡片、继续阅读推荐
 
@@ -18,7 +19,8 @@ TextTwin 是一个“帮助普通人读懂古籍”的 AI 工具。它不是只�
 
 ### 核心特性
 
-- **体验样例与经典片段**：内置《论语》《孟子》《道德经》等首轮体验样例，没图片也能马上开始
+- **真实古籍仓库**：内置基于 Kanripo 整理的首批 13 部公共版权古籍，主阅读功能不再只依赖样例
+- **精选导读**：保留小批量精选内容，帮助第一次进入的用户快速上手
 - **片段问答与问题检索**：支持从人物、概念、典故或一句原文切入理解古籍内容
 - **OCR 古籍识别**：支持竖排文字上传识别（百度 OCR + PaddleOCR 降级链）
 - **三栏对照阅读**：原文 / 标点文 / 白话翻译并列展示，移动端 Tab 自适应
@@ -29,7 +31,7 @@ TextTwin 是一个“帮助普通人读懂古籍”的 AI 工具。它不是只�
 
 ### 当前产品主链路
 
-- **大众体验链路**：体验样例 -> 三栏阅读 -> 字词释义 -> 继续追问
+- **主阅读链路**：古籍库 -> 三栏阅读 -> 字词释义 -> 继续追问
 - **课堂/考试链路**：问题提问 -> 人物典故检索 -> 原文引用 -> 背景理解
 - **专业解析链路**：OCR 上传 -> 标点翻译 -> 三栏对照 -> 字词释义
 - **持续学习链路**：搜索 -> 历史/字词本 -> 学习卡片 -> 继续阅读推荐
@@ -66,14 +68,24 @@ cd TextTwin
 
 ```bash
 cp src/backend-gateway/.env.example src/backend-gateway/.env
+cp src/frontend-app/.env.example src/frontend-app/.env
 
-# 编辑 .env，填入 API Keys：
+# 编辑后端 .env，填入 API Keys：
 # ZHIPUAI_API_KEY     — 智谱 AI（Embedding / GLM-4 / CogView / GLM-4V）
 # MOONSHOT_API_KEY    — Moonshot Kimi（RAG 知识问答）
 # IFLYTEK_*           — 讯飞 ASR/TTS 语音服务
 # BAIDU_OCR_*         — 百度 OCR 文字识别
 # DATABASE_URL        — PostgreSQL 连接串（可选，降级到 SQLite）
+#
+# 如需启用“新实体发现”的实时 LLM 抽取，可额外设置：
+# ENTITY_DISCOVERY_USE_LLM=true
+#
+# 编辑前端 .env：
+# VITE_API_URL        — 后端 REST API 地址
+# VITE_WS_URL         — 后端 WebSocket 地址
 ```
+
+如果前端和后端分开部署，务必把 `VITE_API_URL` 指向真实后端域名；本地开发默认使用 `http://localhost:8000`。
 
 ### 3. 启动服务
 
@@ -88,6 +100,7 @@ npm run dev          # http://localhost:5173
 ```bash
 cd src/backend-gateway
 python -m pip install -r requirements.txt
+python scripts/build_kanripo_corpus.py   # 首次构建真实古籍库快照（已内置可直接跳过）
 uvicorn main:app --reload --port 8000
 ```
 

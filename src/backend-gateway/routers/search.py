@@ -76,6 +76,9 @@ async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
             SELECT
                 id,
                 title,
+                author,
+                dynasty,
+                category,
                 original_text,
                 punctuated_text,
                 translated_text,
@@ -98,11 +101,14 @@ async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
             match_score = float(row[4] or 0)
         else:
             title = row[1] or ""
-            original_text = row[2] or ""
-            punctuated_text = row[3] or ""
-            translated_text = row[4] or ""
-            source_type = row[5] if len(row) > 5 else ""
-            searchable_text = "\n".join([title, original_text, punctuated_text, translated_text])
+            author = row[2] if len(row) > 2 else ""
+            dynasty = row[3] if len(row) > 3 else ""
+            category = row[4] if len(row) > 4 else ""
+            original_text = row[5] or ""
+            punctuated_text = row[6] or ""
+            translated_text = row[7] or ""
+            source_type = row[8] if len(row) > 8 else ""
+            searchable_text = "\n".join([title, author or "", dynasty or "", category or "", original_text, punctuated_text, translated_text])
 
             match_score = 0.0
             for term in search_terms:
@@ -120,7 +126,12 @@ async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
                 continue
 
             preview = translated_text or punctuated_text or original_text
-            source = "体验样例" if source_type == "sample" else "文档内容"
+            if source_type == "corpus":
+                source = "古籍库"
+            elif source_type == "sample":
+                source = "精选导读"
+            else:
+                source = "我的文档"
 
         results.append(SearchResult(
             id=str(row[0]),

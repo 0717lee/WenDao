@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Volume2, VolumeX } from 'lucide-react'
+import { Loader2, Search, Volume2, VolumeX } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
@@ -97,6 +97,21 @@ export function ChatInterface() {
                         setDocument({
                             id: data.id,
                             title: data.title,
+                            author: data.author ?? undefined,
+                            dynasty: data.dynasty ?? undefined,
+                            category: data.category ?? undefined,
+                            sourceName: data.source_name ?? undefined,
+                            sourceUrl: data.source_url ?? undefined,
+                            chapterTitles: data.chapter_titles ?? undefined,
+                            chapterCount: data.chapter_count ?? undefined,
+                            featuredExcerpt: data.featured_excerpt ?? undefined,
+                            difficulty: data.difficulty ?? undefined,
+                            guideSummary: data.guide_summary ?? undefined,
+                            readingTip: data.reading_tip ?? undefined,
+                            recommendedChapters: data.recommended_chapters ?? undefined,
+                            segmentGuides: data.segment_guides ?? undefined,
+                            translationCache: data.translation_cache ?? undefined,
+                            translationStatus: data.translation_status ?? undefined,
                             originalText: data.original_text,
                             punctuatedText: data.punctuated_text || '',
                             translatedText: data.translated_text || '',
@@ -578,25 +593,56 @@ export function ChatInterface() {
                 className="hidden"
             />
 
-            {/* Messages */}
-            <MessageList messages={messages} onCitationClick={handleCitationClick} />
-
             {messages.length === 0 && (
-                <div className="px-4 pb-2">
-                    <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
-                        {QUICK_CHAT_PROMPTS.map((prompt) => (
+                <div className="px-4 pb-4">
+                    <div
+                        className="mx-auto max-w-4xl rounded-[28px] px-5 py-5"
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)',
+                            border: '1px solid rgba(26,30,35,0.06)',
+                            boxShadow: '0 18px 34px rgba(26,30,35,0.04)',
+                        }}
+                    >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="max-w-2xl">
+                                <div className="mb-2 text-[11px] tracking-[0.26em]" style={{ color: 'var(--gf-gold)' }}>
+                                    把内容讲明白
+                                </div>
+                                <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                                    问答页负责解释，不负责先帮你找原文
+                                </h2>
+                                <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                                    适合用来解释一句古文、比较人物思想、补背景和梳理典故。如果你还没找到相关原句，先去检索页会更快。
+                                </p>
+                            </div>
                             <button
-                                key={prompt}
-                                onClick={() => setInputValue(prompt)}
-                                className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.16)]"
-                                style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                                onClick={() => setActiveTab('search')}
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                                style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.66)' }}
                             >
-                                {prompt}
+                                <Search className="h-3.5 w-3.5" />
+                                先去检索原文
                             </button>
-                        ))}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {QUICK_CHAT_PROMPTS.map((prompt) => (
+                                <button
+                                    key={prompt}
+                                    onClick={() => setInputValue(prompt)}
+                                    className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.16)]"
+                                    style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)', backgroundColor: 'rgba(255,255,255,0.76)' }}
+                                >
+                                    {prompt}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
+
+            {/* Messages */}
+            <MessageList messages={messages} onCitationClick={handleCitationClick} />
 
             {/* Loading indicator */}
             {isLoading && currentProgress && (

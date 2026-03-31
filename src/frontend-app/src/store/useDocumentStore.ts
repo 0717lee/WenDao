@@ -1,8 +1,23 @@
 import { create } from 'zustand';
 
-interface Document {
+export interface Document {
   id: string;
   title: string;
+  author?: string;
+  dynasty?: string;
+  category?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  chapterTitles?: string[];
+  chapterCount?: number;
+  featuredExcerpt?: string;
+  difficulty?: string;
+  guideSummary?: string;
+  readingTip?: string;
+  recommendedChapters?: string[];
+  segmentGuides?: Array<{ title: string; excerpt: string; summary: string }>;
+  translationCache?: Array<{ title: string; punctuated: string; translated: string }>;
+  translationStatus?: string;
   originalText: string;
   punctuatedText?: string;
   translatedText?: string;

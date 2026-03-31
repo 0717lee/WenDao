@@ -68,6 +68,20 @@ class TestEntityDiscovery:
                 labels = [e["label"] for e in result]
                 assert "中庸" in labels
 
+    def test_llm_extraction_requires_explicit_flag(self, sample_graph):
+        """Even with API keys present, LLM extraction stays opt-in for deterministic behavior."""
+        with patch.dict("os.environ", {"ZHIPUAI_API_KEY": "live-key"}, clear=True):
+            discovery = EntityDiscovery(sample_graph)
+            with patch.object(discovery, "_extract_with_glm4", return_value=[
+                {"label": "礼记", "group": "典籍", "desc": "LLM result", "confidence": 0.9}
+            ]) as mocked_llm:
+                result = discovery.discover_new_entities("《礼记》记载了古代礼仪制度", "")
+
+        matching = [e for e in result if e["label"] == "礼记"]
+        assert len(matching) == 1
+        assert matching[0]["confidence"] == 0.5
+        mocked_llm.assert_not_called()
+
     def test_entity_with_source_has_confidence(self, discovery):
         """Entities extracted via fast-path have confidence 0.5 for book titles."""
         text = "《礼记》记载了古代礼仪制度"

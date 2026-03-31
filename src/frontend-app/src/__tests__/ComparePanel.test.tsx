@@ -10,11 +10,11 @@ describe('ComparePanel', () => {
     useGraphStore.getState().setActiveTab('compare')
   })
 
-  it('routes empty state to bookshelf', () => {
+  it('routes empty state to reader hub', () => {
     render(<ComparePanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: '去典籍库挑样例' }))
+    fireEvent.click(screen.getByRole('button', { name: '去阅读中心挑样例' }))
 
-    expect(useGraphStore.getState().activeTab).toBe('bookshelf')
+    expect(useGraphStore.getState().activeTab).toBe('reader')
   })
 })

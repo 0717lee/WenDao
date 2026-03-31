@@ -20,6 +20,8 @@ from agents.translator import TranslatorAgent
 from agents.word_explainer import WordExplainerAgent
 from core import pg_database
 from core.auth import require_auth
+from core.kanripo_catalog import load_kanripo_catalog
+from core.kanripo_source import build_original_text, build_repo_record, pick_segments_for_translation
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
@@ -58,6 +60,19 @@ def get_connection():
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/tiff"}
 
 
+def _normalize_document_payload(row: dict[str, Any]) -> dict[str, Any]:
+    for key in ("entity_ids", "chapter_titles", "recommended_chapters", "segment_guides", "translation_cache"):
+        value = row.get(key)
+        if isinstance(value, str):
+            try:
+                row[key] = json.loads(value)
+            except json.JSONDecodeError:
+                row[key] = []
+        elif value is None:
+            row[key] = []
+    return row
+
+
 class DocumentTextUpdateRequest(BaseModel):
     """Update manually corrected OCR text before further processing."""
     text: str = Field(..., min_length=1, max_length=50000)
@@ -73,6 +88,10 @@ class StudyProgressUpdateRequest(BaseModel):
     total_cards: int = Field(..., ge=0)
     mastered_cards: int = Field(..., ge=0)
     review_again_cards: int = Field(..., ge=0)
+
+
+class TranslationCacheRequest(BaseModel):
+    max_segments: int = Field(default=3, ge=1, le=6)
 
 
 def _split_learning_sentences(text: str) -> list[str]:
@@ -146,21 +165,29 @@ async def _get_document(document_id: str) -> dict | None:
         async with get_connection() as conn:
             row = await conn.fetchrow(
                 """
-                SELECT id, title, original_text, punctuated_text, translated_text, ocr_confidence,
+                SELECT id, title, repo_id, author, dynasty, category, source_name, source_url,
+                       chapter_titles, chapter_count, featured_excerpt,
+                       difficulty, guide_summary, reading_tip, recommended_chapters,
+                       segment_guides, translation_cache, translation_status,
+                       original_text, punctuated_text, translated_text, ocr_confidence,
                        image_data, entity_ids, status, created_at, updated_at
                 FROM documents
                 WHERE id = $1::uuid
                 """,
                 document_id,
             )
-            return dict(row) if row else None
+            return _normalize_document_payload(dict(row)) if row else None
     except RuntimeError:
         pass
 
     async with get_db() as db:
         cursor = await db.execute(
             """
-            SELECT id, title, original_text, punctuated_text, translated_text, ocr_confidence,
+            SELECT id, title, repo_id, author, dynasty, category, source_name, source_url,
+                   chapter_titles, chapter_count, featured_excerpt,
+                   difficulty, guide_summary, reading_tip, recommended_chapters,
+                   segment_guides, translation_cache, translation_status,
+                   original_text, punctuated_text, translated_text, ocr_confidence,
                    image_data, entity_ids, status, created_at, updated_at
             FROM documents
             WHERE id = ?
@@ -168,7 +195,41 @@ async def _get_document(document_id: str) -> dict | None:
             (document_id,),
         )
         row = await cursor.fetchone()
-        return dict(row) if row else None
+        return _normalize_document_payload(dict(row)) if row else None
+
+
+async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
+    try:
+        async with get_connection() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT id::text AS id
+                FROM documents
+                WHERE repo_id = $1
+                LIMIT 1
+                """,
+                repo_id,
+            )
+            if not row:
+                return None
+            return await _get_document(row["id"])
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT id
+            FROM documents
+            WHERE repo_id = ?
+            LIMIT 1
+            """,
+            (repo_id,),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return await _get_document(row["id"])
 
 
 async def _list_documents(limit: int = 50, source_type: str | None = None) -> list[dict[str, Any]]:
@@ -180,11 +241,21 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
                 SELECT
                     d.id::text AS id,
                     d.title,
+                    d.repo_id,
+                    d.author,
+                    d.dynasty,
+                    d.category,
+                    d.source_name,
+                    d.source_url,
+                    d.chapter_count,
+                    d.difficulty,
+                    d.guide_summary,
+                    d.translation_status,
                     d.status,
                     d.source_type,
                     d.created_at,
                     d.updated_at,
-                    LEFT(COALESCE(NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 140) AS preview,
+                    LEFT(COALESCE(NULLIF(d.featured_excerpt, ''), NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 140) AS preview,
                     COALESCE(h.current_paragraph, 0) AS current_paragraph,
                     COALESCE(h.total_paragraphs, 0) AS total_paragraphs,
                     CASE
@@ -205,7 +276,11 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
                 ) h ON TRUE
                 LEFT JOIN document_notes n ON n.document_id = d.id
                 {where_clause}
-                ORDER BY CASE WHEN d.source_type = 'sample' THEN 0 ELSE 1 END, COALESCE(d.updated_at, d.created_at) DESC
+                ORDER BY CASE
+                    WHEN d.source_type = 'corpus' THEN 0
+                    WHEN d.source_type = 'sample' THEN 1
+                    ELSE 2
+                END, COALESCE(d.updated_at, d.created_at) DESC
                 LIMIT $1
                 """
             rows = await conn.fetch(
@@ -222,11 +297,21 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
             SELECT
                 d.id,
                 d.title,
+                d.repo_id,
+                d.author,
+                d.dynasty,
+                d.category,
+                d.source_name,
+                d.source_url,
+                d.chapter_count,
+                d.difficulty,
+                d.guide_summary,
+                d.translation_status,
                 d.status,
                 d.source_type,
                 d.created_at,
                 d.updated_at,
-                SUBSTR(COALESCE(NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 1, 140) AS preview,
+                SUBSTR(COALESCE(NULLIF(d.featured_excerpt, ''), NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 1, 140) AS preview,
                 COALESCE((
                     SELECT current_paragraph
                     FROM reading_history h
@@ -252,7 +337,11 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
             FROM documents d
             LEFT JOIN document_notes n ON n.document_id = d.id
             {where_clause_sqlite}
-            ORDER BY CASE WHEN d.source_type = 'sample' THEN 0 ELSE 1 END, COALESCE(d.updated_at, d.created_at) DESC
+            ORDER BY CASE
+                WHEN d.source_type = 'corpus' THEN 0
+                WHEN d.source_type = 'sample' THEN 1
+                ELSE 2
+            END, COALESCE(d.updated_at, d.created_at) DESC
             LIMIT ?
             """
         where_clause_sqlite = "WHERE d.source_type = ?" if source_type else ""
@@ -262,6 +351,242 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+async def _upsert_document_record(record: dict[str, Any]) -> None:
+    try:
+        async with get_connection() as conn:
+            await conn.execute(
+                """
+                INSERT INTO documents (
+                    id, title, repo_id, author, dynasty, category, source_name, source_url,
+                    chapter_titles, chapter_count, featured_excerpt,
+                    difficulty, guide_summary, reading_tip, recommended_chapters,
+                    segment_guides, translation_cache, translation_status,
+                    original_text, punctuated_text, translated_text,
+                    ocr_confidence, image_data, status, entity_ids, source_type
+                ) VALUES (
+                    $1::uuid, $2, $3, $4, $5, $6, $7, $8,
+                    $9::jsonb, $10, $11,
+                    $12, $13, $14, $15::jsonb,
+                    $16::jsonb, $17::jsonb, $18,
+                    $19, $20, $21,
+                    $22, $23, $24, $25::jsonb, $26
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    repo_id = EXCLUDED.repo_id,
+                    author = EXCLUDED.author,
+                    dynasty = EXCLUDED.dynasty,
+                    category = EXCLUDED.category,
+                    source_name = EXCLUDED.source_name,
+                    source_url = EXCLUDED.source_url,
+                    chapter_titles = EXCLUDED.chapter_titles,
+                    chapter_count = EXCLUDED.chapter_count,
+                    featured_excerpt = EXCLUDED.featured_excerpt,
+                    difficulty = EXCLUDED.difficulty,
+                    guide_summary = EXCLUDED.guide_summary,
+                    reading_tip = EXCLUDED.reading_tip,
+                    recommended_chapters = EXCLUDED.recommended_chapters,
+                    segment_guides = EXCLUDED.segment_guides,
+                    translation_cache = EXCLUDED.translation_cache,
+                    translation_status = EXCLUDED.translation_status,
+                    original_text = EXCLUDED.original_text,
+                    punctuated_text = EXCLUDED.punctuated_text,
+                    translated_text = EXCLUDED.translated_text,
+                    ocr_confidence = EXCLUDED.ocr_confidence,
+                    image_data = EXCLUDED.image_data,
+                    status = EXCLUDED.status,
+                    entity_ids = EXCLUDED.entity_ids,
+                    source_type = EXCLUDED.source_type,
+                    updated_at = NOW()
+                """,
+                record["id"],
+                record["title"],
+                record.get("repo_id"),
+                record.get("author"),
+                record.get("dynasty"),
+                record.get("category"),
+                record.get("source_name"),
+                record.get("source_url"),
+                json.dumps(record.get("chapter_titles", []), ensure_ascii=False),
+                int(record.get("chapter_count", 0)),
+                record.get("featured_excerpt"),
+                record.get("difficulty"),
+                record.get("guide_summary"),
+                record.get("reading_tip"),
+                json.dumps(record.get("recommended_chapters", []), ensure_ascii=False),
+                json.dumps(record.get("segment_guides", []), ensure_ascii=False),
+                json.dumps(record.get("translation_cache", []), ensure_ascii=False),
+                record.get("translation_status", "none"),
+                record.get("original_text", ""),
+                record.get("punctuated_text", ""),
+                record.get("translated_text", ""),
+                1.0,
+                None,
+                "done",
+                json.dumps(record.get("entity_ids", []), ensure_ascii=False),
+                record.get("source_type", "corpus"),
+            )
+        return
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO documents (
+                id, title, repo_id, author, dynasty, category, source_name, source_url,
+                chapter_titles, chapter_count, featured_excerpt,
+                difficulty, guide_summary, reading_tip, recommended_chapters,
+                segment_guides, translation_cache, translation_status,
+                original_text, punctuated_text, translated_text,
+                ocr_confidence, image_data, status, entity_ids, source_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                repo_id = excluded.repo_id,
+                author = excluded.author,
+                dynasty = excluded.dynasty,
+                category = excluded.category,
+                source_name = excluded.source_name,
+                source_url = excluded.source_url,
+                chapter_titles = excluded.chapter_titles,
+                chapter_count = excluded.chapter_count,
+                featured_excerpt = excluded.featured_excerpt,
+                difficulty = excluded.difficulty,
+                guide_summary = excluded.guide_summary,
+                reading_tip = excluded.reading_tip,
+                recommended_chapters = excluded.recommended_chapters,
+                segment_guides = excluded.segment_guides,
+                translation_cache = excluded.translation_cache,
+                translation_status = excluded.translation_status,
+                original_text = excluded.original_text,
+                punctuated_text = excluded.punctuated_text,
+                translated_text = excluded.translated_text,
+                ocr_confidence = excluded.ocr_confidence,
+                image_data = excluded.image_data,
+                status = excluded.status,
+                entity_ids = excluded.entity_ids,
+                source_type = excluded.source_type,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                record["id"],
+                record["title"],
+                record.get("repo_id"),
+                record.get("author"),
+                record.get("dynasty"),
+                record.get("category"),
+                record.get("source_name"),
+                record.get("source_url"),
+                json.dumps(record.get("chapter_titles", []), ensure_ascii=False),
+                int(record.get("chapter_count", 0)),
+                record.get("featured_excerpt"),
+                record.get("difficulty"),
+                record.get("guide_summary"),
+                record.get("reading_tip"),
+                json.dumps(record.get("recommended_chapters", []), ensure_ascii=False),
+                json.dumps(record.get("segment_guides", []), ensure_ascii=False),
+                json.dumps(record.get("translation_cache", []), ensure_ascii=False),
+                record.get("translation_status", "none"),
+                record.get("original_text", ""),
+                record.get("punctuated_text", ""),
+                record.get("translated_text", ""),
+                1.0,
+                None,
+                "done",
+                json.dumps(record.get("entity_ids", []), ensure_ascii=False),
+                record.get("source_type", "corpus"),
+            ),
+        )
+        await db.commit()
+
+
+async def _list_catalog_entries(
+    query: str = "",
+    family: str | None = None,
+    section: str | None = None,
+    primary_only: bool = True,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    entries = load_kanripo_catalog()
+    query_text = query.strip().lower()
+
+    imported_rows = await _list_documents(limit=5000)
+    imported_by_repo_id = {
+        item.get("repo_id"): {"document_id": item.get("id"), "title": item.get("title")}
+        for item in imported_rows
+        if item.get("repo_id")
+    }
+
+    def matches(entry: dict[str, Any]) -> bool:
+        if primary_only and not entry.get("is_primary_text"):
+            return False
+        if family and entry.get("family") != family:
+            return False
+        if section and entry.get("section") != section:
+            return False
+        if query_text:
+            haystack = " ".join(
+                str(entry.get(key) or "")
+                for key in ("title", "author", "dynasty", "family", "section")
+            ).lower()
+            if query_text not in haystack:
+                return False
+        return True
+
+    filtered = []
+    for entry in entries:
+        if not matches(entry):
+            continue
+        imported = imported_by_repo_id.get(entry["repo_id"])
+        filtered.append({
+            **entry,
+            "imported": bool(imported),
+            "imported_document_id": imported["document_id"] if imported else None,
+        })
+
+    filtered.sort(key=lambda item: (not item.get("is_primary_text", False), item.get("title", "")))
+    return {
+        "entries": filtered[offset: offset + limit],
+        "total": len(filtered),
+    }
+
+
+async def _save_translation_cache(document_id: str, translation_cache: list[dict[str, Any]], status: str) -> None:
+    payload = json.dumps(translation_cache, ensure_ascii=False)
+    try:
+        async with get_connection() as conn:
+            await conn.execute(
+                """
+                UPDATE documents
+                SET translation_cache = $2::jsonb,
+                    translation_status = $3,
+                    updated_at = NOW()
+                WHERE id = $1::uuid
+                """,
+                document_id,
+                payload,
+                status,
+            )
+        return
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        await db.execute(
+            """
+            UPDATE documents
+            SET translation_cache = ?,
+                translation_status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (payload, status, document_id),
+        )
+        await db.commit()
 
 
 async def _get_document_note(document_id: str) -> dict[str, Any]:
@@ -665,6 +990,82 @@ async def get_recommendations(document_id: str | None = Query(default=None), lim
     """Recommend next documents using reading history, wordbook, and shared entities."""
     items = await _get_recommendations(document_id=document_id, limit=limit)
     return {"documents": items, "total": len(items)}
+
+
+@router.get("/catalog")
+async def list_catalog(
+    q: str = Query(default="", description="搜索整源书目"),
+    family: str | None = Query(default=None),
+    section: str | None = Query(default=None),
+    primary_only: bool = Query(default=True),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """Browse the full Kanripo catalog with lazy-import status."""
+    return await _list_catalog_entries(
+        query=q,
+        family=family,
+        section=section,
+        primary_only=primary_only,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.post("/catalog/import/{repo_id}")
+async def import_catalog_document(repo_id: str):
+    """Import one Kanripo text on demand and return the ready-to-read document."""
+    existing = await _get_document_by_repo_id(repo_id)
+    if existing:
+        return {"document": existing, "imported": False}
+
+    catalog = load_kanripo_catalog()
+    entry = next((item for item in catalog if item.get("repo_id") == repo_id), None)
+    if not entry:
+        raise HTTPException(status_code=404, detail="古籍源条目不存在")
+
+    record = build_repo_record(entry)
+    await _upsert_document_record(record)
+    document = await _get_document_by_repo_id(repo_id)
+    if not document:
+        raise HTTPException(status_code=500, detail="古籍导入失败")
+    return {"document": document, "imported": True}
+
+
+@router.post("/{document_id}/translation-cache")
+async def generate_translation_cache(document_id: str, body: TranslationCacheRequest):
+    """Generate and cache translated summaries for recommended corpus chapters."""
+    document = await _get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    if document.get("source_type") != "corpus":
+        raise HTTPException(status_code=400, detail="只有古籍库文档支持生成白话译缓存")
+
+    existing_cache = document.get("translation_cache") or []
+    if existing_cache:
+        return {"document": document, "generated": False}
+
+    segments = pick_segments_for_translation(
+        str(document.get("repo_id") or ""),
+        recommended_chapters=document.get("recommended_chapters") or [],
+        max_segments=body.max_segments,
+    )
+    if not segments:
+        raise HTTPException(status_code=400, detail="当前文档没有可生成的推荐章节")
+
+    generated: list[dict[str, Any]] = []
+    for segment in segments:
+        raw_segment = build_original_text(segment["text"])
+        result = await translator_agent.punctuate_and_translate(raw_segment)
+        generated.append({
+            "title": segment["title"],
+            "punctuated": result.get("punctuated", ""),
+            "translated": result.get("translated", ""),
+        })
+
+    await _save_translation_cache(document_id, generated, "partial")
+    updated_document = await _get_document(document_id)
+    return {"document": updated_document, "generated": True}
 
 
 @router.get("/{document_id}")
