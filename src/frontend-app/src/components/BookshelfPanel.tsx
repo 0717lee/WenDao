@@ -458,7 +458,7 @@ export default function BookshelfPanel({
 
             {corpusDocuments.length === 0 && usingDemoSamples && !loading && (
               <div className="mb-3 rounded-[22px] px-4 py-3 text-sm leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
-                真实古籍仓库暂时不可用，当前退回到本地精选导读，仍然可以先体验阅读主链路。
+                真实古籍仓库暂时不可用，当前使用本地精选导读，仍然可以先体验阅读流程。
               </div>
             )}
 

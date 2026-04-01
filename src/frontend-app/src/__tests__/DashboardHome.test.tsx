@@ -174,7 +174,7 @@ describe('DashboardHome', () => {
     fireEvent.click(await screen.findByRole('button', { name: /可读篇目/ }))
     expect(props.onOpenReaderHub).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: /字词沉淀/i }))
+    fireEvent.click(screen.getByRole('button', { name: /字词本/i }))
     expect(props.onOpenWordbook).toHaveBeenCalled()
   })
 

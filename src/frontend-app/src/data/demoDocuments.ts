@@ -238,7 +238,7 @@ export function buildDemoChatResponse(query: string): DemoChatResponse {
       .sort((left, right) => right.score - left.score)[0]?.document || DEMO_DOCUMENTS[0]
 
   return {
-    content: `${matchedDocument.demoAnswer}\n\n当前为离线演示解读：为了保证现场演示稳定，我们先用内置样例完成“提问 -> 解读 -> 引用 -> 继续阅读”的主链路。`,
+    content: `${matchedDocument.demoAnswer}\n\n当前为离线演示解读：为了保证现场演示稳定，我们先用内置样例完成”提问 -> 解读 -> 引用 -> 继续阅读”的完整流程。`,
     citations: [
       {
         title: matchedDocument.title,

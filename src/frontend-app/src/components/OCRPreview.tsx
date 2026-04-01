@@ -94,7 +94,7 @@ export function OCRPreview() {
           </div>
           <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先校对识别结果，再继续整理</h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            请检查识别结果，如有错误可手动修改，然后点击"继续处理"进行断句和翻译
+            请检查识别结果，有误请手动修正，然后点击"继续处理"进行断句和翻译
           </p>
         </div>
 

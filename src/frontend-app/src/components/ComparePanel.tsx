@@ -58,7 +58,7 @@ export default function ComparePanel() {
         >
           <div>
             <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
-              多文档对照
+              对照阅读
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
               适合并排比较不同版本、不同来源，或同一篇内容的不同处理结果。

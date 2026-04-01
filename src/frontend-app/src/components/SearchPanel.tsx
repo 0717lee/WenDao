@@ -110,7 +110,7 @@ const SearchPanel: React.FC = () => {
       } else {
         setError(
           message.includes('Failed to fetch')
-            ? '暂时没有连上检索服务，你可以先回到阅读中心继续阅读，或换一组更具体的尝试词。'
+            ? '检索服务暂时不可用，请稍后重试，或先回到阅读中心继续阅读。'
             : message
         );
         setResults([]);

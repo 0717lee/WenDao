@@ -156,7 +156,7 @@ export function DocumentUpload() {
       const message = error instanceof Error ? error.message : 'Upload failed';
       setUploadErrorMessage(
         message.toLowerCase().includes('fetch')
-          ? '识别服务暂时不可用，建议先打开体验样例继续演示主链路。'
+          ? '识别服务暂时不可用，建议先打开体验样例继续体验。'
           : '上传失败，请检查图片格式，或先切换到体验样例继续体验。'
       );
       setUploadStatus('error');
@@ -237,7 +237,7 @@ export function DocumentUpload() {
 
               {usingDemoSamples && (
                 <div className="mb-3 rounded-[22px] px-4 py-3 text-xs leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
-                  当前展示的是本地演示样例。即使识别服务暂时不可用，也能先把样例阅读主链路完整跑通。
+                  当前展示的是本地样例。即使识别服务暂时不可用，也能先完整体验阅读流程。
                 </div>
               )}
 

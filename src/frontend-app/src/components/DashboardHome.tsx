@@ -212,7 +212,7 @@ export default function DashboardHome({
       value: history.length,
       icon: Clock3,
       accent: '#5b8aab',
-      hint: '阅读记录已并入阅读中心',
+      hint: '阅读记录已并入阅读中心。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(237,244,247,0.96) 100%)',
       action: onOpenReaderHub,
     },
@@ -221,16 +221,16 @@ export default function DashboardHome({
       value: corpusDocuments.length,
       icon: LibraryBig,
       accent: 'var(--gf-gugong-red)',
-      hint: '主阅读功能来自真实古籍',
+      hint: '主阅读功能来自真实古籍。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(250,239,236,0.94) 100%)',
       action: firstCorpus ? () => onOpenDocument(firstCorpus.id) : onOpenReaderHub,
     },
     {
-      label: '字词沉淀',
+      label: '字词本',
       value: wordbook.length,
       icon: Star,
       accent: '#3c8a51',
-      hint: '留住释义与典故',
+      hint: '留住释义与典故。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(239,246,241,0.96) 100%)',
       action: onOpenWordbook,
     },
@@ -239,7 +239,7 @@ export default function DashboardHome({
       value: documents.length + corpusDocuments.length + sampleDocuments.length,
       icon: ScrollText,
       accent: 'var(--gf-gold)',
-      hint: '阅读与典籍库现已合并',
+      hint: '阅读与典籍库现已合并。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.98) 100%)',
       action: onOpenReaderHub,
     },
@@ -393,7 +393,7 @@ export default function DashboardHome({
             </div>
             {corpusDocuments.length === 0 && usingDemoSamples && (
               <div className="mb-3 rounded-2xl px-4 py-3 text-xs leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', color: 'rgba(26,30,35,0.56)', border: '1px solid rgba(140,26,17,0.10)' }}>
-                当前展示的是本地样例内容。就算服务暂时波动，也能先完整体验“阅读、释义、追问”的主链路。
+                当前展示的是本地样例内容。就算服务暂时波动，也能先完整体验”阅读、释义、追问”的完整流程。
               </div>
             )}
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -764,7 +764,7 @@ export default function DashboardHome({
                 className="rounded-xl px-3 py-1.5 text-xs"
                 style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
               >
-                查看字词本
+                打开字词本
               </button>
             </div>
           </div>
