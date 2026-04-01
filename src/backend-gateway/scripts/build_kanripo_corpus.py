@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Build the curated local Kanripo corpus snapshot for TextTwin."""
+"""Build the curated local Kanripo corpus snapshot for WenDao."""
 
 from __future__ import annotations
 

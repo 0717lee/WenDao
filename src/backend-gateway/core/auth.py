@@ -13,7 +13,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 logger = logging.getLogger(__name__)
 
-JWT_SECRET = os.getenv("JWT_SECRET", "texttwin-dev-secret-change-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET", "wendao-dev-secret-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
 

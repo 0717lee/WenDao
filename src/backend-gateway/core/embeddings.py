@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 EMBED_DIM = 384  # 统一输出维度 (与 MiniLM-L12-v2 一致)
 
 
-class TextTwinEmbeddings(Embeddings):
+class WenDaoEmbeddings(Embeddings):
     """带缓存的多后端 Embedding 适配器"""
 
     def __init__(self, cache_dir: str = ".embedding_cache"):

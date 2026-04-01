@@ -22,7 +22,7 @@ from bs4 import BeautifulSoup
 # ============================================================
 
 _HEADERS = {
-    "User-Agent": "TextTwin-KnowledgeBot/1.0 (educational project)"
+    "User-Agent": "WenDao-KnowledgeBot/1.0 (educational project)"
 }
 
 

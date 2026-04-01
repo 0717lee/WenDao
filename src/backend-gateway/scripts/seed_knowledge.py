@@ -24,7 +24,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from core.embeddings import TextTwinEmbeddings
+from core.embeddings import WenDaoEmbeddings
 
 
 def build_knowledge_docs():
@@ -570,7 +570,7 @@ def main():
 
     # 初始化 Embedding
     cache_dir = os.path.join(os.path.dirname(__file__), "..", ".embedding_cache")
-    embeddings = TextTwinEmbeddings(cache_dir=cache_dir)
+    embeddings = WenDaoEmbeddings(cache_dir=cache_dir)
 
     db_path = os.path.join(os.path.dirname(__file__), "..", "faiss_db")
     os.makedirs(db_path, exist_ok=True)

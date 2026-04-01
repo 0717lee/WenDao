@@ -140,12 +140,12 @@ class RAGAgent:
             import pickle, faiss as faiss_lib, numpy as np
             from langchain_community.vectorstores import FAISS
             from langchain_community.docstore.in_memory import InMemoryDocstore
-            from core.embeddings import TextTwinEmbeddings
+            from core.embeddings import WenDaoEmbeddings
 
             db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "faiss_db"))
 
             cache_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".embedding_cache"))
-            self.embeddings = TextTwinEmbeddings(cache_dir=cache_dir)
+            self.embeddings = WenDaoEmbeddings(cache_dir=cache_dir)
 
             index_file = os.path.join(db_path, "index.faiss")
             pkl_file = os.path.join(db_path, "index.pkl")

@@ -79,7 +79,7 @@ def mock_db():
 @pytest.fixture
 def mock_embeddings():
     """
-    Mock TextTwinEmbeddings
+    Mock WenDaoEmbeddings
     模拟embed_query和embed_documents方法
     """
     mock = Mock()

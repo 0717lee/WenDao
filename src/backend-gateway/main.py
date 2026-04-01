@@ -68,7 +68,7 @@ async def combined_lifespan(app: FastAPI):
         yield
 
 
-app = FastAPI(title="TextTwin API", version="0.1.0", lifespan=combined_lifespan)
+app = FastAPI(title="古籍智解（WenDao）API", version="0.1.0", lifespan=combined_lifespan)
 
 # 挂载限流器
 app.state.limiter = limiter

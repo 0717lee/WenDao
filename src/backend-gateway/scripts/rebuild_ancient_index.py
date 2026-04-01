@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from core.embeddings import TextTwinEmbeddings
+from core.embeddings import WenDaoEmbeddings
 
 
 def build_ancient_docs():
@@ -140,7 +140,7 @@ def main():
     # Initialize embeddings
     print("\n[2/3] 初始化Embedding模型...")
     try:
-        embeddings = TextTwinEmbeddings()
+        embeddings = WenDaoEmbeddings()
         print("  [OK] Embedding模型初始化成功")
     except Exception as e:
         print(f"  [ERROR] Embedding初始化失败: {e}")

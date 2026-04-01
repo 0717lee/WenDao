@@ -332,7 +332,7 @@ async def init_pg_database() -> None:
                     item.get("author"),
                     item.get("dynasty"),
                     item.get("category"),
-                    "TextTwin",
+                    "WenDao",
                     None,
                     item.get("repo_id"),
                     "[]",

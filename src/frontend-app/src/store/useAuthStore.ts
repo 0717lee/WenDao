@@ -11,18 +11,18 @@ interface AuthState {
 }
 
 function persistAuth(token: string, username: string) {
-    localStorage.setItem('texttwin_token', token)
-    localStorage.setItem('texttwin_username', username)
+    localStorage.setItem('wendao_token', token)
+    localStorage.setItem('wendao_username', username)
 }
 
 function clearPersistedAuth() {
-    localStorage.removeItem('texttwin_token')
-    localStorage.removeItem('texttwin_username')
+    localStorage.removeItem('wendao_token')
+    localStorage.removeItem('wendao_username')
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-    token: localStorage.getItem('texttwin_token'),
-    username: localStorage.getItem('texttwin_username'),
+    token: localStorage.getItem('wendao_token'),
+    username: localStorage.getItem('wendao_username'),
 
     login: async (username: string, password: string) => {
         const res = await fetch(`${API_BASE}/api/v1/auth/login`, {

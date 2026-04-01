@@ -288,7 +288,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     item.get("author"),
                     item.get("dynasty"),
                     item.get("category"),
-                    "TextTwin",
+                    "WenDao",
                     None,
                     item.get("repo_id"),
                     "[]",

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 WIKISOURCE_API_URL = "https://zh.wikisource.org/w/api.php"
 WIKISOURCE_BASE_URL = "https://zh.wikisource.org/wiki/"
 WIKISOURCE_NAMESPACE = uuid.UUID("8ecb6f90-58dc-4a98-bc84-e1c8f0d57bf0")
-USER_AGENT = "TextTwin/1.0 (student project; source adapter)"
+USER_AGENT = "WenDao/1.0 (student project; source adapter)"
 RELATIVE_SUBPAGE_PATTERN = re.compile(r"\[\[/([^|\]#]+)(?:\|[^\]]*)?\]\]")
 
 WIKISOURCE_CURATED_WORKS: list[dict[str, str]] = [
