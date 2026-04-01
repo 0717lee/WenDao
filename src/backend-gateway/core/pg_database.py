@@ -94,6 +94,7 @@ async def init_pg_database() -> None:
                 reading_tip TEXT,
                 recommended_chapters JSONB DEFAULT '[]'::jsonb,
                 segment_guides JSONB DEFAULT '[]'::jsonb,
+                segments JSONB DEFAULT '[]'::jsonb,
                 translation_cache JSONB DEFAULT '[]'::jsonb,
                 translation_status TEXT DEFAULT 'none',
                 original_text TEXT NOT NULL,
@@ -255,6 +256,11 @@ async def init_pg_database() -> None:
 
         await conn.execute("""
             ALTER TABLE documents
+            ADD COLUMN IF NOT EXISTS segments JSONB DEFAULT '[]'::jsonb
+        """)
+
+        await conn.execute("""
+            ALTER TABLE documents
             ADD COLUMN IF NOT EXISTS translation_cache JSONB DEFAULT '[]'::jsonb
         """)
 
@@ -286,10 +292,10 @@ async def init_pg_database() -> None:
                 repo_id,
                 chapter_titles, chapter_count, featured_excerpt,
                 difficulty, guide_summary, reading_tip, recommended_chapters,
-                segment_guides, translation_cache, translation_status,
+                segment_guides, segments, translation_cache, translation_status,
                 original_text, punctuated_text, translated_text,
                 ocr_confidence, image_data, status, entity_ids, source_type
-            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25::jsonb, $26)
+            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27)
             ON CONFLICT (id) DO UPDATE SET
                 title = EXCLUDED.title,
                 repo_id = EXCLUDED.repo_id,
@@ -306,6 +312,7 @@ async def init_pg_database() -> None:
                 reading_tip = EXCLUDED.reading_tip,
                 recommended_chapters = EXCLUDED.recommended_chapters,
                 segment_guides = EXCLUDED.segment_guides,
+                segments = EXCLUDED.segments,
                 translation_cache = EXCLUDED.translation_cache,
                 translation_status = EXCLUDED.translation_status,
                 original_text = EXCLUDED.original_text,
@@ -322,18 +329,19 @@ async def init_pg_database() -> None:
                 (
                     item["id"],
                     item["title"],
-                    item.get("repo_id"),
                     item.get("author"),
                     item.get("dynasty"),
                     item.get("category"),
                     "TextTwin",
                     None,
+                    item.get("repo_id"),
                     "[]",
                     0,
                     None,
                     None,
                     None,
                     None,
+                    "[]",
                     "[]",
                     "[]",
                     "[]",
@@ -360,10 +368,10 @@ async def init_pg_database() -> None:
                     repo_id,
                     chapter_titles, chapter_count, featured_excerpt,
                     difficulty, guide_summary, reading_tip, recommended_chapters,
-                    segment_guides, translation_cache, translation_status,
+                    segment_guides, segments, translation_cache, translation_status,
                     original_text, punctuated_text, translated_text,
                     ocr_confidence, image_data, status, entity_ids, source_type
-                ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18, $19, $20, $21, $22, $23, $24, $25::jsonb, $26)
+                ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27)
                 ON CONFLICT (id) DO UPDATE SET
                     title = EXCLUDED.title,
                     repo_id = EXCLUDED.repo_id,
@@ -380,6 +388,7 @@ async def init_pg_database() -> None:
                     reading_tip = EXCLUDED.reading_tip,
                     recommended_chapters = EXCLUDED.recommended_chapters,
                     segment_guides = EXCLUDED.segment_guides,
+                    segments = EXCLUDED.segments,
                     translation_cache = EXCLUDED.translation_cache,
                     translation_status = EXCLUDED.translation_status,
                     original_text = EXCLUDED.original_text,
@@ -396,12 +405,12 @@ async def init_pg_database() -> None:
                     (
                         item["id"],
                         item["title"],
-                        item.get("repo_id"),
                         item.get("author"),
                         item.get("dynasty"),
                         item.get("category"),
                         item.get("source_name"),
                         item.get("source_url"),
+                        item.get("repo_id"),
                         json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
                         int(item.get("chapter_count", 0)),
                         item.get("featured_excerpt"),
@@ -410,6 +419,7 @@ async def init_pg_database() -> None:
                         item.get("reading_tip"),
                         json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
                         json.dumps(item.get("segment_guides", []), ensure_ascii=False),
+                        json.dumps(item.get("segments", []), ensure_ascii=False),
                         json.dumps(item.get("translation_cache", []), ensure_ascii=False),
                         item.get("translation_status", "none"),
                         item["original_text"],

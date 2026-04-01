@@ -44,9 +44,9 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     # document_notes / study_sessions / users plus ALTER statements for entity_ids, image_data,
     # source_type, repo_id, author, dynasty, category, source_name, source_url,
     # chapter_titles, chapter_count, featured_excerpt, difficulty, guide_summary,
-    # reading_tip, recommended_chapters, segment_guides, translation_cache,
+    # reading_tip, recommended_chapters, segment_guides, segments, translation_cache,
     # translation_status, email
-    assert mock_conn.execute.call_count == 28
+    assert mock_conn.execute.call_count == 29
     assert mock_conn.executemany.call_count == 2
 
     # Verify table names are in the SQL
@@ -76,6 +76,7 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     assert "reading_tip" in all_sql
     assert "recommended_chapters" in all_sql
     assert "segment_guides" in all_sql
+    assert "segments" in all_sql
     assert "translation_cache" in all_sql
     assert "translation_status" in all_sql
     assert "email" in all_sql

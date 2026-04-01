@@ -210,10 +210,11 @@ export function ThreeColumnReader() {
     if (!currentDocument || translationGenerating) return
     setTranslationGenerating(true)
     try {
+      const strategy = (currentDocument.translationCache?.length ?? 0) > 0 ? 'next' : 'recommended'
       const response = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/translation-cache`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_segments: 3 }),
+        body: JSON.stringify({ strategy, max_segments: 6 }),
       })
       if (!response.ok) throw new Error('translation cache failed')
       const data = await response.json()
@@ -337,14 +338,14 @@ export function ThreeColumnReader() {
                   ))}
                 </div>
               )}
-              {!currentDocument.translatedText && translationCache.length === 0 && currentDocument.sourceType === 'corpus' && (
+              {!currentDocument.translatedText && currentDocument.sourceType === 'corpus' && (
                 <button
                   onClick={generateTranslationCache}
                   className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
                   {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  生成推荐章节白话译
+                  {translationCache.length > 0 ? '继续按需补全白话译' : '生成推荐章节白话译'}
                 </button>
               )}
             </div>
@@ -467,6 +468,11 @@ export function ThreeColumnReader() {
             {currentDocument.readingTip && (
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
                 起读建议：{currentDocument.readingTip}
+              </div>
+            )}
+            {!currentDocument.translatedText && translationCache.length > 0 && (
+              <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                已缓存部分分段白话译，可先读右侧摘要，再继续补全全文。
               </div>
             )}
           </div>

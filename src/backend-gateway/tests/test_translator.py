@@ -55,10 +55,11 @@ class TestDeepSeekFallback:
 
         mock_openai_cls.side_effect = [kimi_client, deepseek_client]
 
-        agent = TranslatorAgent()
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test-key"}):
+            agent = TranslatorAgent()
 
-        import asyncio
-        result = asyncio.run(agent.punctuate_and_translate("短文"))
+            import asyncio
+            result = asyncio.run(agent.punctuate_and_translate("短文"))
 
         assert result["punctuated"] == "有标点。"
         assert result["translated"] == "有翻译。"

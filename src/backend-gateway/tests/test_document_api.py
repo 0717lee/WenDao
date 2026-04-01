@@ -410,6 +410,18 @@ class TestCatalogEndpoints:
         assert result["imported"] is False
         assert result["document"]["id"] == "doc-1"
 
+    @pytest.mark.asyncio
+    async def test_import_catalog_document_supports_wikisource_repo_id(self):
+        from routers.document import import_catalog_document
+
+        with patch("routers.document._get_document_by_repo_id", new=AsyncMock(side_effect=[None, {"id": "ws-doc-1", "title": "《古文观止》"}])), \
+             patch("routers.document.build_wikisource_record", return_value={"id": "ws-doc-1", "repo_id": "WS:古文觀止", "title": "《古文观止》"}), \
+             patch("routers.document._upsert_document_record", new=AsyncMock()):
+            result = await import_catalog_document("WS:古文觀止")
+
+        assert result["imported"] is True
+        assert result["document"]["id"] == "ws-doc-1"
+
 
 class TestTranslationCacheEndpoint:
     """Corpus translation-cache endpoint."""
@@ -421,7 +433,10 @@ class TestTranslationCacheEndpoint:
         existing_document = {
             "id": "doc-1",
             "source_type": "corpus",
-            "translation_cache": [{"title": "学而", "translated": "学习之后..." }],
+            "segments": [{"index": 0, "title": "学而", "text": "学而时习之"}],
+            "translated_text": "学习之后，要经常温习。",
+            "translation_status": "full",
+            "translation_cache": [{"segment_index": 0, "title": "学而", "translated": "学习之后，要经常温习。"}],
         }
 
         with patch("routers.document._get_document", new=AsyncMock(return_value=existing_document)):
@@ -429,6 +444,36 @@ class TestTranslationCacheEndpoint:
 
         assert result["generated"] is False
         assert result["document"]["translation_cache"][0]["title"] == "学而"
+
+    @pytest.mark.asyncio
+    async def test_generate_translation_cache_returns_progress_payload(self):
+        from routers.document import TranslationCacheRequest, generate_translation_cache
+
+        document = {
+            "id": "doc-1",
+            "source_type": "corpus",
+            "segments": [{"index": 0, "title": "学而第一", "text": "学而时习之"}],
+            "translation_cache": [],
+        }
+        updated_document = {
+            "id": "doc-1",
+            "source_type": "corpus",
+            "translation_cache": [{"segment_index": 0, "title": "学而第一", "translated": "学习后要反复练习。"}],
+            "translation_status": "full",
+            "translated_text": "学习后要反复练习。",
+        }
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value=document)), \
+             patch("routers.document._translate_document_segments", new=AsyncMock(return_value=(updated_document, 1, {"translated_segments": 1, "total_segments": 1, "is_complete": True}))):
+            result = await generate_translation_cache(
+                "doc-1",
+                TranslationCacheRequest(strategy="next", max_segments=2),
+            )
+
+        assert result["generated"] is True
+        assert result["generated_segments"] == 1
+        assert result["progress"]["is_complete"] is True
+        assert result["document"]["translation_status"] == "full"
 
 
 if __name__ == "__main__":

@@ -17,6 +17,12 @@ except ImportError:  # pragma: no cover - optional dependency at runtime
     OpenCC = None  # type: ignore[assignment]
 
 from core.reading_guides import READING_GUIDES
+from core.document_segments import (
+    build_featured_excerpt,
+    build_original_text,
+    build_segment_guides,
+    enrich_segments,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -43,11 +49,19 @@ CURATED_WORKS = [
 
 PRIMARY_REPO_IDS = {item["repo_id"] for item in CURATED_WORKS}
 TRANSLATION_PREWARM_REPO_IDS = {item["repo_id"] for item in CURATED_WORKS}
-PUNCTUATION_PATTERN = re.compile(r"[，。！？：；、“”‘’「」『』（）()《》〈〉【】〔〕—…·]")
 PAGE_BREAK_PATTERN = re.compile(r"<pb:[^>]+>")
 TITLE_PATTERN = re.compile(r"^\*\*\s+")
 INLINE_NUMBER_PATTERN = re.compile(r"^(\d+(?:\.\d+)?)")
 SEGMENT_NUMBER_PATTERN = re.compile(r"^\d+(?:\.\d+)?\s*")
+FULL_TRANSLATION_CORE_REPO_IDS = {
+    "KR1c0001",  # 《诗经》
+    "KR1f0001",  # 《孝经》
+    "KR1h0004",  # 《论语》
+    "KR1h0001",  # 《孟子》
+    "KR4a0001",  # 《楚辞》
+    "KR5c0045",  # 《道德经》
+    "KR5c0126",  # 《庄子》
+}
 
 
 def get_converter():
@@ -145,52 +159,6 @@ def build_punctuated_text(segments: list[dict[str, str]]) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def build_original_text(punctuated_text: str) -> str:
-    lines = []
-    for line in punctuated_text.splitlines():
-        if not line.strip():
-            lines.append("")
-            continue
-        cleaned = PUNCTUATION_PATTERN.sub("", line)
-        cleaned = cleaned.replace(" ", "")
-        lines.append(cleaned)
-    return "\n".join(lines).strip()
-
-
-def build_featured_excerpt(segments: list[dict[str, str]]) -> str:
-    for segment in segments:
-        lines = [line.strip() for line in segment["text"].splitlines() if line.strip()]
-        for line in lines:
-            if line == segment["title"]:
-                continue
-            if len(line) >= 12:
-                return line[:140]
-    return ""
-
-
-def build_segment_guides(segments: list[dict[str, str]]) -> list[dict[str, str]]:
-    guides: list[dict[str, str]] = []
-    for segment in segments:
-        lines = [line.strip() for line in segment["text"].splitlines() if line.strip()]
-        excerpt = ""
-        for line in lines:
-            if line == segment["title"]:
-                continue
-            if len(line) >= 10:
-                excerpt = line[:120]
-                break
-        summary = (
-            f"这一篇适合先抓住“{segment['title']}”对应的主题，"
-            f"可以从“{excerpt or segment['title']}”这一句切入，再回头看上下文。"
-        )
-        guides.append({
-            "title": segment["title"],
-            "excerpt": excerpt or segment["title"],
-            "summary": summary,
-        })
-    return guides
-
-
 def pick_segments_for_translation(
     repo_id: str,
     recommended_chapters: list[str] | None = None,
@@ -220,8 +188,9 @@ def build_repo_record(metadata: dict[str, object], cache_dir: Path = DEFAULT_CAC
     converter = get_converter()
     repo_id = str(metadata["repo_id"])
     repo_dir = ensure_repo(repo_id, cache_dir=cache_dir)
-    segments = build_segments(repo_dir, repo_id, converter)
-    punctuated_text = build_punctuated_text(segments)
+    raw_segments = build_segments(repo_dir, repo_id, converter)
+    segments = enrich_segments(raw_segments, metadata)
+    punctuated_text = build_punctuated_text(raw_segments)
     original_text = build_original_text(punctuated_text)
     chapter_titles = [segment["title"] for segment in segments]
     segment_guides = build_segment_guides(segments)
@@ -242,6 +211,7 @@ def build_repo_record(metadata: dict[str, object], cache_dir: Path = DEFAULT_CAC
         "chapter_count": len(chapter_titles),
         "featured_excerpt": build_featured_excerpt(segments),
         "segment_guides": segment_guides,
+        "segments": segments,
         "difficulty": READING_GUIDES.get(repo_id, {}).get("difficulty"),
         "guide_summary": READING_GUIDES.get(repo_id, {}).get("guide_summary"),
         "reading_tip": READING_GUIDES.get(repo_id, {}).get("reading_tip"),

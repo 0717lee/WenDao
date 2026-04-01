@@ -59,7 +59,39 @@ class TestDatabaseInitialization:
             corpus_count = await cursor.fetchone()
             assert corpus_count[0] >= 1
 
+            cursor = await db.execute("PRAGMA table_info(documents)")
+            columns = {row[1] for row in await cursor.fetchall()}
+            assert "segments" in columns
+
         # 清理
+        os.remove(test_db)
+
+    @pytest.mark.asyncio
+    async def test_init_preserves_corpus_metadata_order(self):
+        test_db = "test_ancient_texts.db"
+        if os.path.exists(test_db):
+            os.remove(test_db)
+
+        await init_database(test_db)
+
+        async with get_db(test_db) as db:
+            cursor = await db.execute(
+                """
+                SELECT title, repo_id, author, dynasty, category, source_name, source_url
+                FROM documents
+                WHERE source_type = 'corpus'
+                ORDER BY title
+                LIMIT 1
+                """
+            )
+            row = await cursor.fetchone()
+
+        assert row is not None
+        assert row["repo_id"].startswith("KR")
+        assert row["source_name"] == "Kanripo"
+        assert "kanripo" in row["source_url"].lower()
+        assert row["author"] != row["repo_id"]
+
         os.remove(test_db)
 
 

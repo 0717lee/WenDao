@@ -10,6 +10,8 @@ import logging
 import re
 from openai import OpenAI
 
+from core.output_validator import OutputValidator
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,24 +24,66 @@ class TranslatorAgent:
             base_url="https://api.moonshot.cn/v1",
         )
         self.deepseek_client = None
+        self.deepseek_enabled = bool(os.getenv("DEEPSEEK_API_KEY", "").strip())
         self.converter = None
 
     async def punctuate_and_translate(self, raw_text: str) -> dict:
+        if not raw_text.strip():
+            return {"punctuated": "", "translated": "", "used_fallback": False}
         segments = self._split_segments(raw_text, max_len=400)
         results = []
         used_fallback = False
         for seg in segments:
-            try:
-                result = await self._call_kimi(seg)
-            except Exception as e:
-                logger.info("[降级] TranslatorAgent: Kimi-8k → DeepSeek-Chat, reason: %s", str(e))
-                result = await self._call_deepseek(seg)
-                used_fallback = True
+            result, segment_used_fallback = await self._translate_segment(seg)
+            validation = OutputValidator.validate_translation(seg, result)
+            if validation["warnings"]:
+                logger.warning("TranslatorAgent validation warnings: %s", validation["warnings"])
             results.append(result)
+            used_fallback = used_fallback or segment_used_fallback
         punctuated = "\n".join([r["punctuated"] for r in results])
         translated = "\n".join([r["translated"] for r in results])
         punctuated = self.normalize_variants(punctuated)
         return {"punctuated": punctuated, "translated": translated, "used_fallback": used_fallback}
+
+    async def _translate_segment(self, text: str, depth: int = 0) -> tuple[dict, bool]:
+        last_error: Exception | None = None
+        for attempt in range(2):
+            try:
+                return await self._call_kimi(text), False
+            except Exception as exc:
+                last_error = exc
+                logger.warning("TranslatorAgent Kimi attempt %s failed: %s", attempt + 1, exc)
+                await asyncio.sleep(0.2 * (attempt + 1))
+
+        try:
+            return await self._call_kimi_plain(text), False
+        except Exception as exc:
+            last_error = exc
+            logger.warning("TranslatorAgent Kimi plain-format fallback failed: %s", exc)
+
+        if self.deepseek_enabled:
+            try:
+                logger.info("[降级] TranslatorAgent: Kimi-8k → DeepSeek-Chat, reason: %s", str(last_error))
+                return await self._call_deepseek(text), True
+            except Exception as exc:
+                last_error = exc
+                logger.warning("TranslatorAgent DeepSeek fallback failed: %s", exc)
+
+        if depth < 2:
+            smaller_segments = self._split_for_recovery(text)
+            if len(smaller_segments) > 1:
+                nested_results = []
+                used_fallback = False
+                for segment in smaller_segments:
+                    nested_result, nested_used_fallback = await self._translate_segment(segment, depth + 1)
+                    nested_results.append(nested_result)
+                    used_fallback = used_fallback or nested_used_fallback
+                return {
+                    "punctuated": "\n".join(item["punctuated"] for item in nested_results if item.get("punctuated")),
+                    "translated": "\n".join(item["translated"] for item in nested_results if item.get("translated")),
+                }, used_fallback
+
+        raise last_error or RuntimeError("Translation failed")
 
     def _split_segments(self, text: str, max_len: int = 400) -> list:
         if len(text) <= max_len:
@@ -55,6 +99,16 @@ class TranslatorAgent:
             segments.append(text[start:end])
             start = end
         return segments
+
+    def _split_for_recovery(self, text: str) -> list[str]:
+        if len(text) <= 180:
+            return [text]
+        target = max(180, min(260, len(text) // 2))
+        smaller = self._split_segments(text, max_len=target)
+        if len(smaller) > 1:
+            return smaller
+        midpoint = len(text) // 2
+        return [text[:midpoint], text[midpoint:]]
 
     async def _call_kimi(self, text: str) -> dict:
         prompt = (
@@ -74,7 +128,28 @@ class TranslatorAgent:
         content = response.choices[0].message.content
         return self._parse_json(content)
 
+    async def _call_kimi_plain(self, text: str) -> dict:
+        prompt = (
+            "请对以下古文进行处理：\n"
+            "1. 添加现代标点符号\n"
+            "2. 翻译为通俗易懂的白话文\n\n"
+            f"古文原文：\n{text}\n\n"
+            "请严格按下面两段返回，不要加解释：\n"
+            "标点文：...\n"
+            "白话译：..."
+        )
+        response = await asyncio.to_thread(
+            self.kimi_client.chat.completions.create,
+            model="moonshot-v1-8k",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content
+        return self._parse_plain_response(content)
+
     async def _call_deepseek(self, text: str) -> dict:
+        if not self.deepseek_enabled:
+            raise RuntimeError("DeepSeek API key not configured")
         if self.deepseek_client is None:
             self.deepseek_client = OpenAI(
                 api_key=os.getenv("DEEPSEEK_API_KEY", ""),
@@ -104,6 +179,16 @@ class TranslatorAgent:
             if match:
                 return json.loads(match.group())
             raise
+
+    def _parse_plain_response(self, content: str) -> dict:
+        punctuated_match = re.search(r"标点文[:：]\s*(.+?)(?:\n+白话译[:：]|$)", content, re.DOTALL)
+        translated_match = re.search(r"白话译[:：]\s*(.+)$", content, re.DOTALL)
+        if punctuated_match and translated_match:
+            return {
+                "punctuated": punctuated_match.group(1).strip(),
+                "translated": translated_match.group(1).strip(),
+            }
+        raise ValueError("Unable to parse plain translation response")
 
     def normalize_variants(self, text: str) -> str:
         if self.converter is None:

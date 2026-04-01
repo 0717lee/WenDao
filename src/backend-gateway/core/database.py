@@ -47,6 +47,7 @@ async def _create_documents_table(db: aiosqlite.Connection) -> None:
             reading_tip TEXT,
             recommended_chapters TEXT DEFAULT '[]',
             segment_guides TEXT DEFAULT '[]',
+            segments TEXT DEFAULT '[]',
             translation_cache TEXT DEFAULT '[]',
             translation_status TEXT DEFAULT 'none',
             original_text TEXT NOT NULL DEFAULT '',
@@ -143,6 +144,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         await _ensure_column(db, "documents", "reading_tip", "TEXT")
         await _ensure_column(db, "documents", "recommended_chapters", "TEXT DEFAULT '[]'")
         await _ensure_column(db, "documents", "segment_guides", "TEXT DEFAULT '[]'")
+        await _ensure_column(db, "documents", "segments", "TEXT DEFAULT '[]'")
         await _ensure_column(db, "documents", "translation_cache", "TEXT DEFAULT '[]'")
         await _ensure_column(db, "documents", "translation_status", "TEXT DEFAULT 'none'")
         await _ensure_column(db, "documents", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
@@ -246,10 +248,10 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 repo_id,
                 chapter_titles, chapter_count, featured_excerpt,
                 difficulty, guide_summary, reading_tip, recommended_chapters,
-                segment_guides, translation_cache, translation_status,
+                segment_guides, segments, translation_cache, translation_status,
                 original_text, punctuated_text, translated_text,
                 ocr_confidence, image_data, status, entity_ids, source_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 repo_id = excluded.repo_id,
@@ -266,6 +268,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 reading_tip = excluded.reading_tip,
                 recommended_chapters = excluded.recommended_chapters,
                 segment_guides = excluded.segment_guides,
+                segments = excluded.segments,
                 translation_cache = excluded.translation_cache,
                 translation_status = excluded.translation_status,
                 original_text = excluded.original_text,
@@ -282,18 +285,19 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 (
                     item["id"],
                     item["title"],
-                    item.get("repo_id"),
                     item.get("author"),
                     item.get("dynasty"),
                     item.get("category"),
                     "TextTwin",
                     None,
+                    item.get("repo_id"),
                     "[]",
                     0,
                     None,
                     None,
                     None,
                     None,
+                    "[]",
                     "[]",
                     "[]",
                     "[]",
@@ -320,10 +324,10 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     repo_id,
                     chapter_titles, chapter_count, featured_excerpt,
                     difficulty, guide_summary, reading_tip, recommended_chapters,
-                    segment_guides, translation_cache, translation_status,
+                    segment_guides, segments, translation_cache, translation_status,
                     original_text, punctuated_text, translated_text,
                     ocr_confidence, image_data, status, entity_ids, source_type
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     title = excluded.title,
                     repo_id = excluded.repo_id,
@@ -340,6 +344,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     reading_tip = excluded.reading_tip,
                     recommended_chapters = excluded.recommended_chapters,
                     segment_guides = excluded.segment_guides,
+                    segments = excluded.segments,
                     translation_cache = excluded.translation_cache,
                     translation_status = excluded.translation_status,
                     original_text = excluded.original_text,
@@ -356,12 +361,12 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     (
                         item["id"],
                         item["title"],
-                        item.get("repo_id"),
                         item.get("author"),
                         item.get("dynasty"),
                         item.get("category"),
                         item.get("source_name"),
                         item.get("source_url"),
+                        item.get("repo_id"),
                         json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
                         int(item.get("chapter_count", 0)),
                         item.get("featured_excerpt"),
@@ -370,6 +375,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                         item.get("reading_tip"),
                         json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
                         json.dumps(item.get("segment_guides", []), ensure_ascii=False),
+                        json.dumps(item.get("segments", []), ensure_ascii=False),
                         json.dumps(item.get("translation_cache", []), ensure_ascii=False),
                         item.get("translation_status", "none"),
                         item["original_text"],

@@ -496,13 +496,13 @@ export default function BookshelfPanel({
         >
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                更多古籍
-              </h3>
-              <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                这里接的是整个 Kanripo 书源目录。先浏览书目，需要哪本再按需导入到阅读中心。
-              </p>
-            </div>
+                <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                  更多古籍
+                </h3>
+                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  这里接的是 Kanripo 主书源目录，并补了一条 Wikisource 在线补源。先浏览书目，需要哪本再按需导入到阅读中心。
+                </p>
+              </div>
             <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
               当前可浏览 {catalogTotal} 条书目
             </div>

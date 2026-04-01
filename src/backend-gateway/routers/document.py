@@ -20,11 +20,19 @@ from agents.translator import TranslatorAgent
 from agents.word_explainer import WordExplainerAgent
 from core import pg_database
 from core.auth import require_auth
+from core.document_segments import (
+    build_original_text,
+    build_translated_text,
+    get_translation_progress,
+    merge_translation_cache,
+    pick_translation_segments,
+)
 from core.kanripo_catalog import load_kanripo_catalog
-from core.kanripo_source import build_original_text, build_repo_record, pick_segments_for_translation
+from core.kanripo_source import build_repo_record
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
+from core.wikisource_source import build_wikisource_record, search_wikisource_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +69,7 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/tiff"}
 
 
 def _normalize_document_payload(row: dict[str, Any]) -> dict[str, Any]:
-    for key in ("entity_ids", "chapter_titles", "recommended_chapters", "segment_guides", "translation_cache"):
+    for key in ("entity_ids", "chapter_titles", "recommended_chapters", "segment_guides", "segments", "translation_cache"):
         value = row.get(key)
         if isinstance(value, str):
             try:
@@ -91,7 +99,8 @@ class StudyProgressUpdateRequest(BaseModel):
 
 
 class TranslationCacheRequest(BaseModel):
-    max_segments: int = Field(default=3, ge=1, le=6)
+    strategy: str = Field(default="recommended", pattern="^(recommended|next|full)$")
+    max_segments: int = Field(default=6, ge=1, le=60)
 
 
 def _split_learning_sentences(text: str) -> list[str]:
@@ -168,7 +177,7 @@ async def _get_document(document_id: str) -> dict | None:
                 SELECT id, title, repo_id, author, dynasty, category, source_name, source_url,
                        chapter_titles, chapter_count, featured_excerpt,
                        difficulty, guide_summary, reading_tip, recommended_chapters,
-                       segment_guides, translation_cache, translation_status,
+                       segment_guides, segments, translation_cache, translation_status,
                        original_text, punctuated_text, translated_text, ocr_confidence,
                        image_data, entity_ids, status, created_at, updated_at
                 FROM documents
@@ -186,7 +195,7 @@ async def _get_document(document_id: str) -> dict | None:
             SELECT id, title, repo_id, author, dynasty, category, source_name, source_url,
                    chapter_titles, chapter_count, featured_excerpt,
                    difficulty, guide_summary, reading_tip, recommended_chapters,
-                   segment_guides, translation_cache, translation_status,
+                   segment_guides, segments, translation_cache, translation_status,
                    original_text, punctuated_text, translated_text, ocr_confidence,
                    image_data, entity_ids, status, created_at, updated_at
             FROM documents
@@ -362,16 +371,16 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
                     id, title, repo_id, author, dynasty, category, source_name, source_url,
                     chapter_titles, chapter_count, featured_excerpt,
                     difficulty, guide_summary, reading_tip, recommended_chapters,
-                    segment_guides, translation_cache, translation_status,
+                    segment_guides, segments, translation_cache, translation_status,
                     original_text, punctuated_text, translated_text,
                     ocr_confidence, image_data, status, entity_ids, source_type
                 ) VALUES (
                     $1::uuid, $2, $3, $4, $5, $6, $7, $8,
                     $9::jsonb, $10, $11,
                     $12, $13, $14, $15::jsonb,
-                    $16::jsonb, $17::jsonb, $18,
-                    $19, $20, $21,
-                    $22, $23, $24, $25::jsonb, $26
+                    $16::jsonb, $17::jsonb, $18::jsonb, $19,
+                    $20, $21, $22,
+                    $23, $24, $25, $26::jsonb, $27
                 )
                 ON CONFLICT (id) DO UPDATE SET
                     title = EXCLUDED.title,
@@ -389,6 +398,7 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
                     reading_tip = EXCLUDED.reading_tip,
                     recommended_chapters = EXCLUDED.recommended_chapters,
                     segment_guides = EXCLUDED.segment_guides,
+                    segments = EXCLUDED.segments,
                     translation_cache = EXCLUDED.translation_cache,
                     translation_status = EXCLUDED.translation_status,
                     original_text = EXCLUDED.original_text,
@@ -417,6 +427,7 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
                 record.get("reading_tip"),
                 json.dumps(record.get("recommended_chapters", []), ensure_ascii=False),
                 json.dumps(record.get("segment_guides", []), ensure_ascii=False),
+                json.dumps(record.get("segments", []), ensure_ascii=False),
                 json.dumps(record.get("translation_cache", []), ensure_ascii=False),
                 record.get("translation_status", "none"),
                 record.get("original_text", ""),
@@ -439,10 +450,10 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
                 id, title, repo_id, author, dynasty, category, source_name, source_url,
                 chapter_titles, chapter_count, featured_excerpt,
                 difficulty, guide_summary, reading_tip, recommended_chapters,
-                segment_guides, translation_cache, translation_status,
+                segment_guides, segments, translation_cache, translation_status,
                 original_text, punctuated_text, translated_text,
                 ocr_confidence, image_data, status, entity_ids, source_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 repo_id = excluded.repo_id,
@@ -459,6 +470,7 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
                 reading_tip = excluded.reading_tip,
                 recommended_chapters = excluded.recommended_chapters,
                 segment_guides = excluded.segment_guides,
+                segments = excluded.segments,
                 translation_cache = excluded.translation_cache,
                 translation_status = excluded.translation_status,
                 original_text = excluded.original_text,
@@ -488,6 +500,7 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
                 record.get("reading_tip"),
                 json.dumps(record.get("recommended_chapters", []), ensure_ascii=False),
                 json.dumps(record.get("segment_guides", []), ensure_ascii=False),
+                json.dumps(record.get("segments", []), ensure_ascii=False),
                 json.dumps(record.get("translation_cache", []), ensure_ascii=False),
                 record.get("translation_status", "none"),
                 record.get("original_text", ""),
@@ -548,14 +561,45 @@ async def _list_catalog_entries(
             "imported_document_id": imported["document_id"] if imported else None,
         })
 
-    filtered.sort(key=lambda item: (not item.get("is_primary_text", False), item.get("title", "")))
+    wikisource_entries: list[dict[str, Any]] = []
+    if not section and (not family or family == "维基文库"):
+        try:
+            for entry in search_wikisource_catalog(query=query, limit=min(limit, 12)):
+                imported = imported_by_repo_id.get(entry["repo_id"])
+                wikisource_entries.append(
+                    {
+                        **entry,
+                        "imported": bool(imported),
+                        "imported_document_id": imported["document_id"] if imported else None,
+                    }
+                )
+        except Exception as exc:
+            logger.warning("Wikisource catalog supplement unavailable: %s", exc)
+
+    deduped: dict[str, dict[str, Any]] = {}
+    for entry in [*wikisource_entries, *filtered]:
+        deduped[entry["repo_id"]] = entry
+
+    filtered = list(deduped.values())
+    filtered.sort(
+        key=lambda item: (
+            0 if item.get("source_backend") == "wikisource" else 1,
+            not item.get("is_primary_text", False),
+            item.get("title", ""),
+        )
+    )
     return {
         "entries": filtered[offset: offset + limit],
         "total": len(filtered),
     }
 
 
-async def _save_translation_cache(document_id: str, translation_cache: list[dict[str, Any]], status: str) -> None:
+async def _save_translation_state(
+    document_id: str,
+    translation_cache: list[dict[str, Any]],
+    status: str,
+    translated_text: str,
+) -> None:
     payload = json.dumps(translation_cache, ensure_ascii=False)
     try:
         async with get_connection() as conn:
@@ -564,12 +608,14 @@ async def _save_translation_cache(document_id: str, translation_cache: list[dict
                 UPDATE documents
                 SET translation_cache = $2::jsonb,
                     translation_status = $3,
+                    translated_text = $4,
                     updated_at = NOW()
                 WHERE id = $1::uuid
                 """,
                 document_id,
                 payload,
                 status,
+                translated_text,
             )
         return
     except RuntimeError:
@@ -581,12 +627,115 @@ async def _save_translation_cache(document_id: str, translation_cache: list[dict
             UPDATE documents
             SET translation_cache = ?,
                 translation_status = ?,
+                translated_text = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (payload, status, document_id),
+            (payload, status, translated_text, document_id),
         )
         await db.commit()
+
+
+async def _hydrate_document_source(document: dict[str, Any]) -> dict[str, Any]:
+    repo_id = str(document.get("repo_id") or "")
+    if not repo_id:
+        return document
+
+    if repo_id.startswith("WS:"):
+        record = build_wikisource_record(
+            {
+                "repo_id": repo_id,
+                "page_title": repo_id.removeprefix("WS:"),
+                "title": document.get("title"),
+                "author": document.get("author"),
+                "dynasty": document.get("dynasty"),
+                "category": document.get("category"),
+                "difficulty": document.get("difficulty"),
+                "guide_summary": document.get("guide_summary"),
+                "reading_tip": document.get("reading_tip"),
+            }
+        )
+    else:
+        catalog = load_kanripo_catalog()
+        entry = next((item for item in catalog if item.get("repo_id") == repo_id), None) or {
+            "repo_id": repo_id,
+            "title": document.get("title"),
+            "author": document.get("author"),
+            "dynasty": document.get("dynasty"),
+            "category": document.get("category"),
+            "family": document.get("family"),
+            "section": document.get("section"),
+        }
+        record = build_repo_record(entry)
+
+    await _upsert_document_record(record)
+    return await _get_document(str(record["id"])) or document
+
+
+async def _translate_document_segments(
+    document: dict[str, Any],
+    strategy: str,
+    max_segments: int,
+) -> tuple[dict[str, Any], int, dict[str, int | bool]]:
+    hydrated_document = document
+    segments = hydrated_document.get("segments") or []
+    if not segments and hydrated_document.get("repo_id"):
+        hydrated_document = await _hydrate_document_source(hydrated_document)
+        segments = hydrated_document.get("segments") or []
+
+    if not segments:
+        raise HTTPException(status_code=400, detail="当前文档缺少可翻译的分段信息")
+
+    existing_cache = hydrated_document.get("translation_cache") or []
+    progress = get_translation_progress(segments, existing_cache)
+    if progress["is_complete"]:
+        translated_text = hydrated_document.get("translated_text") or build_translated_text(segments, existing_cache)
+        if translated_text != (hydrated_document.get("translated_text") or ""):
+            await _save_translation_state(
+                str(hydrated_document["id"]),
+                existing_cache,
+                "full",
+                translated_text,
+            )
+            hydrated_document = await _get_document(str(hydrated_document["id"])) or hydrated_document
+        return hydrated_document, 0, progress
+
+    selected_segments = pick_translation_segments(
+        segments,
+        existing_cache,
+        strategy=strategy,
+        max_segments=max_segments,
+        recommended_titles=hydrated_document.get("recommended_chapters") or [],
+    )
+    if not selected_segments:
+        return hydrated_document, 0, progress
+
+    generated_items: list[dict[str, Any]] = []
+    for segment in selected_segments:
+        raw_segment = build_original_text(str(segment.get("text") or ""))
+        result = await translator_agent.punctuate_and_translate(raw_segment)
+        generated_items.append(
+            {
+                "segment_index": segment.get("index"),
+                "title": segment.get("title"),
+                "excerpt": segment.get("excerpt"),
+                "summary": segment.get("summary"),
+                "punctuated": result.get("punctuated", ""),
+                "translated": result.get("translated", ""),
+            }
+        )
+
+    merged_cache = merge_translation_cache(existing_cache, generated_items)
+    progress = get_translation_progress(segments, merged_cache)
+    translated_text = build_translated_text(segments, merged_cache) if progress["is_complete"] else ""
+    await _save_translation_state(
+        str(hydrated_document["id"]),
+        merged_cache,
+        "full" if progress["is_complete"] else "partial",
+        translated_text,
+    )
+    hydrated_document = await _get_document(str(hydrated_document["id"])) or hydrated_document
+    return hydrated_document, len(generated_items), progress
 
 
 async def _get_document_note(document_id: str) -> dict[str, Any]:
@@ -1019,12 +1168,15 @@ async def import_catalog_document(repo_id: str):
     if existing:
         return {"document": existing, "imported": False}
 
-    catalog = load_kanripo_catalog()
-    entry = next((item for item in catalog if item.get("repo_id") == repo_id), None)
-    if not entry:
-        raise HTTPException(status_code=404, detail="古籍源条目不存在")
+    if repo_id.startswith("WS:"):
+        record = build_wikisource_record({"repo_id": repo_id, "page_title": repo_id.removeprefix("WS:")})
+    else:
+        catalog = load_kanripo_catalog()
+        entry = next((item for item in catalog if item.get("repo_id") == repo_id), None)
+        if not entry:
+            raise HTTPException(status_code=404, detail="古籍源条目不存在")
+        record = build_repo_record(entry)
 
-    record = build_repo_record(entry)
     await _upsert_document_record(record)
     document = await _get_document_by_repo_id(repo_id)
     if not document:
@@ -1034,38 +1186,24 @@ async def import_catalog_document(repo_id: str):
 
 @router.post("/{document_id}/translation-cache")
 async def generate_translation_cache(document_id: str, body: TranslationCacheRequest):
-    """Generate and cache translated summaries for recommended corpus chapters."""
+    """Generate cached translations for corpus/source documents."""
     document = await _get_document(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
     if document.get("source_type") != "corpus":
         raise HTTPException(status_code=400, detail="只有古籍库文档支持生成白话译缓存")
 
-    existing_cache = document.get("translation_cache") or []
-    if existing_cache:
-        return {"document": document, "generated": False}
-
-    segments = pick_segments_for_translation(
-        str(document.get("repo_id") or ""),
-        recommended_chapters=document.get("recommended_chapters") or [],
+    updated_document, generated_count, progress = await _translate_document_segments(
+        document=document,
+        strategy=body.strategy,
         max_segments=body.max_segments,
     )
-    if not segments:
-        raise HTTPException(status_code=400, detail="当前文档没有可生成的推荐章节")
-
-    generated: list[dict[str, Any]] = []
-    for segment in segments:
-        raw_segment = build_original_text(segment["text"])
-        result = await translator_agent.punctuate_and_translate(raw_segment)
-        generated.append({
-            "title": segment["title"],
-            "punctuated": result.get("punctuated", ""),
-            "translated": result.get("translated", ""),
-        })
-
-    await _save_translation_cache(document_id, generated, "partial")
-    updated_document = await _get_document(document_id)
-    return {"document": updated_document, "generated": True}
+    return {
+        "document": updated_document,
+        "generated": generated_count > 0,
+        "generated_segments": generated_count,
+        "progress": progress,
+    }
 
 
 @router.get("/{document_id}")
