@@ -21,6 +21,7 @@ export function ThreeColumnReader() {
   const [anchorText, setAnchorText] = useState('');
   const [progressSyncError, setProgressSyncError] = useState(false);
   const [translationGenerating, setTranslationGenerating] = useState(false);
+  const [translationError, setTranslationError] = useState('');
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
 
@@ -209,6 +210,7 @@ export function ThreeColumnReader() {
   const generateTranslationCache = async () => {
     if (!currentDocument || translationGenerating) return
     setTranslationGenerating(true)
+    setTranslationError('')
     try {
       const strategy = (currentDocument.translationCache?.length ?? 0) > 0 ? 'next' : 'recommended'
       const response = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/translation-cache`, {
@@ -226,6 +228,8 @@ export function ThreeColumnReader() {
           translationStatus: document.translation_status ?? currentDocument.translationStatus,
         })
       }
+    } catch {
+      setTranslationError('翻译生成失败，请稍后重试')
     } finally {
       setTranslationGenerating(false)
     }
@@ -347,6 +351,9 @@ export function ThreeColumnReader() {
                   {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   {translationCache.length > 0 ? '继续按需补全白话译' : '生成推荐章节白话译'}
                 </button>
+              )}
+              {translationError && (
+                <p className="mt-1 text-xs" style={{ color: 'var(--gf-gugong-red)' }}>{translationError}</p>
               )}
             </div>
           )}

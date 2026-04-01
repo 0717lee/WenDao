@@ -69,11 +69,19 @@ def get_converter():
 
 
 def run_git(args: list[str], cwd: Path | None = None, retries: int = 3) -> None:
-    last_error: subprocess.CalledProcessError | None = None
+    last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            subprocess.run(["git", *args], cwd=cwd, check=True)
+            subprocess.run(
+                ["git", *args], cwd=cwd, check=True,
+                timeout=60, capture_output=True,
+            )
             return
+        except subprocess.TimeoutExpired as exc:
+            last_error = exc
+            if attempt == retries:
+                raise
+            time.sleep(2 * attempt)
         except subprocess.CalledProcessError as exc:
             last_error = exc
             if attempt == retries:

@@ -4,6 +4,7 @@ Document Processing Router
 Upload images for OCR recognition, process ancient text (punctuation + translation),
 export documents (PDF/TXT), and explain ancient words.
 """
+import asyncio
 import base64
 import json
 import logging
@@ -1168,14 +1169,23 @@ async def import_catalog_document(repo_id: str):
     if existing:
         return {"document": existing, "imported": False}
 
-    if repo_id.startswith("WS:"):
-        record = build_wikisource_record({"repo_id": repo_id, "page_title": repo_id.removeprefix("WS:")})
-    else:
-        catalog = load_kanripo_catalog()
-        entry = next((item for item in catalog if item.get("repo_id") == repo_id), None)
-        if not entry:
-            raise HTTPException(status_code=404, detail="古籍源条目不存在")
-        record = build_repo_record(entry)
+    try:
+        if repo_id.startswith("WS:"):
+            record = await asyncio.to_thread(
+                build_wikisource_record,
+                {"repo_id": repo_id, "page_title": repo_id.removeprefix("WS:")},
+            )
+        else:
+            catalog = load_kanripo_catalog()
+            entry = next((item for item in catalog if item.get("repo_id") == repo_id), None)
+            if not entry:
+                raise HTTPException(status_code=404, detail="古籍源条目不存在")
+            record = await asyncio.to_thread(build_repo_record, entry)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("古籍导入失败 repo_id=%s: %s", repo_id, exc)
+        raise HTTPException(status_code=500, detail=f"古籍导入失败：{exc}")
 
     await _upsert_document_record(record)
     document = await _get_document_by_repo_id(repo_id)

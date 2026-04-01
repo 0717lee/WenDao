@@ -182,7 +182,7 @@ export function ChatInterface() {
         const file = e.target.files?.[0]
         if (file && (file.type === 'image/jpeg' || file.type === 'image/png')) {
             if (file.size > 5 * 1024 * 1024) {
-                alert('Image size must be under 5MB')
+                alert('图片大小不能超过 5MB')
                 return
             }
             setAttachedImage(file)

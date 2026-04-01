@@ -209,11 +209,20 @@ export default function BookshelfPanel({
     }
 
     setCatalogImportingId(entry.repo_id)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 90_000)
     try {
       const response = await fetch(`${API_BASE}/api/v1/documents/catalog/import/${entry.repo_id}`, {
         method: 'POST',
+        signal: controller.signal,
       })
-      const data = response.ok ? await response.json() : null
+      clearTimeout(timer)
+      if (!response.ok) {
+        const err = await response.json().catch(() => null)
+        alert(err?.detail || '导入失败，请稍后重试')
+        return
+      }
+      const data = await response.json()
       const documentId = data?.document?.id
       if (documentId) {
         setCatalogEntries((current) =>
@@ -224,6 +233,13 @@ export default function BookshelfPanel({
           )
         )
         onOpenDocument(documentId)
+      }
+    } catch (e: any) {
+      clearTimeout(timer)
+      if (e.name === 'AbortError') {
+        alert('导入超时，请检查网络后重试')
+      } else {
+        alert('导入失败：' + (e.message || '网络异常'))
       }
     } finally {
       setCatalogImportingId(null)
