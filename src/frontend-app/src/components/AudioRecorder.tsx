@@ -40,7 +40,7 @@ export function useVoiceRecorder() {
                         streamRef.current = null
 
                         if (audioChunksRef.current.length === 0) {
-                            onError('No audio captured')
+                            onError('未录制到音频')
                             return
                         }
 

@@ -118,7 +118,9 @@ export function ThreeColumnReader() {
     }, 200);
   };
 
-  const renderText = (text: string, label: string) => (
+  const renderText = (text: string, label: string) => {
+    if (!text) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无内容</p>
+    return (
     <div className="space-y-2">
       <h3
         className="text-base font-medium sticky top-0 py-2 border-b"
@@ -156,7 +158,7 @@ export function ThreeColumnReader() {
           })}
       </div>
     </div>
-  );
+  )};
 
   const renderTranslatedFallback = () => {
     if (translationCache.length > 0) {

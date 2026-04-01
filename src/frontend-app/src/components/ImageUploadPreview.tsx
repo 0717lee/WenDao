@@ -29,7 +29,7 @@ export function ImageUploadPreview({ file, onCancel }: ImageUploadPreviewProps) 
             {preview && (
                 <img
                     src={preview}
-                    alt="Preview"
+                    alt="预览"
                     className="w-12 h-12 rounded-md object-cover"
                     style={{ border: '1px solid rgba(26,30,35,0.08)' }}
                 />
@@ -46,7 +46,7 @@ export function ImageUploadPreview({ file, onCancel }: ImageUploadPreviewProps) 
                 onClick={onCancel}
                 className="flex items-center justify-center w-6 h-6 rounded-full transition-colors hover:bg-black/5"
                 style={{ color: 'rgba(26,30,35,0.4)' }}
-                title="Cancel"
+                title="取消"
             >
                 <X className="w-4 h-4" />
             </button>

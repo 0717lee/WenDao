@@ -565,7 +565,7 @@ async def _list_catalog_entries(
     wikisource_entries: list[dict[str, Any]] = []
     if not section and (not family or family == "维基文库"):
         try:
-            for entry in search_wikisource_catalog(query=query, limit=min(limit, 12)):
+            for entry in await asyncio.to_thread(search_wikisource_catalog, query, min(limit, 12)):
                 imported = imported_by_repo_id.get(entry["repo_id"])
                 wikisource_entries.append(
                     {
@@ -1185,7 +1185,7 @@ async def import_catalog_document(repo_id: str):
         raise
     except Exception as exc:
         logger.error("古籍导入失败 repo_id=%s: %s", repo_id, exc)
-        raise HTTPException(status_code=500, detail=f"古籍导入失败：{exc}")
+        raise HTTPException(status_code=500, detail="古籍导入失败，请稍后重试")
 
     await _upsert_document_record(record)
     document = await _get_document_by_repo_id(repo_id)
@@ -1418,7 +1418,7 @@ async def stream_process(document_id: str):
         })
 
     except Exception as e:
-        yield _sse_event("error", {"message": f"处理失败: {str(e)}"})
+        yield _sse_event("error", {"message": "处理失败，请稍后重试"})
 
 
 def _sse_event(event_type: str, data: dict) -> str:

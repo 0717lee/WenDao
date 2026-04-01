@@ -252,23 +252,27 @@ export function ChatInterface() {
             const analysis = data.analysis || {}
             const matchedNodes = data.matched_graph_nodes || []
 
-            // Update assistant message with vision result
-            const currentMessages = useStore.getState().messages
-            const lastMessage = currentMessages[currentMessages.length - 1]
-            if (lastMessage && lastMessage.role === 'assistant') {
-                lastMessage.content = analysis.raw_text || 'Analysis complete'
-                lastMessage.visionResult = {
-                    imagePreview,
-                    buildingType: analysis.building_type || '',
-                    roofStyle: analysis.roof_style || '',
-                    components: analysis.components || [],
-                    era: analysis.era || '',
-                    rawText: analysis.raw_text || '',
-                    matchedGraphNodes: matchedNodes,
+            // Update assistant message with vision result (immutable)
+            useStore.setState((state) => {
+                if (state.messages.length === 0) return state
+                const last = state.messages[state.messages.length - 1]
+                if (!last || last.role !== 'assistant') return state
+                const updatedMessages = [...state.messages]
+                updatedMessages[updatedMessages.length - 1] = {
+                    ...last,
+                    content: analysis.raw_text || 'Analysis complete',
+                    visionResult: {
+                        imagePreview,
+                        buildingType: analysis.building_type || '',
+                        roofStyle: analysis.roof_style || '',
+                        components: analysis.components || [],
+                        era: analysis.era || '',
+                        rawText: analysis.raw_text || '',
+                        matchedGraphNodes: matchedNodes,
+                    },
                 }
-            }
-            // Force re-render
-            updateLastMessage(analysis.raw_text || 'Analysis complete')
+                return { messages: updatedMessages }
+            })
         } catch (error) {
             console.error('Vision API error:', error)
             updateLastMessage('图片分析失败，请稍后重试。')
@@ -528,10 +532,9 @@ export function ChatInterface() {
                         if (currentEventType === 'progress') {
                             setProgress(event.status || event.text || '')
                         } else if (currentEventType === 'citations') {
-                            const currentMessages = useStore.getState().messages
-                            const lastMessage = currentMessages[currentMessages.length - 1]
-                            if (lastMessage && lastMessage.role === 'assistant') {
-                                lastMessage.citations = Array.isArray(event) ? event : event.citations
+                            const citationData = Array.isArray(event) ? event : event.citations
+                            if (citationData) {
+                                updateLastMessageCitations(citationData)
                             }
                         } else if (currentEventType === 'done') {
                             flushStreamBuffer(true)

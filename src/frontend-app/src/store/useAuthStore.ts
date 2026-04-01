@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { API_BASE } from '../lib/api'
+import { useDocumentStore } from './useDocumentStore'
+import { useStore } from './useStore'
 
 interface AuthState {
     token: string | null
@@ -84,6 +86,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     logout: () => {
         clearPersistedAuth()
         set({ token: null, username: null })
+        useDocumentStore.getState().reset()
+        useStore.getState().clearMessages()
     },
 }))
 
