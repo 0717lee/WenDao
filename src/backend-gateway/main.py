@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from routers import chat, search, document, reader, vision, speech_api, creative, auth, analytics
+from routers import chat, search, document, reader, vision, speech_api, creative, auth, analytics, knowledge_graph
 from core.database import init_database
 from core.pg_database import pg_lifespan, init_pg_database
 import uvicorn
@@ -99,6 +99,7 @@ app.include_router(vision.router)
 app.include_router(speech_api.router)
 app.include_router(creative.router)
 app.include_router(analytics.router)
+app.include_router(knowledge_graph.router)
 
 
 # 全局异常处理中间件
