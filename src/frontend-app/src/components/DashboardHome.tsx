@@ -180,8 +180,8 @@ export default function DashboardHome({
     {
       key: 'corpus',
       eyebrow: '古籍起步',
-      title: firstCorpus ? '先从古籍库读一部经典' : firstSample ? '先读一篇精选导读' : '先打开阅读中心',
-      description: '主阅读功能现在接入真实古籍库，第一次进入就可以直接开始读。',
+      title: firstCorpus ? '先从古籍库读一部经典' : firstSample ? '先读一篇精选导读' : '打开阅读枢纽',
+      description: '主图库已接入真实典籍，首次开启即可直接畅读长卷。',
       action: primaryAction,
       accent: 'var(--gf-gugong-red)',
       accentSoft: 'rgba(140,26,17,0.08)',
@@ -189,8 +189,8 @@ export default function DashboardHome({
     {
       key: 'search',
       eyebrow: '原句定位',
-      title: '先按问题找原文',
-      description: '从人物、典故或一句原文切入，先定位到相关内容再展开阅读。',
+      title: '按问题寻找原文',
+      description: '从人物、典故或名句切入，精准定位后再深入阅读。',
       action: () => onSearch(SEARCH_TOPICS[0]),
       accent: '#7b5b44',
       accentSoft: 'rgba(123,91,68,0.08)',
@@ -198,8 +198,8 @@ export default function DashboardHome({
     {
       key: 'scan',
       eyebrow: '辅助上传',
-      title: '有图片时再上传识别',
-      description: '识别上传保留在后面，需要时再进入 OCR、断句和对照阅读。',
+      title: '扫描图片并识别',
+      description: '为实物影像保留的 OCR 通道，辅助完成断句与白话对照。',
       action: onOpenReaderHub,
       accent: 'var(--gf-gold)',
       accentSoft: 'rgba(201,160,99,0.12)',
@@ -291,10 +291,10 @@ export default function DashboardHome({
                   style={{ backgroundColor: 'rgba(140,26,17,0.09)', color: 'var(--gf-gugong-red)' }}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  古籍阅读主工具
+                  古籍阅读主阵地
                 </span>
                 <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
-                  先读原文，再看解释和出处
+                  读原典、看释义、探出处
                 </div>
               </div>
 
@@ -303,12 +303,12 @@ export default function DashboardHome({
                   className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  这是一个帮你读懂古籍的阅读工具，
+                  专为古籍打造的阅读平台，
                   <br className="hidden md:block" />
-                  识别上传只是辅助入口
+                  从原典开始探索
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  第一次进入，建议先从真实古籍库挑一部开始读、先检索原句，或直接提问；只有手头已经有图片时，再进入识别上传流程。
+                  建议先畅读古籍库经典、检索原句或直接提问；若手头有实物典籍图片，再进入扫描识别与对照阅读流程。
                 </p>
               </div>
 
@@ -393,7 +393,7 @@ export default function DashboardHome({
             </div>
             {corpusDocuments.length === 0 && usingDemoSamples && (
               <div className="mb-3 rounded-2xl px-4 py-3 text-xs leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', color: 'rgba(26,30,35,0.56)', border: '1px solid rgba(140,26,17,0.10)' }}>
-                当前展示的是本地样例内容。就算服务暂时波动，也能先完整体验”阅读、释义、追问”的完整流程。
+                当前系统展示本地缓存样例。即使服务短暂波动，您也能完整体验“阅读-释义-追问”这一核心流程。
               </div>
             )}
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

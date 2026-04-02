@@ -316,12 +316,12 @@ export default function BookshelfPanel({
               阅读主功能
             </div>
             <h2 className="text-3xl leading-tight md:text-4xl" style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}>
-              先选一篇开始读，
+              自典籍起步，
               <br className="hidden md:block" />
-              识别上传放在需要时再用
+              探寻无界知识
             </h2>
             <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.6)' }}>
-              这里集中放最常用的入口：继续阅读、真实古籍库、我的典籍。对第一次进入的用户，先选一部古籍开始读，比先上传图片更容易理解项目在做什么。
+              阅读中心为你汇聚核心入口：继续阅读、古籍主库、我的典籍。不妨直接挑一部典籍启阅，沉浸原生阅读体验。
             </p>
           </div>
 
@@ -360,7 +360,7 @@ export default function BookshelfPanel({
             style={{ backgroundColor: 'rgba(201,160,99,0.12)', border: '1px solid rgba(201,160,99,0.20)' }}
           >
             <span className="text-sm" style={{ color: 'var(--gf-text)' }}>
-              已选择 {comparedDocumentIds.length} 份文档加入对照，想比较版本差异时再打开即可。
+              已选择 {comparedDocumentIds.length} 份文档加入对照，随时开启版本比对。
             </span>
             <button
               onClick={onOpenCompare}
@@ -383,7 +383,7 @@ export default function BookshelfPanel({
                   继续阅读
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  历史阅读不再单独占一个导航位，直接收进阅读中心更顺手。
+                  你近期的阅读足迹与进度，均在此妥善保存。
                 </p>
               </div>
             </div>
@@ -432,7 +432,7 @@ export default function BookshelfPanel({
                   古籍库精选
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  主阅读功能现在优先接入真实古籍仓库；这些书可以直接拿来开始阅读。
+                  主库优先接入真实典籍源；点选即可畅读全卷。
                 </p>
               </div>
             </div>
@@ -458,7 +458,7 @@ export default function BookshelfPanel({
 
             {corpusDocuments.length === 0 && usingDemoSamples && !loading && (
               <div className="mb-3 rounded-[22px] px-4 py-3 text-sm leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
-                真实古籍仓库暂时不可用，当前使用本地精选导读，仍然可以先体验阅读流程。
+                当前展示本地精选导读，您仍可在此体验完整的核心阅读流程。
               </div>
             )}
 
@@ -516,7 +516,7 @@ export default function BookshelfPanel({
                   更多古籍
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  这里接的是 Kanripo 主书源目录，并补了一条 Wikisource 在线补源。先浏览书目，需要哪本再按需导入到阅读中心。
+                  基于 Kanripo 源及 Wikisource 补充建立的完整书目库，支持按需导入并自动入库。
                 </p>
               </div>
             <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
@@ -604,7 +604,7 @@ export default function BookshelfPanel({
                   我的典籍
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  这里统一管理你自己上传并整理过的文档，不和主古籍库混在一起。
+                  此处独立收纳您亲自上传与识别的典籍文件，方便专属管理。
                 </p>
               </div>
               <span className="text-sm" style={{ color: 'rgba(26,30,35,0.42)' }}>
@@ -620,7 +620,7 @@ export default function BookshelfPanel({
               <div className="rounded-[24px] p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.72)' }}>
                 <BookMarked className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.22)' }} />
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  你还没有自己的文档也没关系，主阅读可以先从左侧古籍库开始；等手头有图片，再用右侧的识别上传。
+                  您尚未存续专属文档。可先从古籍库择善而读；若有实物影印，再行上传识别。
                 </p>
               </div>
             ) : (
@@ -692,10 +692,10 @@ export default function BookshelfPanel({
                 次要功能
               </div>
               <h3 className="mt-3 text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                需要图片时，再上传识别
+                图像扫描与文字解析
               </h3>
               <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                古籍识别、断句和翻译仍然保留，但它们是辅助入口。更推荐先确定要读什么，再决定是否上传图片。
+                为古籍原图提供的高级 OCR 通道，辅助完成自动断句及白话互译。
               </p>
             </div>
 
@@ -726,13 +726,13 @@ export default function BookshelfPanel({
             )}
 
             <div className="mt-4 rounded-[22px] px-4 py-4 text-sm leading-7" style={{ backgroundColor: 'rgba(255,255,255,0.66)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.54)' }}>
-              更适合这些情况：
+              适配以下典型场景：
               <br />
-              1. 你手头已经有影印页、扫描图或馆藏图片。
+              1. 转化影印件、扫描图片或馆藏残页。
               <br />
-              2. 你要把图片先转成可读文本。
+              2. 将古籍图片萃取为可复制文本。
               <br />
-              3. 你准备继续进入对照阅读和字词释义。
+              3. 对未整理篇章进行自动标点、译文互照与字词探求。
             </div>
           </div>
         </section>
