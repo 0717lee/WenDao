@@ -70,18 +70,6 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
         related_entities = result.get("related_entities", [])
         yield sse_reasoning("entity_extraction", "抽取关联实体", "complete", time.time() - t0, model="GLM-4-Flash")
 
-        # -- Step 2b: Discover NEW entities (not in graph) --
-        new_entities = []
-        try:
-            from core.entity_discovery import EntityDiscovery
-            from routers.knowledge_graph import _get_graph
-
-            graph_data = _get_graph()
-            discovery = EntityDiscovery(graph_data)
-            new_entities = discovery.discover_new_entities(answer, query)
-        except Exception as disc_err:
-            logger.warning("[ChatRouter] Entity discovery failed (non-critical): %s", disc_err)
-
         # -- Step 3: Knowledge linking --
         yield sse_reasoning("knowledge_linking", "知识关联推理", "running", model="GraphRAG")
         t0 = time.time()
@@ -109,9 +97,6 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
         if related_entities:
             yield f'event: entities\ndata: {json.dumps({"entity_ids": related_entities}, ensure_ascii=False)}\n\n'
 
-        # -- New entities discovered (for pending review) --
-        if new_entities:
-            yield f'event: new_entities\ndata: {json.dumps({"entities": new_entities}, ensure_ascii=False)}\n\n'
 
         # -- Done --
         yield 'event: done\ndata: {}\n\n'

@@ -48,20 +48,7 @@ function installFetchMock() {
 
     if (url.includes('/api/v1/reader/wordbook')) {
       return Promise.resolve({ ok: true, json: async () => ({ entries: [] }) })
-    }
-
-    if (url.includes('/api/v1/analytics/overview')) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({
-          total_nodes: 12,
-          total_edges: 8,
-          top_entities: [{ id: 'kongzi', label: '孔子', count: 4 }],
-        }),
-      })
-    }
-
-    if (url.includes('/api/v1/documents/recommendations')) {
+    }if (url.includes('/api/v1/documents/recommendations')) {
       return Promise.resolve({ ok: true, json: async () => ({ documents: [] }) })
     }
 
@@ -153,11 +140,7 @@ describe('DashboardHome', () => {
       }
       if (url.includes('/api/v1/reader/wordbook')) {
         return Promise.resolve({ ok: true, json: async () => ({ entries: [] }) })
-      }
-      if (url.includes('/api/v1/analytics/overview')) {
-        return Promise.resolve({ ok: true, json: async () => null })
-      }
-      if (url.includes('/api/v1/reader/study-overview')) {
+      }if (url.includes('/api/v1/reader/study-overview')) {
         return Promise.resolve({ ok: true, json: async () => null })
       }
       return Promise.resolve({ ok: true, json: async () => ({}) })
