@@ -50,6 +50,10 @@ WenDao 是一个“帮助普通人读懂古籍”的 AI 阅读工具。它不是
 - PostgreSQL（文档存储）+ SQLite（对话历史）
 - 多后端 Embedding 降级链（智谱 → fastembed → HF Inference → sklearn）
 
+## 在线体验
+
+无需本地部署，直接访问：**https://example.com**
+
 ## 快速开始
 
 ### 环境要求
@@ -154,12 +158,12 @@ WenDao/
 
 ## Competition Materials
 
-竞赛交付材料源码已放在 [deliverables/competition/CHECKLIST.md](//workspace/deliverables/competition/CHECKLIST.md)：
+竞赛交付材料源码已放在 [deliverables/competition/CHECKLIST.md](./deliverables/competition/CHECKLIST.md)：
 
-- [PPT_OUTLINE.md](//workspace/deliverables/competition/PPT_OUTLINE.md)
-- [DEMO_SCRIPT.md](//workspace/deliverables/competition/DEMO_SCRIPT.md)
-- [DEV_BRIEF.md](//workspace/deliverables/competition/DEV_BRIEF.md)
-- [JUDGE_TALKING_POINTS.md](//workspace/deliverables/competition/JUDGE_TALKING_POINTS.md)
+- [PPT_OUTLINE.md](./deliverables/competition/PPT_OUTLINE.md)
+- [DEMO_SCRIPT.md](./deliverables/competition/DEMO_SCRIPT.md)
+- [DEV_BRIEF.md](./deliverables/competition/DEV_BRIEF.md)
+- [JUDGE_TALKING_POINTS.md](./deliverables/competition/JUDGE_TALKING_POINTS.md)
 
 ## 赛制合规
 
