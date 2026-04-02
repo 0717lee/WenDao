@@ -38,7 +38,7 @@ export function VisionResultCard({ result }: VisionResultCardProps) {
                 <div className="px-3 pt-3">
                     <img
                         src={result.imagePreview}
-                        alt="Analyzed architecture"
+                        alt="古建筑识别图"
                         className="w-full max-h-40 rounded-lg object-cover"
                         style={{ border: '1px solid rgba(26,30,35,0.06)' }}
                     />

@@ -44,7 +44,7 @@ export function PoemScrollCard({ result }: PoemScrollCardProps) {
                 <div className="relative" style={{ aspectRatio: '16/9' }}>
                     <img
                         src={result.imageUrl}
-                        alt={`Poem illustration: ${result.topic}`}
+                        alt={`诗词配图：${result.topic}`}
                         className="w-full h-full object-cover"
                         loading="lazy"
                     />

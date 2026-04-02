@@ -48,7 +48,7 @@ export function MessageList({ messages, onCitationClick }: MessageListProps) {
                         {message.role === 'user' && message.visionResult?.imagePreview && (
                             <img
                                 src={message.visionResult.imagePreview}
-                                alt="Uploaded"
+                                alt="已上传的图片"
                                 className="w-full max-h-32 rounded-lg object-cover mb-2"
                                 style={{ border: '1px solid rgba(255,255,255,0.2)' }}
                             />

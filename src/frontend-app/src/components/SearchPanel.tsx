@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Loader2, RefreshCcw, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { useGraphStore } from '../store/useGraphStore';
@@ -158,13 +159,13 @@ const SearchPanel: React.FC = () => {
       >
         <div className="mb-4">
           <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
-            先找原文
+            典籍定位
           </div>
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-            检索页负责帮你定位内容
+            在库中检索人物、典故与原文片段
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            适合找人物、典故、概念和原句片段。要是你已经找到一句话但还没看懂，再去问答页让 AI 解释会更合适。
+            适合查找人物、典故、概念和原句片段。若已找到目标原文但尚未读懂，可前往问答页详细解读。
           </p>
         </div>
 
@@ -210,9 +211,9 @@ const SearchPanel: React.FC = () => {
         {/* Search Mode Selection */}
         <div className="flex gap-4 flex-wrap">
           {[
-            { value: 'FULLTEXT' as SearchMode, label: '按字面找', desc: '适合找原句和人名' },
-            { value: 'VECTOR' as SearchMode, label: '按意思找', desc: '适合只记得大意' },
-            { value: 'HYBRID' as SearchMode, label: '一起找', desc: '默认更稳妥' },
+            { value: 'FULLTEXT' as SearchMode, label: '字面检索', desc: '适合原句、人名等精确匹配' },
+            { value: 'VECTOR' as SearchMode, label: '语义检索', desc: '适合仅记得大意的情形' },
+            { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '兼顾字面与语义，默认推荐' },
           ].map(opt => (
             <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer group rounded-2xl px-2.5 py-2" style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.58)' }}>
               <input
@@ -233,7 +234,7 @@ const SearchPanel: React.FC = () => {
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            先找到内容，再决定要不要去问答页深挖
+            定位内容后，可前往问答页深入解读
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -242,7 +243,7 @@ const SearchPanel: React.FC = () => {
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(140,26,17,0.12)', color: 'var(--gf-gugong-red)', backgroundColor: 'rgba(140,26,17,0.06)' }}
             >
-              去问答页解释
+              前往问答解读
             </button>
             <button
               type="button"
@@ -364,42 +365,53 @@ const SearchPanel: React.FC = () => {
       </div>
 
       {/* Detail Modal */}
-      {selectedResult && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ backgroundColor: 'rgba(26,30,35,0.5)', backdropFilter: 'blur(8px)' }}
-          onClick={() => setSelectedResult(null)}
-        >
-          <div
-          className="rounded-[30px] max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl"
-          style={{ background: 'linear-gradient(180deg, rgba(247,246,243,0.98) 0%, rgba(255,255,255,0.94) 100%)', border: '1px solid rgba(26,30,35,0.1)' }}
-            onClick={(e) => e.stopPropagation()}
+      <AnimatePresence>
+        {selectedResult && (
+          <motion.div
+            key="search-detail-backdrop"
+            className="fixed inset-0 flex items-center justify-center z-50 p-4"
+            style={{ backgroundColor: 'rgba(26,30,35,0.5)', backdropFilter: 'blur(8px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            onClick={() => setSelectedResult(null)}
           >
-            <div className="p-6 border-b flex justify-between items-start" style={{ borderColor: 'rgba(26,30,35,0.06)' }}>
-              <div>
-                <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>
-                  {selectedResult.title}
-                </h2>
-                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.4)' }}>
-                  {selectedResult.source || '未知'}
+            <motion.div
+              className="glass-card rounded-[30px] max-w-3xl w-full max-h-[80vh] overflow-hidden"
+              style={{ boxShadow: '0 32px 64px rgba(26,30,35,0.14)' }}
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ type: 'spring' as const, stiffness: 300, damping: 26 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b flex justify-between items-start" style={{ borderColor: 'rgba(26,30,35,0.06)' }}>
+                <div>
+                  <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>
+                    {selectedResult.title}
+                  </h2>
+                  <p className="text-sm" style={{ color: 'rgba(26,30,35,0.4)' }}>
+                    {selectedResult.source || '未知'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedResult(null)}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ color: 'rgba(26,30,35,0.3)' }}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[60vh]">
+                <p className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
+                  {selectedResult.content}
                 </p>
               </div>
-              <button
-                onClick={() => setSelectedResult(null)}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: 'rgba(26,30,35,0.3)' }}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              <p className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
-                {selectedResult.content}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, GraduationCap, Loader2, NotebookText } from 'lucide-react';
 import { authHeaders } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
@@ -8,6 +9,19 @@ import { ReaderNotesPanel } from './ReaderNotesPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
+
+const columnContainerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.12, delayChildren: 0.1 }
+  }
+};
+
+const columnItemVariants = {
+  hidden: { opacity: 0, x: -20, scale: 0.95 },
+  show: { opacity: 1, x: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 180, damping: 20 } }
+};
 
 export function ThreeColumnReader() {
   const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel, updateDocument } = useDocumentStore();
@@ -121,10 +135,10 @@ export function ThreeColumnReader() {
   const renderText = (text: string, label: string) => {
     if (!text) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无内容</p>
     return (
-    <div className="space-y-2">
+    <div className="space-y-2 relative z-10">
       <h3
-        className="text-base font-medium sticky top-0 py-2 border-b"
-        style={{ color: 'var(--gf-text)', backgroundColor: 'rgba(255,255,255,0.9)', borderColor: 'rgba(26,30,35,0.06)', backdropFilter: 'blur(8px)' }}
+        className="text-base font-medium sticky top-0 py-2 border-b z-20"
+        style={{ color: 'var(--gf-text)', backgroundColor: 'rgba(247,246,243,0.85)', borderColor: 'rgba(26,30,35,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
       >
         {label}
       </h3>
@@ -141,17 +155,19 @@ export function ThreeColumnReader() {
                 style={{ backgroundColor: isAnchorBlock ? 'rgba(201,160,99,0.14)' : 'transparent' }}
               >
                 {block.split('').map((char, idx) => (
-                  <span
+                  <motion.span
                     key={`${label}-${blockIndex}-${idx}`}
                     ref={isAnchorBlock && idx === 0 ? anchorRef : undefined}
                     onClick={(e) => handleWordClick(char, e)}
-                    className="cursor-pointer transition-colors"
-                    style={{ borderRadius: '2px' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(201,160,99,0.15)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    className="inline-block cursor-pointer transition-colors"
+                    style={{ borderRadius: '4px' }}
+                    initial={{ backgroundColor: 'transparent' }}
+                    whileHover={{ scale: 1.15, backgroundColor: 'rgba(201,160,99,0.22)', color: 'var(--gf-gugong-red)' }}
+                    whileTap={{ scale: 0.85 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                   >
                     {char}
-                  </span>
+                  </motion.span>
                 ))}
               </p>
             );
@@ -488,54 +504,71 @@ export function ThreeColumnReader() {
         </div>
       )}
       <ScrollSync>
-        <div className={`grid h-full gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}>
+        <motion.div
+          layout
+          variants={columnContainerVariants}
+          initial="hidden"
+          animate="show"
+          transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
+          className={`grid h-full gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}
+        >
           <ScrollSyncPane>
-            <div
-              className="overflow-y-auto h-full rounded-xl shadow-sm p-4"
-              style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}
+            <motion.div
+              layout
+              variants={columnItemVariants}
+              className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative"
               onScroll={(e) => {
                 const target = e.currentTarget;
                 reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
               }}
             >
+              <div className="bg-xuan-paper rounded-[20px]"></div>
+              <div className="ink-wash-blob w-32 h-32 -top-10 -left-10 bg-[var(--gf-gold)] opacity-10"></div>
               {renderText(currentDocument.originalText, '原文')}
-            </div>
+            </motion.div>
           </ScrollSyncPane>
 
           <ScrollSyncPane>
-            <div
-              className="overflow-y-auto h-full rounded-xl shadow-sm p-4"
-              style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}
-            >
+            <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
+              <div className="bg-xuan-paper rounded-[20px]"></div>
+              <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
               {currentDocument.punctuatedText
                 ? renderText(currentDocument.punctuatedText, '标点文')
-                : <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无标点文</p>
+                : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>暂无标点文</p>
               }
-            </div>
+            </motion.div>
           </ScrollSyncPane>
 
           <ScrollSyncPane>
-            <div
-              className="overflow-y-auto h-full rounded-xl shadow-sm p-4"
-              style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}
-            >
+            <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
+              <div className="bg-xuan-paper rounded-[20px]"></div>
               {currentDocument.translatedText
                 ? renderText(currentDocument.translatedText, '白话译')
                 : renderTranslatedFallback()
               }
-            </div>
+            </motion.div>
           </ScrollSyncPane>
 
-          {sidePanel && (
-            <div className="overflow-y-auto h-full">
-              {sidePanel === 'notes' ? (
-                <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
-              ) : (
-                <StudyCardsPanel documentId={currentDocument.id} />
-              )}
-            </div>
-          )}
-        </div>
+          <AnimatePresence mode="wait">
+            {sidePanel && (
+              <motion.div
+                key={sidePanel}
+                layout
+                initial={{ opacity: 0, x: 40, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 220, damping: 25 }}
+                className="overflow-y-auto h-full rounded-[20px] glass-card"
+              >
+                {sidePanel === 'notes' ? (
+                  <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
+                ) : (
+                  <StudyCardsPanel documentId={currentDocument.id} />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </ScrollSync>
 
       {selectedWord && popoverPosition && (

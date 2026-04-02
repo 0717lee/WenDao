@@ -599,23 +599,19 @@ export function ChatInterface() {
             {messages.length === 0 && (
                 <div className="px-4 pb-4">
                     <div
-                        className="mx-auto max-w-4xl rounded-[28px] px-5 py-5"
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)',
-                            border: '1px solid rgba(26,30,35,0.06)',
-                            boxShadow: '0 18px 34px rgba(26,30,35,0.04)',
-                        }}
+                        className="mx-auto max-w-4xl glass-card rounded-[28px] px-5 py-5 relative overflow-hidden"
                     >
+                        <div className="ink-wash-blob w-36 h-36 -top-8 -right-8 bg-[var(--gf-gold)] opacity-[0.06]"></div>
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="max-w-2xl">
                                 <div className="mb-2 text-[11px] tracking-[0.26em]" style={{ color: 'var(--gf-gold)' }}>
-                                    把内容讲明白
+                                    释义 · 解读
                                 </div>
                                 <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                                    问答页负责解释，不负责先帮你找原文
+                                    此处专注解读，不代为检索全文
                                 </h2>
                                 <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                                    适合用来解释一句古文、比较人物思想、补背景和梳理典故。如果你还没找到相关原句，先去检索页会更快。
+                                    适合解释原文含义、比较思想源流、补充历史背景与梳理典故脉络。若尚未定位到相关篇章，建议先前往检索页。
                                 </p>
                             </div>
                             <button
@@ -624,7 +620,7 @@ export function ChatInterface() {
                                 style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.66)' }}
                             >
                                 <Search className="h-3.5 w-3.5" />
-                                先去检索原文
+                                前往检索
                             </button>
                         </div>
 

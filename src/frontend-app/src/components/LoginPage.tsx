@@ -52,7 +52,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        登录后可保存阅读进度和字词收藏
+                        登录后可同步阅读进度与个人收藏
                     </p>
                 </div>
 

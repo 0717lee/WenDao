@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { BookPlus, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { authHeaders } from '../store/useAuthStore';
@@ -36,11 +37,10 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
       });
   }, [word]);
 
-  // Position popover near click position, but keep it on screen
   const popoverStyle: React.CSSProperties = {
     position: 'fixed',
-    left: Math.min(position.x, window.innerWidth - 320),
-    top: Math.min(position.y + 10, window.innerHeight - 300),
+    left: Math.min(position.x, window.innerWidth - 340),
+    top: Math.min(position.y + 12, window.innerHeight - 360),
     zIndex: 1000,
   };
 
@@ -71,72 +71,136 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
   };
 
   return (
-    <>
+    <AnimatePresence>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/20 z-[999]"
+      <motion.div
+        key="word-popover-backdrop"
+        className="fixed inset-0 z-[999]"
+        style={{ backgroundColor: 'rgba(26,30,35,0.18)', backdropFilter: 'blur(2px)' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={onClose}
       />
 
-      {/* Popover */}
-      <div
+      {/* Popover Card */}
+      <motion.div
+        key="word-popover-card"
         style={popoverStyle}
-        className="bg-white rounded-lg shadow-xl border border-gray-200 w-80 max-h-96 overflow-y-auto z-[1000]"
+        className="glass-card rounded-[24px] w-80 max-h-[420px] overflow-y-auto z-[1000] scrollbar-hide"
+        initial={{ opacity: 0, scale: 0.92, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 6 }}
+        transition={{ type: 'spring' as const, stiffness: 360, damping: 28 }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h4 className="text-lg font-semibold text-gray-800">{word}</h4>
+        <div
+          className="flex items-center justify-between px-5 py-4 border-b"
+          style={{ borderColor: 'rgba(26,30,35,0.06)' }}
+        >
+          <h4
+            className="text-2xl"
+            style={{ fontFamily: '"ZCOOL XiaoWei", "Noto Serif SC", serif', color: 'var(--gf-text)' }}
+          >
+            {word}
+          </h4>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'rgba(26,30,35,0.35)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(26,30,35,0.06)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             aria-label="关闭"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-3">
+        <div className="px-5 py-4 space-y-4">
           {loading ? (
-            <p style={{ color: 'rgba(26,30,35,0.45)' }}>加载中...</p>
+            /* Skeleton loading */
+            <div className="space-y-3">
+              <div className="skeleton-shimmer h-4 w-16 rounded-lg" />
+              <div className="skeleton-shimmer h-4 w-full rounded-lg" />
+              <div className="skeleton-shimmer h-4 w-3/4 rounded-lg" />
+              <div className="skeleton-shimmer h-4 w-16 rounded-lg mt-4" />
+              <div className="skeleton-shimmer h-4 w-full rounded-lg" />
+            </div>
           ) : explanation ? (
             <>
+              {/* Save to wordbook */}
               <button
                 onClick={handleSaveWord}
                 disabled={saving || saved}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-[14px] px-3 py-2.5 text-sm transition-all duration-300 disabled:opacity-60"
                 style={{
-                  backgroundColor: saved ? 'rgba(60,138,81,0.12)' : 'rgba(140,26,17,0.08)',
-                  color: saved ? '#3c8a51' : '#8c1a11',
+                  backgroundColor: saved ? 'rgba(60,138,81,0.10)' : 'rgba(140,26,17,0.07)',
+                  color: saved ? '#3c8a51' : 'var(--gf-gugong-red)',
+                  border: saved ? '1px solid rgba(60,138,81,0.15)' : '1px solid rgba(140,26,17,0.10)',
                 }}
               >
                 <BookPlus className="w-4 h-4" />
                 {saved ? '已加入生词本' : saving ? '保存中...' : '加入生词本'}
               </button>
 
+              {/* Meaning */}
               {explanation.meaning && (
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-1">释义</p>
-                  <p className="text-sm text-gray-600">{explanation.meaning}</p>
+                  <p
+                    className="text-[11px] tracking-[0.2em] mb-1.5"
+                    style={{ color: 'rgba(26,30,35,0.42)' }}
+                  >
+                    释义
+                  </p>
+                  <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.72)' }}>
+                    {explanation.meaning}
+                  </p>
                 </div>
               )}
 
+              {/* Allusion */}
               {explanation.allusion && (
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-1">典故</p>
-                  <p className="text-sm text-gray-600">{explanation.allusion}</p>
+                  <p
+                    className="text-[11px] tracking-[0.2em] mb-1.5"
+                    style={{ color: 'rgba(26,30,35,0.42)' }}
+                  >
+                    典故
+                  </p>
+                  <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.72)' }}>
+                    {explanation.allusion}
+                  </p>
                 </div>
               )}
 
+              {/* Citations */}
               {explanation.citations && explanation.citations.length > 0 && (
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-1">引用</p>
+                  <p
+                    className="text-[11px] tracking-[0.2em] mb-2"
+                    style={{ color: 'rgba(26,30,35,0.42)' }}
+                  >
+                    引用出处
+                  </p>
                   <div className="space-y-2">
                     {explanation.citations.map((citation, idx) => (
-                      <div key={idx} className="text-sm text-gray-600 pl-3 border-l-2 border-blue-200">
-                        <p className="font-medium">{citation.title}</p>
-                        <p className="text-xs text-gray-500">{citation.source}</p>
+                      <div
+                        key={idx}
+                        className="rounded-[12px] px-3 py-2.5 text-sm"
+                        style={{
+                          backgroundColor: 'rgba(201,160,99,0.08)',
+                          border: '1px solid rgba(201,160,99,0.12)',
+                        }}
+                      >
+                        <p className="font-medium" style={{ color: 'var(--gf-text)' }}>
+                          {citation.title}
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                          {citation.source}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -144,10 +208,12 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
               )}
             </>
           ) : (
-            <p className="text-gray-500">无法加载释义</p>
+            <p className="text-sm" style={{ color: 'rgba(26,30,35,0.4)' }}>
+              无法加载释义
+            </p>
           )}
         </div>
-      </div>
-    </>
+      </motion.div>
+    </AnimatePresence>
   );
 }

@@ -54,7 +54,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                 {/* Logo 和标题 */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] tracking-[0.28em] mb-4" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: '#ab1f22' }}>
-                        建立书签
+                        注册新账号
                     </div>
                     <div className="float-up w-20 h-20 mx-auto mb-6 rounded-[26px] flex items-center justify-center relative" style={{ '--float-delay': '0.1s', background: 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(250,239,236,0.96) 100%)', border: '1px solid rgba(171,31,34,0.12)', boxShadow: '0 18px 32px rgba(26,30,35,0.05)' } as React.CSSProperties}>
                         <svg className="w-10 h-10" style={{ color: '#ab1f22' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -69,7 +69,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        注册后即可保存阅读进度和字词收藏
+                        注册后可保存阅读进度、字词收藏与学习记录
                     </p>
                 </div>
 
@@ -85,7 +85,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             </label>
                             <input
                                 type="text"
-                                placeholder="请输入用户名（2-20个字符）"
+                                placeholder="2–20 个字符"
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
@@ -105,7 +105,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             </label>
                             <input
                                 type="email"
-                                placeholder="请输入常用邮箱（用于找回密码）"
+                                placeholder="用于找回密码"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
                                 className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
@@ -125,7 +125,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="请输入密码（至少6个字符）"
+                                    placeholder="至少 6 个字符"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     className="w-full px-4 py-3 pr-12 rounded-lg text-sm border outline-none focus:ring-2 transition-all"

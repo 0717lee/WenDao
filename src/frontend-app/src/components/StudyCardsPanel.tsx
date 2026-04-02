@@ -123,7 +123,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
             学习卡片
           </div>
           <p className="mt-1 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            适合课后复习或答辩时展示“读完之后还能继续学”。
+            适合课后复习，亦可在答辩时展示持续学习能力。
           </p>
         </div>
         <button

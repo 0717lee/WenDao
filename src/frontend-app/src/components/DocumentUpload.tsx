@@ -205,10 +205,10 @@ export function DocumentUpload() {
               className="text-2xl leading-tight md:text-3xl"
               style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
             >
-              没有古籍图片，也可以马上开始
+              没有古籍图片，也可立即开始
             </h2>
             <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.58)' }}>
-              想先读懂一段古文，可以从左边的样例、问答和检索开始；手头有扫描页时，再用右边的上传入口。
+              想先读懂一段古文，可从体验样例、问答或检索入手；手头有扫描页时，再通过上传入口开始识别。
             </p>
           </div>
         </section>
@@ -269,7 +269,7 @@ export function DocumentUpload() {
 
                 {!loadingSamples && sampleDocuments.length === 0 && (
                   <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                    暂时没加载到体验样例，可以先问一句古文，或试试右侧上传。
+                    暂未加载到体验样例，可先向 AI 提问，或通过上传开始。
                   </p>
                 )}
               </div>
@@ -286,10 +286,10 @@ export function DocumentUpload() {
               >
                 <div className="mb-4">
                   <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                    片段问答（AI 解读）
+                    片段问答
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    输入一句原文或疑问，AI 会给出白话解释
+                    输入原文或疑问，AI 会给出白话解读
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -436,13 +436,13 @@ export function DocumentUpload() {
             )}
 
             <div className="mt-4 rounded-[22px] px-4 py-4 text-sm leading-7" style={{ backgroundColor: 'rgba(255,255,255,0.62)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.55)' }}>
-              适合这几种情况：
+              适用场景：
               <br />
-              1. 手头有古籍扫描图或影印页。
+              1. 手头有古籍扫描图或影印页
               <br />
-              2. 需要先把图片内容转成可读文本。
+              2. 需要将图片转为可读文本
               <br />
-              3. 想继续进入对照阅读和字词释义。
+              3. 希望继续进入对照阅读与字词释义
             </div>
           </div>
         </section>
