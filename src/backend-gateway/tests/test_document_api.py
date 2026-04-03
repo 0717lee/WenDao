@@ -95,6 +95,21 @@ class TestUploadInvalidFormat:
         assert exc_info.value.status_code == 400
         assert "JPG/PNG/TIFF" in str(exc_info.value.detail)
 
+    @pytest.mark.asyncio
+    async def test_upload_rejects_oversized_image(self):
+        from fastapi import HTTPException
+        from routers.document import upload_document
+
+        mock_file = MagicMock()
+        mock_file.content_type = "image/jpeg"
+        mock_file.filename = "big.jpg"
+        mock_file.read = AsyncMock(return_value=b"x" * (5 * 1024 * 1024 + 1))
+
+        with pytest.raises(HTTPException) as exc_info:
+            await upload_document(request=MagicMock(), file=mock_file, _user={"sub": "user-1"})
+
+        assert exc_info.value.status_code == 413
+
 
 class TestUploadReturnsDocumentId:
     """Test that upload returns a valid UUID document_id."""

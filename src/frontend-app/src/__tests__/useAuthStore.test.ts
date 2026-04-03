@@ -9,7 +9,6 @@ describe('useAuthStore', () => {
   })
 
   it('clears stored auth when /auth/me returns unauthorized', async () => {
-    localStorage.setItem('wendao_username', 'tester')
     useAuthStore.setState({ token: null, username: 'tester' })
 
     vi.mocked(global.fetch).mockResolvedValueOnce({
@@ -23,12 +22,10 @@ describe('useAuthStore', () => {
     expect(valid).toBe(false)
     expect(useAuthStore.getState().token).toBeNull()
     expect(useAuthStore.getState().username).toBeNull()
-    expect(localStorage.getItem('wendao_username')).toBeNull()
   })
 
   it('restores username from cookie-backed session without persisting token', async () => {
-    localStorage.setItem('wendao_username', 'tester')
-    useAuthStore.setState({ token: null, username: 'tester' })
+    useAuthStore.setState({ token: null, username: null })
 
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
@@ -40,11 +37,11 @@ describe('useAuthStore', () => {
     expect(valid).toBe(true)
     expect(useAuthStore.getState().token).toBe('__cookie_session__')
     expect(useAuthStore.getState().username).toBe('tester')
+    expect(localStorage.getItem('wendao_username')).toBeNull()
     expect(localStorage.getItem('wendao_token')).toBeNull()
   })
 
   it('keeps local username on transient network failure', async () => {
-    localStorage.setItem('wendao_username', 'tester')
     useAuthStore.setState({ token: null, username: 'tester' })
 
     vi.mocked(global.fetch).mockRejectedValueOnce(new Error('network down'))

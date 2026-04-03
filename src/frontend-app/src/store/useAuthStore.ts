@@ -14,17 +14,9 @@ interface AuthState {
 
 const COOKIE_SESSION_TOKEN = '__cookie_session__'
 
-function persistAuth(username: string) {
-    localStorage.setItem('wendao_username', username)
-}
-
-function clearPersistedAuth() {
-    localStorage.removeItem('wendao_username')
-}
-
 export const useAuthStore = create<AuthState>((set, get) => ({
     token: null,
-    username: localStorage.getItem('wendao_username'),
+    username: null,
 
     login: async (username: string, password: string) => {
         const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
@@ -38,7 +30,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             throw new Error(err.detail || '登录失败')
         }
         const data = await res.json()
-        persistAuth(data.username)
         set({ token: COOKIE_SESSION_TOKEN, username: data.username })
     },
 
@@ -54,7 +45,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             throw new Error(err.detail || '注册失败')
         }
         const data = await res.json()
-        persistAuth(data.username)
         set({ token: COOKIE_SESSION_TOKEN, username: data.username })
     },
 
@@ -68,14 +58,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             })
 
             if (!res.ok) {
-                clearPersistedAuth()
                 set({ token: null, username: null })
                 return false
             }
 
             const data = await res.json().catch(() => null)
             if (data?.username) {
-                persistAuth(data.username)
                 set({ token: token || COOKIE_SESSION_TOKEN, username: data.username })
                 return true
             }
@@ -95,7 +83,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch {
             // Best-effort logout; still clear local state.
         }
-        clearPersistedAuth()
         set({ token: null, username: null })
         useDocumentStore.getState().reset()
         useStore.getState().clearMessages()

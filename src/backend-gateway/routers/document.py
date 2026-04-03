@@ -45,6 +45,7 @@ from core.wikisource_source import build_wikisource_record, search_wikisource_ca
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
+MAX_UPLOAD_FILE_SIZE = 5 * 1024 * 1024
 
 
 def _extract_user_id(user: Any) -> str | None:
@@ -1233,6 +1234,8 @@ async def upload_document(request: Request, file: UploadFile = File(...), _user:
         raise HTTPException(status_code=400, detail="仅支持JPG/PNG/TIFF格式")
 
     image_bytes = await file.read()
+    if len(image_bytes) > MAX_UPLOAD_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="图片大小不能超过 5MB")
     ocr_result = await ocr_agent.recognize(image_bytes)
 
     doc_id = str(uuid.uuid4())

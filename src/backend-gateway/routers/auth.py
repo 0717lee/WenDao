@@ -100,7 +100,7 @@ async def register(request: Request, body: UserRegister, response: Response):
         user_id = await _register_sqlite(body.username, body.email, body.password)
     token = create_token(user_id, body.username)
     if response is not None:
-        set_auth_cookie(response, token)
+        set_auth_cookie(response, token, request)
     return TokenResponse(token=token, username=body.username)
 
 
@@ -114,13 +114,13 @@ async def login(request: Request, body: UserLogin, response: Response):
         user_id, username = await _login_sqlite(body.username, body.password)
     token = create_token(user_id, username)
     if response is not None:
-        set_auth_cookie(response, token)
+        set_auth_cookie(response, token, request)
     return TokenResponse(token=token, username=username)
 
 
 @router.post("/logout")
-async def logout(response: Response):
-    clear_auth_cookie(response)
+async def logout(request: Request, response: Response):
+    clear_auth_cookie(response, request)
     return {"status": "ok", "cookie": AUTH_COOKIE_NAME}
 
 

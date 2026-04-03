@@ -12,6 +12,7 @@ from core.rate_limit import limiter
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/speech", tags=["speech"])
+MAX_AUDIO_FILE_SIZE = 8 * 1024 * 1024
 
 
 class TTSRequest(BaseModel):
@@ -64,6 +65,8 @@ async def speech_asr(request: Request, file: UploadFile = File(...), _user: dict
 
         if not audio_bytes:
             return {"text": "", "error": "未收到音频数据"}
+        if len(audio_bytes) > MAX_AUDIO_FILE_SIZE:
+            return {"text": "", "error": "音频文件过大（最大 8MB）"}
 
         # Detect format and convert to PCM for iFlytek
         source_format = _detect_audio_format(file.filename or "", file.content_type or "")

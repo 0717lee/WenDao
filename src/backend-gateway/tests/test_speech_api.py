@@ -146,6 +146,17 @@ class TestASREndpoint:
         data = response.json()
         assert data["text"] == "Hello test transcription"
 
+    def test_asr_rejects_oversized_audio(self, client):
+        response = client.post(
+            "/api/v1/speech/asr",
+            files=[_make_audio_file(size_bytes=8 * 1024 * 1024 + 1)],
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text"] == ""
+        assert data["error"] == "音频文件过大（最大 8MB）"
+
 
 class TestTTSEndpoint:
     """Tests for POST /api/v1/speech/tts"""

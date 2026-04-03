@@ -46,3 +46,24 @@ class TestJwtSecret:
         monkeypatch.setenv("APP_ENV", "development")
 
         assert get_jwt_secret() == DEFAULT_JWT_SECRET
+
+    def test_cookie_secure_defaults_true_outside_localhost(self, monkeypatch):
+        from fastapi import Request
+        from core.auth import _cookie_secure
+
+        scope = {"type": "http", "headers": [], "method": "GET", "scheme": "https", "server": ("example.com", 443), "client": ("127.0.0.1", 1234), "path": "/"}
+        monkeypatch.delenv("AUTH_COOKIE_SECURE", raising=False)
+        monkeypatch.delenv("APP_ENV", raising=False)
+        monkeypatch.delenv("WENDAO_ENV", raising=False)
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
+
+        assert _cookie_secure(Request(scope)) is True
+
+    def test_cookie_secure_is_false_for_localhost(self, monkeypatch):
+        from fastapi import Request
+        from core.auth import _cookie_secure
+
+        scope = {"type": "http", "headers": [], "method": "GET", "scheme": "http", "server": ("localhost", 8000), "client": ("127.0.0.1", 1234), "path": "/"}
+        monkeypatch.delenv("AUTH_COOKIE_SECURE", raising=False)
+
+        assert _cookie_secure(Request(scope)) is False

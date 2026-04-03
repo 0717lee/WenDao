@@ -53,34 +53,40 @@ def get_jwt_secret() -> str:
     raise RuntimeError("JWT_SECRET 未配置，拒绝以默认密钥启动")
 
 
-def _cookie_secure() -> bool:
+def _cookie_secure(request: Request | None = None) -> bool:
     explicit = os.getenv("AUTH_COOKIE_SECURE", "").strip().lower()
     if explicit in {"1", "true", "yes", "on"}:
         return True
     if explicit in {"0", "false", "no", "off"}:
         return False
+
+    if request is not None and request.url.hostname in {"localhost", "127.0.0.1", "0.0.0.0"}:
+        return False
+
     env = (os.getenv("APP_ENV") or os.getenv("WENDAO_ENV") or os.getenv("ENVIRONMENT") or "").strip().lower()
-    return env in {"prod", "production", "staging", "preview"}
+    if env in {"dev", "development", "local", "test"}:
+        return False
+    return True
 
 
-def set_auth_cookie(response: Response, token: str) -> None:
+def set_auth_cookie(response: Response, token: str, request: Request | None = None) -> None:
     response.set_cookie(
         AUTH_COOKIE_NAME,
         token,
         httponly=True,
         samesite="lax",
-        secure=_cookie_secure(),
+        secure=_cookie_secure(request),
         max_age=JWT_EXPIRE_HOURS * 3600,
         path="/",
     )
 
 
-def clear_auth_cookie(response: Response) -> None:
+def clear_auth_cookie(response: Response, request: Request | None = None) -> None:
     response.delete_cookie(
         AUTH_COOKIE_NAME,
         httponly=True,
         samesite="lax",
-        secure=_cookie_secure(),
+        secure=_cookie_secure(request),
         path="/",
     )
 
