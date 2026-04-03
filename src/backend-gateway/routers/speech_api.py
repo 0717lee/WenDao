@@ -4,9 +4,10 @@ import base64
 import io
 import logging
 
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, Request, UploadFile, File
 from pydantic import BaseModel
 from core.auth import require_auth
+from core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,8 @@ def _detect_audio_format(filename: str, content_type: str) -> str:
 
 
 @router.post("/asr")
-async def speech_asr(file: UploadFile = File(...), _user: dict = Depends(require_auth)):
+@limiter.limit("20/minute")
+async def speech_asr(request: Request, file: UploadFile = File(...), _user: dict = Depends(require_auth)):
     """
     Transcribe audio to text via iFlytek ASR.
     Accepts audio files (webm/wav/mp3) from browser MediaRecorder.
@@ -85,19 +87,20 @@ async def speech_asr(file: UploadFile = File(...), _user: dict = Depends(require
 
 
 @router.post("/tts")
-async def speech_tts(request: TTSRequest, _user: dict = Depends(require_auth)):
+@limiter.limit("20/minute")
+async def speech_tts(request: Request, payload: TTSRequest, _user: dict = Depends(require_auth)):
     """
     Synthesize text to speech via iFlytek TTS.
     Returns { "audio_base64": "..." } with base64-encoded audio bytes.
     """
-    if not request.text or not request.text.strip():
+    if not payload.text or not payload.text.strip():
         return {"audio_base64": "", "error": "请输入要朗读的文字"}
 
     try:
         from agents.speech import SpeechAgent
 
         agent = SpeechAgent()
-        audio_data = await agent.tts(request.text.strip())
+        audio_data = await agent.tts(payload.text.strip())
 
         # SpeechAgent returns sentinel values on error
         if not audio_data or audio_data in (b"TTS_NOT_CONFIGURED", b"TTS_EMPTY_RESULT"):

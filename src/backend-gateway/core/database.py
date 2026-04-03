@@ -60,6 +60,7 @@ async def _create_documents_table(db: aiosqlite.Connection) -> None:
             image_data TEXT,
             status TEXT DEFAULT 'ocr_complete',
             entity_ids TEXT DEFAULT '[]',
+            owner_user_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -155,6 +156,16 @@ async def _maybe_backfill_user_scoped_tables(db: aiosqlite.Connection) -> None:
             (user_id,),
         )
 
+    await db.execute(
+        """
+        UPDATE documents
+        SET owner_user_id = ?
+        WHERE source_type = 'user'
+          AND (owner_user_id IS NULL OR owner_user_id = '')
+        """,
+        (user_id,),
+    )
+
 
 async def _migrate_legacy_documents_table_if_needed(db: aiosqlite.Connection) -> None:
     """
@@ -223,6 +234,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         await _ensure_column(db, "documents", "status", "TEXT DEFAULT 'ocr_complete'")
         await _ensure_column(db, "documents", "entity_ids", "TEXT DEFAULT '[]'")
         await _ensure_column(db, "documents", "source_type", "TEXT DEFAULT 'user'")
+        await _ensure_column(db, "documents", "owner_user_id", "TEXT")
         await _ensure_column(db, "documents", "repo_id", "TEXT")
         await _ensure_column(db, "documents", "author", "TEXT")
         await _ensure_column(db, "documents", "dynasty", "TEXT")
@@ -417,8 +429,8 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 difficulty, guide_summary, reading_tip, recommended_chapters,
                 segment_guides, segments, translation_cache, translation_status,
                 original_text, punctuated_text, translated_text,
-                ocr_confidence, image_data, status, entity_ids, source_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 repo_id = excluded.repo_id,
@@ -446,6 +458,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 status = excluded.status,
                 entity_ids = excluded.entity_ids,
                 source_type = excluded.source_type,
+                owner_user_id = excluded.owner_user_id,
                 updated_at = CURRENT_TIMESTAMP
             """,
             [
@@ -477,6 +490,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     "done",
                     json.dumps(item["entity_ids"], ensure_ascii=False),
                     item["source_type"],
+                    None,
                 )
                 for item in SAMPLE_DOCUMENTS
             ],
@@ -493,8 +507,8 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     difficulty, guide_summary, reading_tip, recommended_chapters,
                     segment_guides, segments, translation_cache, translation_status,
                     original_text, punctuated_text, translated_text,
-                    ocr_confidence, image_data, status, entity_ids, source_type
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     title = excluded.title,
                     repo_id = excluded.repo_id,
@@ -522,6 +536,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     status = excluded.status,
                     entity_ids = excluded.entity_ids,
                     source_type = excluded.source_type,
+                    owner_user_id = excluded.owner_user_id,
                     updated_at = CURRENT_TIMESTAMP
                 """,
                 [
@@ -553,6 +568,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                         "done",
                         json.dumps(item.get("entity_ids", []), ensure_ascii=False),
                         item["source_type"],
+                        None,
                     )
                     for item in corpus_documents
                 ],

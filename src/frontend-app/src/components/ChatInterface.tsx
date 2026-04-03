@@ -6,7 +6,7 @@ import { MessageInput } from './MessageInput'
 import { ImageUploadPreview } from './ImageUploadPreview'
 import { useVoiceRecorder, playTTSAudio } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
-import { authHeaders } from '../store/useAuthStore'
+import { authFetchOptions } from '../store/useAuthStore'
 import { useGraphStore } from '../store/useGraphStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 import type { ReasoningStep } from './ReasoningTimeline'
@@ -88,13 +88,11 @@ export function ChatInterface() {
                 })
                 if (citation.excerpt) params.set('excerpt', citation.excerpt)
 
-                const resolveRes = await fetch(`${API_BASE}/api/v1/documents/resolve-citation?${params.toString()}`, {
-                    headers: authHeaders(),
-                })
+                const resolveRes = await fetch(`${API_BASE}/api/v1/documents/resolve-citation?${params.toString()}`, authFetchOptions())
                 const resolveData = resolveRes.ok ? await resolveRes.json() : { match: null }
 
                 if (resolveData.match?.document_id) {
-                    const documentRes = await fetch(`${API_BASE}/api/v1/documents/${resolveData.match.document_id}`, { headers: authHeaders() })
+                    const documentRes = await fetch(`${API_BASE}/api/v1/documents/${resolveData.match.document_id}`, authFetchOptions())
                     if (documentRes.ok) {
                         const data = await documentRes.json()
                         setDocument({
@@ -155,7 +153,7 @@ export function ChatInterface() {
     const openDocumentById = useCallback(
         async (documentId: string, panel?: 'study' | null) => {
             try {
-                const documentRes = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: authHeaders() })
+                const documentRes = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions())
                 if (!documentRes.ok) return false
                 const data = await documentRes.json()
                 setDocument({
@@ -287,8 +285,7 @@ export function ChatInterface() {
             formData.append('question', userMessage.content)
 
             const response = await fetch(`${API_BASE}/api/v1/vision/analyze`, {
-                method: 'POST',
-                headers: authHeaders(),
+                ...authFetchOptions({ method: 'POST' }),
                 body: formData,
             })
 
@@ -368,7 +365,7 @@ export function ChatInterface() {
         try {
             const response = await fetch(`${API_BASE}/api/v1/creative/poem`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                ...authFetchOptions({ headers: { 'Content-Type': 'application/json' } }),
                 body: JSON.stringify({ topic }),
             })
 
@@ -554,7 +551,7 @@ export function ChatInterface() {
         try {
             const response = await fetch(`${API_BASE}/api/v1/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                ...authFetchOptions({ headers: { 'Content-Type': 'application/json' } }),
                 body: JSON.stringify({ message: userMessage.content }),
             })
 

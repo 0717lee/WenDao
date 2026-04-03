@@ -142,3 +142,46 @@ def test_search_limit_parameter(app_client):
     assert response.status_code == 200
     data = response.json()
     assert len(data["results"]) <= 5
+
+
+@pytest.mark.asyncio
+async def test_fulltext_search_excludes_private_docs_for_anonymous():
+    from routers.search import fulltext_search
+
+    with patch("routers.search._load_document_candidates", new=AsyncMock(return_value=[
+        {
+            "id": "doc-private",
+            "title": "我的私有文档",
+            "source_name": "我的文档",
+            "original_text": "私密内容关键字",
+            "punctuated_text": "私密内容关键字。",
+            "translated_text": "",
+            "source_type": "user",
+            "owner_user_id": "user-1",
+        }
+    ])):
+        results = await fulltext_search("私密内容关键字", user_id=None)
+
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_fulltext_search_includes_private_docs_for_owner():
+    from routers.search import fulltext_search
+
+    with patch("routers.search._load_document_candidates", new=AsyncMock(return_value=[
+        {
+            "id": "doc-private",
+            "title": "我的私有文档",
+            "source_name": "我的文档",
+            "original_text": "私密内容关键字",
+            "punctuated_text": "私密内容关键字。",
+            "translated_text": "",
+            "source_type": "user",
+            "owner_user_id": "user-1",
+        }
+    ])):
+        results = await fulltext_search("私密内容关键字", user_id="user-1")
+
+    assert len(results) == 1
+    assert results[0].document_id == "doc-private"

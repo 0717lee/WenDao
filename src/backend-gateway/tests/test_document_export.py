@@ -30,6 +30,7 @@ def mock_pg_pool():
             "original_text": "天命之谓性率性之谓道修道之谓教",
             "punctuated_text": "天命之谓性，率性之谓道，修道之谓教。",
             "translated_text": "上天赋予的叫做性，顺着本性行事叫做道，修养道德叫做教。",
+            "source_type": "corpus",
         }
     )
 
@@ -193,6 +194,7 @@ class TestExportEmptyDocument:
                 "original_text": "",
                 "punctuated_text": "",
                 "translated_text": "",
+                "source_type": "corpus",
             }
         )
         acm = MagicMock()

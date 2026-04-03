@@ -8,7 +8,7 @@ import jwt
 import bcrypt
 import logging
 from datetime import datetime, timedelta, timezone
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_JWT_SECRET = "wendao-dev-secret-change-in-production"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
+AUTH_COOKIE_NAME = "wendao_token"
 
 security = HTTPBearer(auto_error=False)
 
@@ -52,6 +53,44 @@ def get_jwt_secret() -> str:
     raise RuntimeError("JWT_SECRET 未配置，拒绝以默认密钥启动")
 
 
+def _cookie_secure() -> bool:
+    explicit = os.getenv("AUTH_COOKIE_SECURE", "").strip().lower()
+    if explicit in {"1", "true", "yes", "on"}:
+        return True
+    if explicit in {"0", "false", "no", "off"}:
+        return False
+    env = (os.getenv("APP_ENV") or os.getenv("WENDAO_ENV") or os.getenv("ENVIRONMENT") or "").strip().lower()
+    return env in {"prod", "production", "staging", "preview"}
+
+
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        AUTH_COOKIE_NAME,
+        token,
+        httponly=True,
+        samesite="lax",
+        secure=_cookie_secure(),
+        max_age=JWT_EXPIRE_HOURS * 3600,
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(
+        AUTH_COOKIE_NAME,
+        httponly=True,
+        samesite="lax",
+        secure=_cookie_secure(),
+        path="/",
+    )
+
+
+def _extract_request_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:
+    if credentials is not None:
+        return credentials.credentials
+    return request.cookies.get(AUTH_COOKIE_NAME)
+
+
 def hash_password(password: str) -> str:
     """Hash a password with bcrypt."""
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -84,22 +123,26 @@ def decode_token(token: str) -> dict:
 
 
 async def require_auth(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> dict:
     """FastAPI dependency: require valid JWT token on protected endpoints."""
-    if credentials is None:
+    token = _extract_request_token(request, credentials)
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="需要登录后操作",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return decode_token(credentials.credentials)
+    return decode_token(token)
 
 
 async def maybe_auth(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> dict | None:
     """FastAPI dependency: return JWT payload when present, otherwise None."""
-    if credentials is None:
+    token = _extract_request_token(request, credentials)
+    if not token:
         return None
-    return decode_token(credentials.credentials)
+    return decode_token(token)

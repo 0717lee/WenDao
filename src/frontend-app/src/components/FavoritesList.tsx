@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, FolderPlus, Star, ChevronRight, ChevronDown } from 'lucide-react';
 import { API_BASE } from '../lib/api';
-import { authHeaders } from '../store/useAuthStore';
+import { authFetchOptions } from '../store/useAuthStore';
 
 interface FolderItem {
   id: string;
@@ -34,7 +34,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
   const fetchFolders = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/reader/folders`, { headers: authHeaders() });
+      const response = await fetch(`${API_BASE}/api/v1/reader/folders`, authFetchOptions());
       if (!response.ok) throw new Error('Failed to fetch folders');
       const data = await response.json();
       setFolders(data);
@@ -47,7 +47,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
 
   const fetchFolderDocs = async (folderId: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/reader/favorites/${folderId}`, { headers: authHeaders() });
+      const response = await fetch(`${API_BASE}/api/v1/reader/favorites/${folderId}`, authFetchOptions());
       if (!response.ok) throw new Error('Failed to fetch favorites');
       const data = await response.json();
       setFolderDocs((prev) => ({ ...prev, [folderId]: data }));
@@ -75,7 +75,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/reader/folders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        ...authFetchOptions({ headers: { 'Content-Type': 'application/json' } }),
         body: JSON.stringify({ name }),
       });
       if (!response.ok) throw new Error('Failed to create folder');

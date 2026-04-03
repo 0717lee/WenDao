@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BookHeart, Trash2 } from 'lucide-react'
 import { API_BASE } from '../lib/api'
-import { authHeaders } from '../store/useAuthStore'
+import { authFetchOptions } from '../store/useAuthStore'
 
 interface WordbookEntry {
   id: string
@@ -25,7 +25,7 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
     async function load() {
       setLoading(true)
       try {
-        const response = await fetch(`${API_BASE}/api/v1/reader/wordbook?limit=200`, { headers: authHeaders() })
+        const response = await fetch(`${API_BASE}/api/v1/reader/wordbook?limit=200`, authFetchOptions())
         const data = response.ok ? await response.json() : { entries: [] }
         if (!cancelled) setEntries(data.entries || [])
       } catch {
@@ -42,10 +42,7 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
 
   const handleDelete = async (entryId: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/reader/wordbook/${entryId}`, {
-        method: 'DELETE',
-        headers: authHeaders(),
-      })
+      const response = await fetch(`${API_BASE}/api/v1/reader/wordbook/${entryId}`, authFetchOptions({ method: 'DELETE' }))
       if (!response.ok) throw new Error('delete failed')
       setEntries((prev) => prev.filter((item) => item.id !== entryId))
     } catch {

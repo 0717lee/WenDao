@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookPlus, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
-import { authHeaders } from '../store/useAuthStore';
+import { authFetchOptions } from '../store/useAuthStore';
 
 interface WordExplanation {
   meaning: string;
@@ -49,11 +49,10 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
     setSaving(true);
     try {
       const response = await fetch(`${API_BASE}/api/v1/reader/wordbook`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
+        ...authFetchOptions({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
         body: JSON.stringify({
           word,
           meaning: explanation.meaning,

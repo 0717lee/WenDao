@@ -3,27 +3,9 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
 from agents.rag import RAGAgent
+from core.rate_limit import limiter
 from core.lazy_proxy import LazyProxy
 from models.schemas import ChatRequest
-
-try:
-    from slowapi import Limiter
-    from slowapi.util import get_remote_address
-except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in tests
-    class Limiter:  # type: ignore[override]
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def limit(self, *args, **kwargs):
-            def decorator(func):
-                return func
-            return decorator
-
-    def get_remote_address(request: Request) -> str:
-        client = getattr(request, "client", None)
-        return getattr(client, "host", "127.0.0.1")
-
-limiter = Limiter(key_func=get_remote_address)
 from core.database import get_db
 
 router = APIRouter()

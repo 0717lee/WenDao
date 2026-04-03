@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone'
 import { ArrowRight, BookMarked, BookOpen, Clock3, LibraryBig, Loader2, ScanText, Search, Upload } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { getDemoBookshelfDocuments } from '../data/demoDocuments'
-import { authHeaders } from '../store/useAuthStore'
+import { authFetchOptions } from '../store/useAuthStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 
 interface BookshelfItem {
@@ -93,10 +93,10 @@ export default function BookshelfPanel({
       setLoading(true)
       try {
         const [documentsResponse, corpusResponse, sampleResponse, historyResponse] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents?limit=100`, { headers: authHeaders() }).catch(() => null),
-          fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=corpus`, { headers: authHeaders() }).catch(() => null),
-          fetch(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { headers: authHeaders() }).catch(() => null),
-          fetch(`${API_BASE}/api/v1/reader/history`, { headers: authHeaders() }).catch(() => null),
+          fetch(`${API_BASE}/api/v1/documents?limit=100`, authFetchOptions()).catch(() => null),
+          fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=corpus`, authFetchOptions()).catch(() => null),
+          fetch(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, authFetchOptions()).catch(() => null),
+          fetch(`${API_BASE}/api/v1/reader/history`, authFetchOptions()).catch(() => null),
         ])
 
         const documentsData = documentsResponse?.ok ? await documentsResponse.json() : { documents: [] }
@@ -181,7 +181,7 @@ export default function BookshelfPanel({
         if (catalogQuery.trim()) params.set('q', catalogQuery.trim())
         if (selectedCatalogFamily !== '全部') params.set('family', selectedCatalogFamily)
 
-        const response = await fetch(`${API_BASE}/api/v1/documents/catalog?${params.toString()}`, { headers: authHeaders() })
+        const response = await fetch(`${API_BASE}/api/v1/documents/catalog?${params.toString()}`, authFetchOptions())
         const data = response.ok ? await response.json() : { entries: [], total: 0 }
         if (!cancelled) {
           setCatalogEntries(Array.isArray(data.entries) ? data.entries : [])
@@ -214,8 +214,7 @@ export default function BookshelfPanel({
     const timer = setTimeout(() => controller.abort(), 90_000)
     try {
       const response = await fetch(`${API_BASE}/api/v1/documents/catalog/import/${entry.repo_id}`, {
-        method: 'POST',
-        headers: authHeaders(),
+        ...authFetchOptions({ method: 'POST' }),
         signal: controller.signal,
       })
       clearTimeout(timer)

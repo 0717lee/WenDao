@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()  # 在所有业务模块之前加载 .env 中的 API Keys
 
 from core.runtime_checks import log_startup_checks, prepare_runtime_environment
+from core.rate_limit import RateLimitExceeded, limiter, rate_limit_exceeded_handler
 from agents.rag import inspect_faiss_index_compatibility
 from core.auth import DEFAULT_JWT_SECRET, get_jwt_secret
 
@@ -18,43 +19,11 @@ from core.database import init_database
 from core.pg_database import pg_lifespan, init_pg_database
 import uvicorn
 import logging
-import asyncio
 import os
-
-try:
-    from slowapi import Limiter, _rate_limit_exceeded_handler
-    from slowapi.errors import RateLimitExceeded
-    from slowapi.util import get_remote_address
-except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in tests
-    class RateLimitExceeded(Exception):
-        pass
-
-    class Limiter:  # type: ignore[override]
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def limit(self, *args, **kwargs):
-            def decorator(func):
-                return func
-            return decorator
-
-    def get_remote_address(request: Request) -> str:
-        client = getattr(request, "client", None)
-        return getattr(client, "host", "127.0.0.1")
-
-    async def _rate_limit_exceeded_handler(request: Request, exc: Exception):
-        return JSONResponse(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            content={"error": "请求过于频繁", "message": str(exc)},
-        )
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# 限流器（内存存储，竞赛场景足够）
-limiter = Limiter(key_func=get_remote_address)
-
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
@@ -101,7 +70,7 @@ app = FastAPI(title="古籍智解（WenDao）API", version="0.1.0", lifespan=com
 
 # 挂载限流器
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # CORS: 生产环境通过环境变量限制来源域名，开发模式默认 localhost
 ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost").split(",")

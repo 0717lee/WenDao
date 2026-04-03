@@ -53,7 +53,8 @@ describe('SearchPanel', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/search?q=%E6%96%97%E6%8B%B1')
+        expect.stringContaining('/api/v1/search?q=%E6%96%97%E6%8B%B1'),
+        expect.anything()
       );
     });
   });

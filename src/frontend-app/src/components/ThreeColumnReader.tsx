@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, GraduationCap, Loader2, NotebookText } from 'lucide-react';
-import { authHeaders } from '../store/useAuthStore';
+import { authFetchOptions } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
@@ -111,11 +111,10 @@ export function ThreeColumnReader() {
     if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
     progressTimeoutRef.current = setTimeout(() => {
       fetch(`${API_BASE}/api/v1/reader/progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
+        ...authFetchOptions({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
         body: JSON.stringify({
           document_id: currentDocument.id,
           current_paragraph: currentParagraph,
@@ -245,7 +244,7 @@ export function ThreeColumnReader() {
       const strategy = (currentDocument.translationCache?.length ?? 0) > 0 ? 'next' : 'recommended'
       const response = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/translation-cache`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        ...authFetchOptions({ headers: { 'Content-Type': 'application/json' } }),
         body: JSON.stringify({ strategy, max_segments: 6 }),
       })
       if (!response.ok) throw new Error('translation cache failed')

@@ -66,7 +66,7 @@ class TestUploadDocumentSuccess:
         mock_file.read = AsyncMock(return_value=b"fake_image_bytes")
 
         with patch("routers.document._create_document", new_callable=AsyncMock) as mock_create:
-            result = await upload_document(file=mock_file)
+            result = await upload_document(request=MagicMock(), file=mock_file, _user={"sub": "user-1"})
 
         assert result["text"] == "斗拱之制，出一跳曰华拱"
         assert result["confidence"] == 0.95
@@ -90,7 +90,7 @@ class TestUploadInvalidFormat:
         mock_file.filename = "doc.pdf"
 
         with pytest.raises(HTTPException) as exc_info:
-            await upload_document(file=mock_file)
+            await upload_document(request=MagicMock(), file=mock_file, _user={"sub": "user-1"})
 
         assert exc_info.value.status_code == 400
         assert "JPG/PNG/TIFF" in str(exc_info.value.detail)
@@ -115,7 +115,7 @@ class TestUploadReturnsDocumentId:
         mock_file.read = AsyncMock(return_value=b"fake_image")
 
         with patch("routers.document._create_document", new_callable=AsyncMock):
-            result = await upload_document(file=mock_file)
+            result = await upload_document(request=MagicMock(), file=mock_file, _user={"sub": "user-1"})
 
         uuid_pattern = re.compile(
             r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -254,6 +254,7 @@ class TestBookshelfEndpoints:
             "id": "doc-1",
             "title": "论语节选",
             "original_text": "学而时习之",
+            "source_type": "corpus",
         })):
             result = await get_document("doc-1", {"sub": "user-1"})
 
@@ -271,6 +272,23 @@ class TestBookshelfEndpoints:
 
         assert exc_info.value.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_get_document_hides_private_doc_from_other_user(self):
+        from fastapi import HTTPException
+        from routers.document import get_document
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={
+            "id": "doc-private",
+            "title": "我的私有文档",
+            "source_type": "user",
+            "owner_user_id": "owner-1",
+            "original_text": "私有内容",
+        })):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_document("doc-private", {"sub": "other-user"})
+
+        assert exc_info.value.status_code == 404
+
 
 class TestDocumentNotes:
     """Document note fetch/save endpoints."""
@@ -279,11 +297,12 @@ class TestDocumentNotes:
     async def test_get_document_note_returns_saved_note(self):
         from routers.document import get_document_note
 
-        with patch("routers.document._get_document_note", new=AsyncMock(return_value={
-            "document_id": "doc-1",
-            "note_text": "这里在讲学习与实践。",
-            "updated_at": "2026-03-27T08:00:00",
-        })):
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1", "source_type": "corpus"})), \
+             patch("routers.document._get_document_note", new=AsyncMock(return_value={
+                 "document_id": "doc-1",
+                 "note_text": "这里在讲学习与实践。",
+                 "updated_at": "2026-03-27T08:00:00",
+             })):
             result = await get_document_note("doc-1", {"sub": "user-1"})
 
         assert result["note_text"] == "这里在讲学习与实践。"
@@ -292,7 +311,7 @@ class TestDocumentNotes:
     async def test_save_document_note_uses_upsert(self):
         from routers.document import DocumentNoteUpdateRequest, save_document_note
 
-        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1"})), \
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1", "source_type": "corpus"})), \
              patch("routers.document._save_document_note", new=AsyncMock(return_value={
                  "document_id": "doc-1",
                  "note_text": "课堂讲义重点",
@@ -320,6 +339,7 @@ class TestStudyCards:
             "original_text": "学而时习之，不亦说乎。知之为知之，不知为不知。",
             "punctuated_text": "学而时习之，不亦说乎。知之为知之，不知为不知。",
             "translated_text": "学习后经常复习，是很快乐的。知道就是知道，不知道就是不知道。",
+            "source_type": "corpus",
         })):
             result = await get_study_cards("doc-1", {"sub": "user-1"})
 
@@ -335,7 +355,7 @@ class TestStudyProgress:
     async def test_get_study_progress_returns_summary(self):
         from routers.document import get_study_progress
 
-        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1"})), \
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1", "source_type": "corpus"})), \
              patch("routers.document._get_study_progress", new=AsyncMock(return_value={
                  "document_id": "doc-1",
                  "sessions_count": 2,
@@ -351,7 +371,7 @@ class TestStudyProgress:
     async def test_save_study_progress_persists_session(self):
         from routers.document import StudyProgressUpdateRequest, save_study_progress
 
-        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1"})), \
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1", "source_type": "corpus"})), \
              patch("routers.document._save_study_session", new=AsyncMock(return_value={
                  "document_id": "doc-1",
                  "completed_cards": 5,
@@ -462,7 +482,7 @@ class TestTranslationCacheEndpoint:
         }
 
         with patch("routers.document._get_document", new=AsyncMock(return_value=existing_document)):
-            result = await generate_translation_cache("doc-1", TranslationCacheRequest(max_segments=2), {"sub": "user-1"})
+            result = await generate_translation_cache(MagicMock(), "doc-1", TranslationCacheRequest(max_segments=2), {"sub": "user-1"})
 
         assert result["generated"] is False
         assert result["document"]["translation_cache"][0]["title"] == "学而"
@@ -488,6 +508,7 @@ class TestTranslationCacheEndpoint:
         with patch("routers.document._get_document", new=AsyncMock(return_value=document)), \
              patch("routers.document._translate_document_segments", new=AsyncMock(return_value=(updated_document, 1, {"translated_segments": 1, "total_segments": 1, "is_complete": True}))):
             result = await generate_translation_cache(
+                MagicMock(),
                 "doc-1",
                 TranslationCacheRequest(strategy="next", max_segments=2),
                 {"sub": "user-1"},

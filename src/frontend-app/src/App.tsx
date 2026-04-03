@@ -5,7 +5,7 @@ import { RegisterPage } from './components/RegisterPage';
 import { Drawer } from './components/Drawer';
 import { useDocumentStore, type Document } from './store/useDocumentStore';
 import { useGraphStore } from './store/useGraphStore';
-import { authHeaders, useAuthStore } from './store/useAuthStore';
+import { authFetchOptions, useAuthStore } from './store/useAuthStore';
 import { useStore } from './store/useStore';
 import { API_BASE } from './lib/api';
 import { getDemoDocumentById, toReaderDocument } from './data/demoDocuments';
@@ -51,11 +51,11 @@ function TabLoader() {
 function App() {
     const { activeTab, setActiveTab, queueSearchQuery, setReaderReturnTab } = useGraphStore();
     const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
-    const { token, username, logout, validateStoredAuth } = useAuthStore();
+    const { username, logout, validateStoredAuth } = useAuthStore();
     const { setDraftMessage } = useStore();
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [authPage, setAuthPage] = useState<AuthPage>('login');
-    const [authChecking, setAuthChecking] = useState(Boolean(token));
+    const [authChecking, setAuthChecking] = useState(true);
 
     const buildReaderDocument = useCallback((data: any): Document => ({
         id: data.id,
@@ -86,13 +86,6 @@ function App() {
     useEffect(() => {
         let cancelled = false;
 
-        if (!token) {
-            setAuthChecking(false);
-            return () => {
-                cancelled = true;
-            };
-        }
-
         setAuthChecking(true);
         validateStoredAuth()
             .catch(() => {})
@@ -105,7 +98,7 @@ function App() {
         return () => {
             cancelled = true;
         };
-    }, [token, validateStoredAuth]);
+    }, [validateStoredAuth]);
 
     const getReaderView = () => {
         if (!currentDocument) return 'hub';
@@ -117,7 +110,7 @@ function App() {
         async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
             let nextDocument: Document | null = null;
             try {
-                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: authHeaders() });
+                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions());
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
                 nextDocument = buildReaderDocument(data);
@@ -173,7 +166,7 @@ function App() {
                 return;
             }
             try {
-                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: authHeaders() });
+                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions());
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
                 toggleComparisonDocument(buildReaderDocument(data));
@@ -297,7 +290,7 @@ function App() {
                             <div className="flex items-center gap-2">
                                 <span className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>{username}</span>
                                 <button
-                                    onClick={logout}
+                                    onClick={() => { void logout(); }}
                                     className="text-xs px-2 py-1 rounded transition-colors hover:bg-black/5"
                                     style={{ color: 'rgba(26,30,35,0.45)' }}
                                 >

@@ -12,7 +12,7 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -20,7 +20,7 @@ from agents.ocr import OCRAgent
 from agents.translator import TranslatorAgent
 from agents.word_explainer import WordExplainerAgent
 from core import pg_database
-from core.auth import require_auth
+from core.auth import maybe_auth, require_auth
 from core.document_segments import (
     build_original_text,
     build_translated_text,
@@ -33,6 +33,7 @@ from core.kanripo_source import build_repo_record
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
+from core.rate_limit import limiter
 from core.user_learning_repository import (
     get_document_note as repo_get_document_note,
     get_study_progress as repo_get_study_progress,
@@ -94,6 +95,24 @@ def _normalize_document_payload(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _is_public_document(row: dict[str, Any] | None) -> bool:
+    return bool(row and row.get("source_type") in {"corpus", "sample"})
+
+
+def _can_access_document(row: dict[str, Any] | None, user_id: str | None) -> bool:
+    if not row:
+        return False
+    if _is_public_document(row):
+        return True
+    return bool(user_id and row.get("owner_user_id") == user_id)
+
+
+def _ensure_document_access(row: dict[str, Any] | None, user_id: str | None) -> dict[str, Any]:
+    if not _can_access_document(row, user_id):
+        raise HTTPException(status_code=404, detail="文档不存在")
+    return row or {}
+
+
 class DocumentTextUpdateRequest(BaseModel):
     """Update manually corrected OCR text before further processing."""
     text: str = Field(..., min_length=1, max_length=50000)
@@ -153,18 +172,20 @@ async def _create_document(
     original_text: str,
     confidence: float,
     image_data: str,
+    owner_user_id: str,
 ) -> None:
     """Persist uploaded document to PostgreSQL or SQLite."""
     try:
         async with get_connection() as conn:
             await conn.execute(
-                "INSERT INTO documents (id, title, original_text, ocr_confidence, image_data, status) "
-                "VALUES ($1::uuid, $2, $3, $4, $5, 'ocr_complete')",
+                "INSERT INTO documents (id, title, original_text, ocr_confidence, image_data, status, owner_user_id, source_type) "
+                "VALUES ($1::uuid, $2, $3, $4, $5, 'ocr_complete', $6::uuid, 'user')",
                 document_id,
                 title,
                 original_text,
                 confidence,
                 image_data,
+                owner_user_id,
             )
         return
     except RuntimeError:
@@ -173,10 +194,10 @@ async def _create_document(
     async with get_db() as db:
         await db.execute(
             """
-            INSERT INTO documents (id, title, original_text, ocr_confidence, image_data, status)
-            VALUES (?, ?, ?, ?, ?, 'ocr_complete')
+            INSERT INTO documents (id, title, original_text, ocr_confidence, image_data, status, owner_user_id, source_type)
+            VALUES (?, ?, ?, ?, ?, 'ocr_complete', ?, 'user')
             """,
-            (document_id, title, original_text, confidence, image_data),
+            (document_id, title, original_text, confidence, image_data, owner_user_id),
         )
         await db.commit()
 
@@ -192,7 +213,7 @@ async def _get_document(document_id: str) -> dict | None:
                        difficulty, guide_summary, reading_tip, recommended_chapters,
                        segment_guides, segments, translation_cache, translation_status,
                        original_text, punctuated_text, translated_text, ocr_confidence,
-                       image_data, entity_ids, status, created_at, updated_at
+                       image_data, entity_ids, status, source_type, owner_user_id, created_at, updated_at
                 FROM documents
                 WHERE id = $1::uuid
                 """,
@@ -210,7 +231,7 @@ async def _get_document(document_id: str) -> dict | None:
                    difficulty, guide_summary, reading_tip, recommended_chapters,
                    segment_guides, segments, translation_cache, translation_status,
                    original_text, punctuated_text, translated_text, ocr_confidence,
-                   image_data, entity_ids, status, created_at, updated_at
+                   image_data, entity_ids, status, source_type, owner_user_id, created_at, updated_at
             FROM documents
             WHERE id = ?
             """,
@@ -256,7 +277,11 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
 
 async def _list_documents(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
     """Return bookshelf-ready document metadata ordered by most recently updated."""
-    where_clause = "WHERE d.source_type = $3" if source_type else ""
+    where_clause = (
+        "WHERE (d.source_type IN ('corpus', 'sample') OR ($2::uuid IS NOT NULL AND d.owner_user_id = $2::uuid))"
+    )
+    if source_type:
+        where_clause += " AND d.source_type = $3"
     try:
         async with get_connection() as conn:
             sql = f"""
@@ -275,6 +300,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
                     d.translation_status,
                     d.status,
                     d.source_type,
+                    d.owner_user_id::text AS owner_user_id,
                     d.created_at,
                     d.updated_at,
                     LEFT(COALESCE(NULLIF(d.featured_excerpt, ''), NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 140) AS preview,
@@ -335,6 +361,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
                 d.translation_status,
                 d.status,
                 d.source_type,
+                d.owner_user_id,
                 d.created_at,
                 d.updated_at,
                 SUBSTR(COALESCE(NULLIF(d.featured_excerpt, ''), NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 1, 140) AS preview,
@@ -372,10 +399,12 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
             END, COALESCE(d.updated_at, d.created_at) DESC
             LIMIT ?
             """
-        where_clause_sqlite = "WHERE d.source_type = ?" if source_type else ""
+        where_clause_sqlite = "WHERE (d.source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND d.owner_user_id = ?))"
+        if source_type:
+            where_clause_sqlite += " AND d.source_type = ?"
         cursor = await db.execute(
             sql.format(where_clause_sqlite=where_clause_sqlite),
-            (user_id, user_id, user_id, limit, source_type) if source_type else (user_id, user_id, user_id, limit),
+            (user_id, user_id, user_id, user_id, user_id, source_type, limit) if source_type else (user_id, user_id, user_id, user_id, user_id, limit),
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
@@ -784,7 +813,7 @@ async def _get_study_progress(document_id: str, user_id: str | None) -> dict[str
     return await repo_get_study_progress(document_id, user_id)
 
 
-async def _resolve_citation_reference(title: str, source: str, excerpt: str = "") -> dict[str, Any] | None:
+async def _resolve_citation_reference(title: str, source: str, excerpt: str = "", user_id: str | None = None) -> dict[str, Any] | None:
     """Try to map a citation to an uploaded document and a readable anchor snippet."""
     terms = [value.strip() for value in (title, source, excerpt) if value and value.strip()]
     if not terms:
@@ -815,22 +844,29 @@ async def _resolve_citation_reference(title: str, source: str, excerpt: str = ""
         async with get_connection() as conn:
             rows = await conn.fetch(
                 """
-                SELECT id::text AS id, title, original_text, punctuated_text, translated_text
+                SELECT id::text AS id, title, original_text, punctuated_text, translated_text, source_type, owner_user_id::text AS owner_user_id
                 FROM documents
+                WHERE source_type IN ('corpus', 'sample') OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
                 ORDER BY COALESCE(updated_at, created_at) DESC
-                LIMIT 200
+                LIMIT $2
                 """
+                ,
+                user_id,
+                200,
             )
             candidates = [dict(row) for row in rows]
     except RuntimeError:
         async with get_db() as db:
             cursor = await db.execute(
                 """
-                SELECT id, title, original_text, punctuated_text, translated_text
+                SELECT id, title, original_text, punctuated_text, translated_text, source_type, owner_user_id
                 FROM documents
+                WHERE source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND owner_user_id = ?)
                 ORDER BY COALESCE(updated_at, created_at) DESC
-                LIMIT 200
+                LIMIT ?
                 """
+                ,
+                (user_id, user_id, 200),
             )
             candidates = [dict(row) for row in await cursor.fetchall()]
 
@@ -862,6 +898,8 @@ async def _get_recommendations(document_id: str | None, user_id: str | None, lim
         return []
 
     current_doc = await _get_document(document_id) if document_id else None
+    if current_doc and not _can_access_document(current_doc, user_id):
+        current_doc = None
     current_entities = set()
     if current_doc:
         try:
@@ -890,6 +928,8 @@ async def _get_recommendations(document_id: str | None, user_id: str | None, lim
         reasons: list[str] = []
 
         candidate = await _get_document(str(doc["id"]))
+        if candidate and not _can_access_document(candidate, user_id):
+            continue
         candidate_entities = set()
         if candidate:
             try:
@@ -1018,9 +1058,15 @@ async def resolve_citation(
     title: str = Query(..., min_length=1),
     source: str = Query(..., min_length=1),
     excerpt: str = Query(""),
+    _user: dict | None = Depends(maybe_auth),
 ):
     """Try to resolve a citation to an uploaded document and anchor text."""
-    result = await _resolve_citation_reference(title=title, source=source, excerpt=excerpt)
+    result = await _resolve_citation_reference(
+        title=title,
+        source=source,
+        excerpt=excerpt,
+        user_id=_extract_user_id(_user),
+    )
     return {"match": result}
 
 
@@ -1085,11 +1131,10 @@ async def import_catalog_document(repo_id: str, _user: dict = Depends(require_au
 
 
 @router.post("/{document_id}/translation-cache")
-async def generate_translation_cache(document_id: str, body: TranslationCacheRequest, _user: dict = Depends(require_auth)):
+@limiter.limit("10/minute")
+async def generate_translation_cache(request: Request, document_id: str, body: TranslationCacheRequest, _user: dict = Depends(require_auth)):
     """Generate cached translations for corpus/source documents."""
-    document = await _get_document(document_id)
-    if not document:
-        raise HTTPException(status_code=404, detail="文档不存在")
+    document = _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     if document.get("source_type") != "corpus":
         raise HTTPException(status_code=400, detail="只有古籍库文档支持生成白话译缓存")
 
@@ -1109,33 +1154,27 @@ async def generate_translation_cache(document_id: str, body: TranslationCacheReq
 @router.get("/{document_id}")
 async def get_document(document_id: str, _user: dict = Depends(require_auth)):
     """Return one document with full text content for reader/book shelf navigation."""
-    row = await _get_document(document_id)
-    if not row:
-        raise HTTPException(status_code=404, detail="文档不存在")
-    return row
+    return _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
 
 
 @router.get("/{document_id}/note")
 async def get_document_note(document_id: str, _user: dict = Depends(require_auth)):
     """Fetch the saved note for one document."""
+    _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     return await _get_document_note(document_id, _extract_user_id(_user))
 
 
 @router.put("/{document_id}/note")
 async def save_document_note(document_id: str, body: DocumentNoteUpdateRequest, _user: dict = Depends(require_auth)):
     """Create or update a reader note for one document."""
-    document = await _get_document(document_id)
-    if not document:
-        raise HTTPException(status_code=404, detail="文档不存在")
+    _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     return await _save_document_note(document_id, _extract_user_id(_user) or "", body.note_text.strip())
 
 
 @router.get("/{document_id}/study-cards")
 async def get_study_cards(document_id: str, _user: dict = Depends(require_auth)):
     """Generate lightweight study cards and self-check prompts for one document."""
-    document = await _get_document(document_id)
-    if not document:
-        raise HTTPException(status_code=404, detail="文档不存在")
+    document = _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
 
     base_text = document.get("punctuated_text") or document.get("original_text") or ""
     translated_text = document.get("translated_text") or ""
@@ -1171,23 +1210,20 @@ async def get_study_cards(document_id: str, _user: dict = Depends(require_auth))
 @router.get("/{document_id}/study-progress")
 async def get_study_progress(document_id: str, _user: dict = Depends(require_auth)):
     """Return aggregated study-card review progress for a document."""
-    document = await _get_document(document_id)
-    if not document:
-        raise HTTPException(status_code=404, detail="文档不存在")
+    _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     return await _get_study_progress(document_id, _extract_user_id(_user))
 
 
 @router.post("/{document_id}/study-progress")
 async def save_study_progress(document_id: str, body: StudyProgressUpdateRequest, _user: dict = Depends(require_auth)):
     """Persist one study-card review result."""
-    document = await _get_document(document_id)
-    if not document:
-        raise HTTPException(status_code=404, detail="文档不存在")
+    _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     return await _save_study_session(document_id, _extract_user_id(_user) or "", body)
 
 
 @router.post("/upload")
-async def upload_document(file: UploadFile = File(...), _user: dict = Depends(require_auth)):
+@limiter.limit("10/minute")
+async def upload_document(request: Request, file: UploadFile = File(...), _user: dict = Depends(require_auth)):
     """
     Upload an image for OCR recognition.
     Supports JPG, PNG, TIFF formats.
@@ -1209,6 +1245,7 @@ async def upload_document(file: UploadFile = File(...), _user: dict = Depends(re
             original_text=ocr_result["text"],
             confidence=ocr_result["confidence"],
             image_data=image_data,
+            owner_user_id=_extract_user_id(_user) or "",
         )
     except Exception as exc:
         logger.warning("Document persistence failed during upload: %s", exc)
@@ -1222,8 +1259,10 @@ async def upload_document(file: UploadFile = File(...), _user: dict = Depends(re
 
 
 @router.put("/{document_id}/text")
-async def update_document_text(document_id: str, body: DocumentTextUpdateRequest, _user: dict = Depends(require_auth)):
+@limiter.limit("20/minute")
+async def update_document_text(request: Request, document_id: str, body: DocumentTextUpdateRequest, _user: dict = Depends(require_auth)):
     """Save the manually corrected OCR text before opening the SSE processing stream."""
+    _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     updated = await _update_document_text(document_id, body.text.strip())
     if not updated:
         raise HTTPException(status_code=404, detail="文档不存在")
@@ -1232,11 +1271,13 @@ async def update_document_text(document_id: str, body: DocumentTextUpdateRequest
 
 @router.get("/process/{document_id}")
 @router.post("/process/{document_id}")
-async def process_document(document_id: str, _user: dict = Depends(require_auth)):
+@limiter.limit("10/minute")
+async def process_document(request: Request, document_id: str, _user: dict = Depends(require_auth)):
     """
     Process an uploaded document: punctuate and translate ancient text.
     Returns SSE stream with progress events and final result.
     """
+    _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     return StreamingResponse(
         stream_process(document_id),
         media_type="text/event-stream",
@@ -1317,7 +1358,8 @@ def _sse_event(event_type: str, data: dict) -> str:
 
 
 @router.post("/explain")
-async def explain_word_endpoint(word: str, context: str = "", _user: dict = Depends(require_auth)):
+@limiter.limit("30/minute")
+async def explain_word_endpoint(request: Request, word: str, context: str = "", _user: dict = Depends(require_auth)):
     """Explain an ancient Chinese word/term with meaning, allusion, and citations."""
     result = await word_explainer.explain_word(word, context)
     return result
@@ -1330,9 +1372,7 @@ async def export_document(document_id: str, format: str = "txt", _user: dict = D
     TXT: sections listed sequentially (original, punctuated, translated).
     PDF: uses fpdf2 with CJK font support.
     """
-    row = await _get_document(document_id)
-    if not row:
-        raise HTTPException(404, "文档不存在")
+    row = _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
     if format == "pdf":
         return await _generate_pdf(row)
     return await _generate_txt(row)

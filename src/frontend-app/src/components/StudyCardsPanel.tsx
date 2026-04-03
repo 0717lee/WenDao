@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HelpCircle, RotateCcw } from 'lucide-react'
 import { API_BASE } from '../lib/api'
-import { authHeaders } from '../store/useAuthStore'
+import { authFetchOptions } from '../store/useAuthStore'
 
 interface StudyCard {
   id: string
@@ -41,8 +41,8 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
       setLoading(true)
       try {
         const [cardsResponse, summaryResponse] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-cards`, { headers: authHeaders() }),
-          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, { headers: authHeaders() }),
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-cards`, authFetchOptions()),
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, authFetchOptions()),
         ])
         const data = cardsResponse.ok ? await cardsResponse.json() : { cards: [], quiz: [] }
         const summaryData = summaryResponse.ok ? await summaryResponse.json() : null
@@ -88,11 +88,10 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
     setSaving(true)
     try {
       await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
+        ...authFetchOptions({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
         body: JSON.stringify({
           completed_cards: cards.length,
           total_cards: cards.length,
@@ -101,7 +100,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
         }),
       })
 
-      const summaryResponse = await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, { headers: authHeaders() })
+      const summaryResponse = await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, authFetchOptions())
       const summaryData = summaryResponse.ok ? await summaryResponse.json() : null
       setSummary(summaryData)
     } catch {

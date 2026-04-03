@@ -8,12 +8,14 @@ import jieba
 import logging
 from enum import Enum
 from typing import Any, List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from core import pg_database
+from core.auth import maybe_auth
 from core.database import get_db
 from core.lazy_proxy import LazyProxy
+from core.rate_limit import limiter
 from agents.rag import RAGAgent
 
 # Load custom dictionary for ancient Chinese terms
@@ -35,6 +37,19 @@ def _create_rag_agent() -> RAGAgent:
 
 
 rag_agent = LazyProxy(_create_rag_agent)
+
+
+def _extract_user_id(user: Any) -> str | None:
+    if isinstance(user, dict) and user.get("sub"):
+        return str(user["sub"])
+    return None
+
+
+def _can_access_candidate(row: dict[str, Any], user_id: str | None) -> bool:
+    source_type = row.get("source_type")
+    if source_type in {"corpus", "sample", None, ""}:
+        return True
+    return bool(user_id and row.get("owner_user_id") == user_id)
 
 
 class SearchMode(str, Enum):
@@ -98,16 +113,18 @@ def _normalize_candidate_row(row: Any) -> dict:
         }
 
 
-async def _load_document_candidates(limit: int = 200) -> list[dict]:
+async def _load_document_candidates(limit: int = 200, user_id: str | None = None) -> list[dict]:
     try:
         async with get_connection() as conn:
             rows = await conn.fetch(
                 """
-                SELECT id::text AS id, title, source_name, original_text, punctuated_text, translated_text
+                SELECT id::text AS id, title, source_name, original_text, punctuated_text, translated_text, source_type, owner_user_id::text AS owner_user_id
                 FROM documents
+                WHERE source_type IN ('corpus', 'sample') OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
                 ORDER BY COALESCE(updated_at, created_at) DESC
-                LIMIT $1
+                LIMIT $2
                 """,
+                user_id,
                 limit,
             )
             return [dict(row) for row in rows]
@@ -115,12 +132,13 @@ async def _load_document_candidates(limit: int = 200) -> list[dict]:
         async with get_db() as db:
             cursor = await db.execute(
                 """
-                SELECT id, title, source_name, original_text, punctuated_text, translated_text
+                SELECT id, title, source_name, original_text, punctuated_text, translated_text, source_type, owner_user_id
                 FROM documents
+                WHERE source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND owner_user_id = ?)
                 ORDER BY COALESCE(updated_at, created_at) DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (user_id, user_id, limit),
             )
             return [_normalize_candidate_row(row) for row in await cursor.fetchall()]
 
@@ -131,16 +149,17 @@ async def _resolve_document_id(
     source: str,
     excerpt: str,
     candidates: list[dict] | None = None,
+    user_id: str | None = None,
 ) -> str | None:
     if raw_id:
         candidate_list = candidates
         if candidate_list is None:
-            candidate_list = await _load_document_candidates(limit=50)
+            candidate_list = await _load_document_candidates(limit=50, user_id=user_id)
         for record in candidate_list:
             if str(record.get("id")) == str(raw_id):
                 return str(record["id"])
 
-    candidate_list = candidates if candidates is not None else await _load_document_candidates()
+    candidate_list = candidates if candidates is not None else await _load_document_candidates(user_id=user_id)
     terms = [value.strip() for value in (title, source, excerpt) if value and value.strip()]
     if not terms:
         return None
@@ -179,49 +198,32 @@ async def _resolve_document_id(
     return best_match if best_score > 0 else None
 
 
-async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
+async def fulltext_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
     """全文搜索（优先兼容当前 documents 表结构）。"""
     tokens = [token.strip() for token in jieba.cut(query) if token.strip()]
     search_terms = tokens or [query.strip()]
-
-    async with get_db() as db:
-        cursor = await db.execute(
-            """
-            SELECT
-                id,
-                title,
-                author,
-                dynasty,
-                category,
-                original_text,
-                punctuated_text,
-                translated_text,
-                source_type
-            FROM documents
-            ORDER BY COALESCE(updated_at, created_at) DESC
-            LIMIT 400
-            """
-        )
-        rows = await cursor.fetchall()
+    rows = await _load_document_candidates(limit=400, user_id=user_id)
 
     results: List[SearchResult] = []
     for row in rows:
+        if not _can_access_candidate(row, user_id):
+            continue
         # Backward-compatible parsing for existing tests that still mock the old
         # (id, title, content, source, score) shape.
-        if len(row) >= 5 and isinstance(row[4], (int, float)):
+        if isinstance(row, (list, tuple)) and len(row) >= 5 and isinstance(row[4], (int, float)):
             title = row[1] or ""
             preview = row[2] or ""
             source = row[3] or ""
             match_score = float(row[4] or 0)
         else:
-            title = row[1] or ""
-            author = row[2] if len(row) > 2 else ""
-            dynasty = row[3] if len(row) > 3 else ""
-            category = row[4] if len(row) > 4 else ""
-            original_text = row[5] or ""
-            punctuated_text = row[6] or ""
-            translated_text = row[7] or ""
-            source_type = row[8] if len(row) > 8 else ""
+            title = row.get("title") or ""
+            author = row.get("author", "")
+            dynasty = row.get("dynasty", "")
+            category = row.get("category", "")
+            original_text = row.get("original_text") or ""
+            punctuated_text = row.get("punctuated_text") or ""
+            translated_text = row.get("translated_text") or ""
+            source_type = row.get("source_type") or ""
             searchable_text = "\n".join([title, author or "", dynasty or "", category or "", original_text, punctuated_text, translated_text])
 
             match_score = 0.0
@@ -248,8 +250,8 @@ async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
                 source = "我的文档"
 
         results.append(SearchResult(
-            id=str(row[0]),
-            document_id=str(row[0]),
+            id=str(row["id"]),
+            document_id=str(row["id"]),
             title=title,
             content=preview,
             source=source,
@@ -260,7 +262,7 @@ async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
     return results[:limit]
 
 
-async def vector_search(query: str, limit: int = 10) -> List[SearchResult]:
+async def vector_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
     """FAISS向量检索"""
     if not rag_agent or not rag_agent.vectorstore:
         raise HTTPException(status_code=503, detail="向量检索服务不可用")
@@ -271,7 +273,7 @@ async def vector_search(query: str, limit: int = 10) -> List[SearchResult]:
         raise HTTPException(status_code=500, detail=f"向量检索失败: {str(e)}")
 
     results = []
-    candidates = await _load_document_candidates()
+    candidates = await _load_document_candidates(user_id=user_id)
     for doc, score in docs_with_scores:
         metadata = doc.metadata
         title = metadata.get("title", "") or metadata.get("source", "") or "检索结果"
@@ -283,7 +285,10 @@ async def vector_search(query: str, limit: int = 10) -> List[SearchResult]:
             source=source,
             excerpt=doc.page_content[:120],
             candidates=candidates,
+            user_id=user_id,
         )
+        if document_id is None and metadata.get("document_id"):
+            continue
         results.append(SearchResult(
             id=str(metadata.get("id", 0)),
             document_id=document_id,
@@ -296,13 +301,13 @@ async def vector_search(query: str, limit: int = 10) -> List[SearchResult]:
     return results
 
 
-async def hybrid_search(query: str, limit: int = 10) -> List[SearchResult]:
+async def hybrid_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
     """混合检索：BM25 + Embedding，优化相关性"""
     # Execute both searches in parallel
-    fulltext_results = await fulltext_search(query, limit=limit * 3)
+    fulltext_results = await fulltext_search(query, limit=limit * 3, user_id=user_id)
 
     try:
-        vector_results = await vector_search(query, limit=limit * 3)
+        vector_results = await vector_search(query, limit=limit * 3, user_id=user_id)
     except HTTPException:
         # Fallback to fulltext only if vector search fails
         return fulltext_results[:limit]
@@ -355,10 +360,13 @@ async def hybrid_search(query: str, limit: int = 10) -> List[SearchResult]:
 
 
 @router.get("/search", response_model=SearchResponse)
+@limiter.limit("30/minute")
 async def search(
+    request: Request,
     q: str = Query(..., description="搜索关键词"),
     mode: SearchMode = Query(SearchMode.HYBRID, description="搜索模式"),
-    limit: int = Query(10, ge=1, le=100, description="返回结果数量")
+    limit: int = Query(10, ge=1, le=100, description="返回结果数量"),
+    _user: dict | None = Depends(maybe_auth),
 ):
     """
     全文搜索和混合检索API
@@ -370,13 +378,15 @@ async def search(
     if not q or not q.strip():
         raise HTTPException(status_code=400, detail="搜索关键词不能为空")
 
+    user_id = _extract_user_id(_user)
+
     # Execute search based on mode
     if mode == SearchMode.FULLTEXT:
-        results = await fulltext_search(q, limit)
+        results = await fulltext_search(q, limit, user_id=user_id)
     elif mode == SearchMode.VECTOR:
-        results = await vector_search(q, limit)
+        results = await vector_search(q, limit, user_id=user_id)
     else:  # HYBRID
-        results = await hybrid_search(q, limit)
+        results = await hybrid_search(q, limit, user_id=user_id)
 
     return SearchResponse(
         results=results,

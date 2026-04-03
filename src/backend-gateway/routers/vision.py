@@ -7,9 +7,10 @@ import re
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from core.auth import require_auth
+from core.rate_limit import limiter
 
 router = APIRouter(prefix="/api/v1", tags=["vision"])
 logger = logging.getLogger(__name__)
@@ -135,7 +136,9 @@ def match_vision_to_graph(vision_text: str, graph_data: dict) -> list:
 
 
 @router.post("/vision/analyze")
+@limiter.limit("10/minute")
 async def analyze_image(
+    request: Request,
     file: UploadFile = File(...),
     question: str = Form(""),
     _user: dict = Depends(require_auth),

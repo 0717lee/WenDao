@@ -4,11 +4,12 @@
 """
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from core import pg_database
-from core.auth import create_token, hash_password, require_auth, verify_password
+from core.auth import AUTH_COOKIE_NAME, clear_auth_cookie, create_token, hash_password, require_auth, set_auth_cookie, verify_password
 from core.database import get_db
+from core.rate_limit import limiter
 from models.schemas import AuthMeResponse, TokenResponse, UserLogin, UserRegister
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -90,25 +91,37 @@ async def _login_sqlite(username: str, password: str) -> tuple[str, str]:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: UserRegister):
+@limiter.limit("5/minute")
+async def register(request: Request, body: UserRegister, response: Response):
     """用户注册。"""
     if pg_database.pool:
         user_id = await _register_pg(body.username, body.email, body.password)
     else:
         user_id = await _register_sqlite(body.username, body.email, body.password)
     token = create_token(user_id, body.username)
+    if response is not None:
+        set_auth_cookie(response, token)
     return TokenResponse(token=token, username=body.username)
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: UserLogin):
+@limiter.limit("5/minute")
+async def login(request: Request, body: UserLogin, response: Response):
     """用户登录。"""
     if pg_database.pool:
         user_id, username = await _login_pg(body.username, body.password)
     else:
         user_id, username = await _login_sqlite(body.username, body.password)
     token = create_token(user_id, username)
+    if response is not None:
+        set_auth_cookie(response, token)
     return TokenResponse(token=token, username=username)
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    clear_auth_cookie(response)
+    return {"status": "ok", "cookie": AUTH_COOKIE_NAME}
 
 
 @router.get("/me", response_model=AuthMeResponse)

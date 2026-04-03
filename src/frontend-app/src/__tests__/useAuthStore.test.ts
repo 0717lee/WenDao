@@ -9,9 +9,8 @@ describe('useAuthStore', () => {
   })
 
   it('clears stored auth when /auth/me returns unauthorized', async () => {
-    localStorage.setItem('wendao_token', 'bad-token')
     localStorage.setItem('wendao_username', 'tester')
-    useAuthStore.setState({ token: 'bad-token', username: 'tester' })
+    useAuthStore.setState({ token: null, username: 'tester' })
 
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
@@ -24,21 +23,35 @@ describe('useAuthStore', () => {
     expect(valid).toBe(false)
     expect(useAuthStore.getState().token).toBeNull()
     expect(useAuthStore.getState().username).toBeNull()
-    expect(localStorage.getItem('wendao_token')).toBeNull()
     expect(localStorage.getItem('wendao_username')).toBeNull()
   })
 
-  it('keeps local auth on transient network failure', async () => {
-    localStorage.setItem('wendao_token', 'good-token')
+  it('restores username from cookie-backed session without persisting token', async () => {
     localStorage.setItem('wendao_username', 'tester')
-    useAuthStore.setState({ token: 'good-token', username: 'tester' })
+    useAuthStore.setState({ token: null, username: 'tester' })
+
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ user_id: 'user-1', username: 'tester' }),
+    } as Response)
+
+    const valid = await useAuthStore.getState().validateStoredAuth()
+
+    expect(valid).toBe(true)
+    expect(useAuthStore.getState().token).toBe('__cookie_session__')
+    expect(useAuthStore.getState().username).toBe('tester')
+    expect(localStorage.getItem('wendao_token')).toBeNull()
+  })
+
+  it('keeps local username on transient network failure', async () => {
+    localStorage.setItem('wendao_username', 'tester')
+    useAuthStore.setState({ token: null, username: 'tester' })
 
     vi.mocked(global.fetch).mockRejectedValueOnce(new Error('network down'))
 
     const valid = await useAuthStore.getState().validateStoredAuth()
 
     expect(valid).toBe(true)
-    expect(useAuthStore.getState().token).toBe('good-token')
     expect(useAuthStore.getState().username).toBe('tester')
   })
 })

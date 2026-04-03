@@ -10,11 +10,12 @@ import logging
 import os
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from core.auth import require_auth
+from core.rate_limit import limiter
 from core.runtime_checks import get_zhipu_api_key
 
 logger = logging.getLogger(__name__)
@@ -139,13 +140,14 @@ async def _safe_generate_audio(poem_text: str) -> bytes | None:
 
 
 @router.post("/poem")
-async def generate_poem(request: PoemRequest, _user: dict = Depends(require_auth)):
+@limiter.limit("10/minute")
+async def generate_poem(request: Request, payload: PoemRequest, _user: dict = Depends(require_auth)):
     """Generate classical Chinese poetry with illustration and audio via SSE."""
-    if not request.topic.strip():
+    if not payload.topic.strip():
         raise HTTPException(status_code=400, detail="Topic cannot be empty")
 
     return StreamingResponse(
-        stream_poem_response(request.topic.strip()),
+        stream_poem_response(payload.topic.strip()),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

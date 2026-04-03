@@ -4,6 +4,7 @@ import { Search, Loader2, RefreshCcw, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
+import { authFetchOptions } from '../store/useAuthStore';
 import { searchDemoDocuments } from '../data/demoDocuments';
 
 interface SearchResult {
@@ -98,7 +99,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/v1/search?q=${encodeURIComponent(nextQuery)}&mode=${mode}&limit=10`
+        `${API_BASE}/api/v1/search?q=${encodeURIComponent(nextQuery)}&mode=${mode}&limit=10`,
+        authFetchOptions()
       );
 
       if (!response.ok) {

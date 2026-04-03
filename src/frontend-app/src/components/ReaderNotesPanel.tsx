@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BookMarked, NotebookText, Save, Star } from 'lucide-react'
 import { API_BASE } from '../lib/api'
-import { authHeaders } from '../store/useAuthStore'
+import { authFetchOptions } from '../store/useAuthStore'
 
 interface ReaderNotesPanelProps {
   documentId: string
@@ -25,8 +25,8 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
     async function load() {
       try {
         const [noteRes, foldersRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents/${documentId}/note`, { headers: authHeaders() }),
-          fetch(`${API_BASE}/api/v1/reader/folders`, { headers: authHeaders() }),
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/note`, authFetchOptions()),
+          fetch(`${API_BASE}/api/v1/reader/folders`, authFetchOptions()),
         ])
         const noteData = noteRes.ok ? await noteRes.json() : { note_text: '' }
         const folderData = foldersRes.ok ? await foldersRes.json() : []
@@ -57,11 +57,10 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
     setSaving(true)
     try {
       const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}/note`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
+        ...authFetchOptions({
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+        }),
         body: JSON.stringify({ note_text: noteText }),
       })
       if (!response.ok) throw new Error('save failed')
@@ -76,11 +75,10 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
   const ensureDefaultFolder = async () => {
     if (folders.length > 0) return folders[0]
     const response = await fetch(`${API_BASE}/api/v1/reader/folders`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders(),
-      },
+      ...authFetchOptions({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }),
       body: JSON.stringify({ name: '默认收藏夹' }),
     })
     if (!response.ok) throw new Error('create folder failed')
@@ -94,11 +92,10 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
     try {
       const folder = await ensureDefaultFolder()
       const response = await fetch(`${API_BASE}/api/v1/reader/favorites`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders(),
-        },
+        ...authFetchOptions({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
         body: JSON.stringify({ document_id: documentId, folder_id: folder.id }),
       })
       if (!response.ok) throw new Error('favorite failed')

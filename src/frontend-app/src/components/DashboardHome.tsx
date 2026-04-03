@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { getDemoBookshelfDocuments } from '../data/demoDocuments'
-import { authHeaders } from '../store/useAuthStore'
+import { authFetchOptions } from '../store/useAuthStore'
 
 interface DashboardHomeProps {
   onOpenDocument: (documentId: string) => void
@@ -141,7 +141,7 @@ export default function DashboardHome({
       setLoading(true)
       const loadJson = async <T,>(url: string, fallback: T): Promise<T> => {
         try {
-          const response = await fetch(url, { headers: authHeaders() })
+          const response = await fetch(url, authFetchOptions())
           if (!response.ok) return fallback
           return (await response.json()) as T
         } catch {

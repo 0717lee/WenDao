@@ -95,6 +95,16 @@ async def _maybe_backfill_user_scoped_tables_pg(conn: asyncpg.Connection) -> Non
             user_id,
         )
 
+    await conn.execute(
+        """
+        UPDATE documents
+        SET owner_user_id = $1::uuid
+        WHERE source_type = 'user'
+          AND owner_user_id IS NULL
+        """,
+        user_id,
+    )
+
 
 @asynccontextmanager
 async def pg_lifespan():
@@ -180,6 +190,7 @@ async def init_pg_database() -> None:
                 image_path TEXT,
                 image_data TEXT,
                 status TEXT DEFAULT 'ocr_complete',
+                owner_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             )
@@ -341,6 +352,11 @@ async def init_pg_database() -> None:
 
         await conn.execute("""
             ALTER TABLE documents
+            ADD COLUMN IF NOT EXISTS owner_user_id UUID REFERENCES users(id) ON DELETE SET NULL
+        """)
+
+        await conn.execute("""
+            ALTER TABLE documents
             ADD COLUMN IF NOT EXISTS repo_id TEXT
         """)
 
@@ -449,8 +465,8 @@ async def init_pg_database() -> None:
                 difficulty, guide_summary, reading_tip, recommended_chapters,
                 segment_guides, segments, translation_cache, translation_status,
                 original_text, punctuated_text, translated_text,
-                ocr_confidence, image_data, status, entity_ids, source_type
-            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27)
+                ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
+            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27, $28::uuid)
             ON CONFLICT (id) DO UPDATE SET
                 title = EXCLUDED.title,
                 repo_id = EXCLUDED.repo_id,
@@ -478,6 +494,7 @@ async def init_pg_database() -> None:
                 status = EXCLUDED.status,
                 entity_ids = EXCLUDED.entity_ids,
                 source_type = EXCLUDED.source_type,
+                owner_user_id = EXCLUDED.owner_user_id,
                 updated_at = NOW()
             """,
             [
@@ -509,6 +526,7 @@ async def init_pg_database() -> None:
                     "done",
                     json.dumps(item["entity_ids"], ensure_ascii=False),
                     item["source_type"],
+                    None,
                 )
                 for item in SAMPLE_DOCUMENTS
             ],
@@ -525,8 +543,8 @@ async def init_pg_database() -> None:
                     difficulty, guide_summary, reading_tip, recommended_chapters,
                     segment_guides, segments, translation_cache, translation_status,
                     original_text, punctuated_text, translated_text,
-                    ocr_confidence, image_data, status, entity_ids, source_type
-                ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27)
+                    ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
+                ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27, $28::uuid)
                 ON CONFLICT (id) DO UPDATE SET
                     title = EXCLUDED.title,
                     repo_id = EXCLUDED.repo_id,
@@ -554,6 +572,7 @@ async def init_pg_database() -> None:
                     status = EXCLUDED.status,
                     entity_ids = EXCLUDED.entity_ids,
                     source_type = EXCLUDED.source_type,
+                    owner_user_id = EXCLUDED.owner_user_id,
                     updated_at = NOW()
                 """,
                 [
@@ -585,6 +604,7 @@ async def init_pg_database() -> None:
                         "done",
                         json.dumps(item.get("entity_ids", []), ensure_ascii=False),
                         item["source_type"],
+                        None,
                     )
                     for item in corpus_documents
                 ],
