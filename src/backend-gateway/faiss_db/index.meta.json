@@ -1,0 +1,6 @@
+{
+  "embedding_backend": "sklearn",
+  "embedding_dim": 384,
+  "created_at": "2026-04-03T08:05:54.171694+00:00",
+  "document_count": 20
+}

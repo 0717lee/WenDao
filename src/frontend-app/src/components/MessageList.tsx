@@ -1,17 +1,19 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Message } from '../store/useStore'
+import { type AnswerContextAction, Message } from '../store/useStore'
 import { CitationCard } from './CitationCard'
 import { ReasoningTimeline } from './ReasoningTimeline'
 import { VisionResultCard } from './VisionResultCard'
 import { PoemScrollCard } from './PoemScrollCard'
+import { AnswerContextCard } from './AnswerContextCard'
 
 interface MessageListProps {
     messages: Message[]
-    onCitationClick?: (citation: { title: string; source: string }) => void
+    onCitationClick?: (citation: { title: string; source: string; excerpt?: string }) => void
+    onAnswerAction?: (action: AnswerContextAction) => void
 }
 
-export function MessageList({ messages, onCitationClick }: MessageListProps) {
+export function MessageList({ messages, onCitationClick, onAnswerAction }: MessageListProps) {
     const endRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -64,6 +66,10 @@ export function MessageList({ messages, onCitationClick }: MessageListProps) {
                         {/* Assistant message: reasoning timeline */}
                         {message.role === 'assistant' && message.reasoningSteps && (
                             <ReasoningTimeline steps={message.reasoningSteps} />
+                        )}
+
+                        {message.role === 'assistant' && message.answerContext && (
+                            <AnswerContextCard context={message.answerContext} onAction={onAnswerAction} />
                         )}
 
                         {/* Citations */}

@@ -6,6 +6,8 @@
 """
 import os
 import sys
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -169,8 +171,20 @@ def main():
         with open(faiss_dir / "index.pkl", "wb") as f:
             pickle.dump((vectorstore.docstore, vectorstore.index_to_docstore_id), f)
 
+        metadata = {
+            "embedding_backend": embeddings.active_backend,
+            "embedding_dim": int(vectorstore.index.d),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "document_count": len(docs),
+        }
+        (faiss_dir / "index.meta.json").write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
         print(f"  [OK] FAISS索引已保存到: {faiss_dir}")
         print(f"  [OK] 索引包含 {len(docs)} 个文档")
+        print(f"  [OK] 当前 embedding 后端: {embeddings.active_backend}")
 
     except Exception as e:
         print(f"  [ERROR] FAISS索引构建失败: {e}")

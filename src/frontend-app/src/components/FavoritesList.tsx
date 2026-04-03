@@ -34,7 +34,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
   const fetchFolders = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/reader/folders`);
+      const response = await fetch(`${API_BASE}/api/v1/reader/folders`, { headers: authHeaders() });
       if (!response.ok) throw new Error('Failed to fetch folders');
       const data = await response.json();
       setFolders(data);
@@ -47,7 +47,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
 
   const fetchFolderDocs = async (folderId: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/reader/favorites/${folderId}`);
+      const response = await fetch(`${API_BASE}/api/v1/reader/favorites/${folderId}`, { headers: authHeaders() });
       if (!response.ok) throw new Error('Failed to fetch favorites');
       const data = await response.json();
       setFolderDocs((prev) => ({ ...prev, [folderId]: data }));

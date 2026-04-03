@@ -6,12 +6,15 @@ SQLite异步数据库管理模块。
 """
 from contextlib import asynccontextmanager
 import json
+import logging
 from typing import AsyncGenerator
 
 import aiosqlite
 
 from core.corpus_documents import load_corpus_documents
 from core.sample_documents import SAMPLE_DOCUMENTS
+
+logger = logging.getLogger(__name__)
 
 
 async def _ensure_column(
@@ -61,6 +64,96 @@ async def _create_documents_table(db: aiosqlite.Connection) -> None:
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+
+async def _count_rows(db: aiosqlite.Connection, table: str) -> int:
+    cursor = await db.execute(f"SELECT COUNT(*) FROM {table}")
+    row = await cursor.fetchone()
+    return int(row[0] if row else 0)
+
+
+async def _count_user_rows(db: aiosqlite.Connection, table: str, user_id: str) -> int:
+    cursor = await db.execute(f"SELECT COUNT(*) FROM {table} WHERE user_id = ?", (user_id,))
+    row = await cursor.fetchone()
+    return int(row[0] if row else 0)
+
+
+async def _resolve_single_user_id(db: aiosqlite.Connection) -> str | None:
+    cursor = await db.execute("SELECT id FROM users ORDER BY created_at ASC LIMIT 2")
+    rows = await cursor.fetchall()
+    if len(rows) == 1:
+        row = rows[0]
+        return str(row["id"] if isinstance(row, aiosqlite.Row) else row[0])
+    if len(rows) > 1:
+        logger.warning("检测到多个用户，跳过旧共享数据自动回填")
+    return None
+
+
+async def _maybe_backfill_user_scoped_tables(db: aiosqlite.Connection) -> None:
+    """Backfill legacy shared user-state tables when ownership is unambiguous."""
+    user_id = await _resolve_single_user_id(db)
+    if not user_id:
+        return
+
+    if await _count_user_rows(db, "user_reading_history", user_id) == 0 and await _count_rows(db, "reading_history") > 0:
+        await db.execute(
+            """
+            INSERT INTO user_reading_history (user_id, document_id, current_paragraph, total_paragraphs, last_read_at)
+            SELECT ?, document_id, current_paragraph, total_paragraphs, last_read_at
+            FROM reading_history
+            """,
+            (user_id,),
+        )
+
+    if await _count_user_rows(db, "user_favorite_folders", user_id) == 0 and await _count_rows(db, "favorite_folders") > 0:
+        await db.execute(
+            """
+            INSERT OR IGNORE INTO user_favorite_folders (id, user_id, name, created_at)
+            SELECT id, ?, name, created_at
+            FROM favorite_folders
+            """,
+            (user_id,),
+        )
+
+    if await _count_user_rows(db, "user_favorites", user_id) == 0 and await _count_rows(db, "favorites") > 0:
+        await db.execute(
+            """
+            INSERT OR IGNORE INTO user_favorites (user_id, document_id, folder_id, created_at)
+            SELECT ?, document_id, folder_id, created_at
+            FROM favorites
+            """,
+            (user_id,),
+        )
+
+    if await _count_user_rows(db, "user_wordbook_entries", user_id) == 0 and await _count_rows(db, "wordbook_entries") > 0:
+        await db.execute(
+            """
+            INSERT OR IGNORE INTO user_wordbook_entries (user_id, word, meaning, allusion, citations_json, created_at)
+            SELECT ?, word, meaning, allusion, citations_json, created_at
+            FROM wordbook_entries
+            """,
+            (user_id,),
+        )
+
+    if await _count_user_rows(db, "user_document_notes", user_id) == 0 and await _count_rows(db, "document_notes") > 0:
+        await db.execute(
+            """
+            INSERT OR IGNORE INTO user_document_notes (user_id, document_id, note_text, updated_at)
+            SELECT ?, document_id, note_text, updated_at
+            FROM document_notes
+            """,
+            (user_id,),
+        )
+
+    if await _count_user_rows(db, "user_study_sessions", user_id) == 0 and await _count_rows(db, "study_sessions") > 0:
+        await db.execute(
+            """
+            INSERT INTO user_study_sessions (user_id, document_id, completed_cards, total_cards, mastered_cards, review_again_cards, created_at)
+            SELECT ?, document_id, completed_cards, total_cards, mastered_cards, review_again_cards, created_at
+            FROM study_sessions
+            """,
+            (user_id,),
+        )
 
 
 async def _migrate_legacy_documents_table_if_needed(db: aiosqlite.Connection) -> None:
@@ -189,8 +282,30 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         """)
 
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_reading_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                document_id TEXT NOT NULL,
+                current_paragraph INTEGER DEFAULT 0,
+                total_paragraphs INTEGER DEFAULT 0,
+                last_read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, document_id),
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )
+        """)
+
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS favorite_folders (
                 id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_favorite_folders (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -209,6 +324,19 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         """)
 
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_favorites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                document_id TEXT NOT NULL,
+                folder_id TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, document_id, folder_id),
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE,
+                FOREIGN KEY(folder_id) REFERENCES user_favorite_folders(id) ON DELETE CASCADE
+            )
+        """)
+
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS wordbook_entries (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 word TEXT NOT NULL UNIQUE,
@@ -216,6 +344,19 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 allusion TEXT DEFAULT '',
                 citations_json TEXT DEFAULT '[]',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_wordbook_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                word TEXT NOT NULL,
+                meaning TEXT DEFAULT '',
+                allusion TEXT DEFAULT '',
+                citations_json TEXT DEFAULT '[]',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, word)
             )
         """)
 
@@ -229,8 +370,34 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
         """)
 
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_document_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                document_id TEXT NOT NULL,
+                note_text TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, document_id),
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )
+        """)
+
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS study_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                document_id TEXT NOT NULL,
+                completed_cards INTEGER DEFAULT 0,
+                total_cards INTEGER DEFAULT 0,
+                mastered_cards INTEGER DEFAULT 0,
+                review_again_cards INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_study_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
                 document_id TEXT NOT NULL,
                 completed_cards INTEGER DEFAULT 0,
                 total_cards INTEGER DEFAULT 0,
@@ -391,6 +558,7 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                 ],
             )
 
+        await _maybe_backfill_user_scoped_tables(db)
         await db.commit()
 
 

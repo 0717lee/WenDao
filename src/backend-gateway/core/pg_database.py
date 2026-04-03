@@ -20,6 +20,82 @@ logger = logging.getLogger(__name__)
 pool: Optional[asyncpg.Pool] = None
 
 
+async def _maybe_backfill_user_scoped_tables_pg(conn: asyncpg.Connection) -> None:
+    """Backfill legacy shared user-state rows when exactly one user exists."""
+    users = await conn.fetch("SELECT id::text AS id FROM users ORDER BY created_at ASC LIMIT 2")
+    if len(users) != 1:
+        if len(users) > 1:
+            logger.warning("检测到多个用户，跳过 PostgreSQL 旧共享数据自动回填")
+        return
+
+    user_id = users[0]["id"]
+
+    if await conn.fetchval("SELECT COUNT(*) FROM user_reading_history WHERE user_id = $1::uuid", user_id) == 0:
+        await conn.execute(
+            """
+            INSERT INTO user_reading_history (user_id, document_id, current_paragraph, total_paragraphs, last_read_at)
+            SELECT $1::uuid, document_id, current_paragraph, total_paragraphs, last_read_at
+            FROM reading_history
+            ON CONFLICT (user_id, document_id) DO NOTHING
+            """,
+            user_id,
+        )
+
+    if await conn.fetchval("SELECT COUNT(*) FROM user_favorite_folders WHERE user_id = $1::uuid", user_id) == 0:
+        await conn.execute(
+            """
+            INSERT INTO user_favorite_folders (id, user_id, name, created_at)
+            SELECT id, $1::uuid, name, created_at
+            FROM favorite_folders
+            ON CONFLICT (id) DO NOTHING
+            """,
+            user_id,
+        )
+
+    if await conn.fetchval("SELECT COUNT(*) FROM user_favorites WHERE user_id = $1::uuid", user_id) == 0:
+        await conn.execute(
+            """
+            INSERT INTO user_favorites (id, user_id, document_id, folder_id, created_at)
+            SELECT gen_random_uuid(), $1::uuid, document_id, folder_id, created_at
+            FROM favorites
+            ON CONFLICT (user_id, document_id, folder_id) DO NOTHING
+            """,
+            user_id,
+        )
+
+    if await conn.fetchval("SELECT COUNT(*) FROM user_wordbook_entries WHERE user_id = $1::uuid", user_id) == 0:
+        await conn.execute(
+            """
+            INSERT INTO user_wordbook_entries (id, user_id, word, meaning, allusion, citations_json, created_at)
+            SELECT gen_random_uuid(), $1::uuid, word, meaning, allusion, citations_json, created_at
+            FROM wordbook_entries
+            ON CONFLICT (user_id, word) DO NOTHING
+            """,
+            user_id,
+        )
+
+    if await conn.fetchval("SELECT COUNT(*) FROM user_document_notes WHERE user_id = $1::uuid", user_id) == 0:
+        await conn.execute(
+            """
+            INSERT INTO user_document_notes (id, user_id, document_id, note_text, updated_at)
+            SELECT gen_random_uuid(), $1::uuid, document_id, note_text, updated_at
+            FROM document_notes
+            ON CONFLICT (user_id, document_id) DO NOTHING
+            """,
+            user_id,
+        )
+
+    if await conn.fetchval("SELECT COUNT(*) FROM user_study_sessions WHERE user_id = $1::uuid", user_id) == 0:
+        await conn.execute(
+            """
+            INSERT INTO user_study_sessions (id, user_id, document_id, completed_cards, total_cards, mastered_cards, review_again_cards, created_at)
+            SELECT gen_random_uuid(), $1::uuid, document_id, completed_cards, total_cards, mastered_cards, review_again_cards, created_at
+            FROM study_sessions
+            """,
+            user_id,
+        )
+
+
 @asynccontextmanager
 async def pg_lifespan():
     """
@@ -120,8 +196,39 @@ async def init_pg_database() -> None:
         """)
 
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE,
+                hashed_password TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_reading_history (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+                current_paragraph INT DEFAULT 0,
+                total_paragraphs INT DEFAULT 0,
+                last_read_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, document_id)
+            )
+        """)
+
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS favorite_folders (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_favorite_folders (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
                 name TEXT NOT NULL,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             )
@@ -138,6 +245,17 @@ async def init_pg_database() -> None:
         """)
 
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_favorites (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+                folder_id UUID REFERENCES user_favorite_folders(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, document_id, folder_id)
+            )
+        """)
+
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS wordbook_entries (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 word TEXT UNIQUE NOT NULL,
@@ -145,6 +263,19 @@ async def init_pg_database() -> None:
                 allusion TEXT DEFAULT '',
                 citations_json JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_wordbook_entries (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                word TEXT NOT NULL,
+                meaning TEXT DEFAULT '',
+                allusion TEXT DEFAULT '',
+                citations_json JSONB DEFAULT '[]'::jsonb,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, word)
             )
         """)
 
@@ -157,8 +288,32 @@ async def init_pg_database() -> None:
         """)
 
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_document_notes (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+                note_text TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, document_id)
+            )
+        """)
+
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS study_sessions (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+                completed_cards INT DEFAULT 0,
+                total_cards INT DEFAULT 0,
+                mastered_cards INT DEFAULT 0,
+                review_again_cards INT DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_study_sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID REFERENCES users(id) ON DELETE CASCADE,
                 document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
                 completed_cards INT DEFAULT 0,
                 total_cards INT DEFAULT 0,
@@ -434,5 +589,7 @@ async def init_pg_database() -> None:
                     for item in corpus_documents
                 ],
             )
+
+        await _maybe_backfill_user_scoped_tables_pg(conn)
 
     logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes, study_sessions, sample docs, corpus docs)")

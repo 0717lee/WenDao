@@ -46,7 +46,7 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     # chapter_titles, chapter_count, featured_excerpt, difficulty, guide_summary,
     # reading_tip, recommended_chapters, segment_guides, segments, translation_cache,
     # translation_status, email
-    assert mock_conn.execute.call_count == 29
+    assert mock_conn.execute.call_count == 36
     assert mock_conn.executemany.call_count == 2
 
     # Verify table names are in the SQL
@@ -54,11 +54,17 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     all_sql = " ".join(calls)
     assert "documents" in all_sql
     assert "reading_history" in all_sql
+    assert "user_reading_history" in all_sql
     assert "favorite_folders" in all_sql
+    assert "user_favorite_folders" in all_sql
     assert "favorites" in all_sql
+    assert "user_favorites" in all_sql
     assert "wordbook_entries" in all_sql
+    assert "user_wordbook_entries" in all_sql
     assert "document_notes" in all_sql
+    assert "user_document_notes" in all_sql
     assert "study_sessions" in all_sql
+    assert "user_study_sessions" in all_sql
     assert "users" in all_sql
     assert "image_data" in all_sql
     assert "source_type" in all_sql
@@ -80,6 +86,7 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     assert "translation_cache" in all_sql
     assert "translation_status" in all_sql
     assert "email" in all_sql
+    assert all_sql.index("CREATE TABLE IF NOT EXISTS users") < all_sql.index("CREATE TABLE IF NOT EXISTS user_reading_history")
 
 
 @pytest.mark.asyncio

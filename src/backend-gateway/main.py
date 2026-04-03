@@ -1,8 +1,14 @@
 from dotenv import load_dotenv
+
 load_dotenv()  # 在所有业务模块之前加载 .env 中的 API Keys
 
+from core.runtime_checks import log_startup_checks, prepare_runtime_environment
+from agents.rag import inspect_faiss_index_compatibility
+
+prepare_runtime_environment()
+
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -52,6 +58,28 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
     """Combined lifespan: SQLite + PostgreSQL initialization."""
+    jwt_secret = os.getenv("JWT_SECRET", "")
+    if jwt_secret in {"", "change-this-to-a-random-string-in-production", "wendao-dev-secret-change-in-production"}:
+        logger.warning("JWT_SECRET 仍是默认值，当前仅适合开发/演示环境")
+    log_startup_checks(logger)
+    rag_probe = inspect_faiss_index_compatibility()
+    if rag_probe["status"] == "ok":
+        logger.info(
+            "FAISS 索引兼容检查通过：backend=%s",
+            rag_probe.get("active_backend"),
+        )
+    elif rag_probe["status"] == "missing_index":
+        logger.warning("未找到 FAISS 索引文件，RAG 将降级为纯 LLM 模式: %s", rag_probe["db_path"])
+    elif rag_probe["status"] == "missing_metadata":
+        logger.warning("FAISS 索引缺少 index.meta.json，请重建索引: %s", rag_probe["db_path"])
+    else:
+        logger.warning(
+            "FAISS 索引兼容检查失败(%s)，expected=%s active=%s reason=%s",
+            rag_probe["status"],
+            rag_probe.get("expected_backend"),
+            rag_probe.get("active_backend"),
+            rag_probe.get("reason"),
+        )
     # 1. SQLite (Phase 1)
     logger.info("初始化SQLite数据库...")
     await init_database()
@@ -99,6 +127,21 @@ app.include_router(vision.router)
 app.include_router(speech_api.router)
 app.include_router(creative.router)
 
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    detail = exc.detail if isinstance(exc.detail, str) else "请求失败"
+    payload = {
+        "error": detail,
+        "message": detail,
+        "detail": exc.detail,
+        "path": str(request.url),
+        "status_code": exc.status_code,
+    }
+    if not isinstance(exc.detail, str):
+        payload["details"] = exc.detail
+    return JSONResponse(status_code=exc.status_code, content=payload)
+
 # 全局异常处理中间件
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -107,8 +150,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": "服务器内部错误",
-            "message": str(exc),
-            "path": str(request.url)
+            "message": "服务器内部错误，请稍后重试",
+            "detail": "服务器内部错误，请稍后重试",
+            "path": str(request.url),
+            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
         }
     )
 
@@ -120,8 +165,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "验证错误",
+            "message": "验证错误",
+            "detail": "验证错误",
             "details": exc.errors(),
-            "path": str(request.url)
+            "path": str(request.url),
+            "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
         }
     )
 

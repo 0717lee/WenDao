@@ -25,8 +25,8 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
     async function load() {
       try {
         const [noteRes, foldersRes] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents/${documentId}/note`),
-          fetch(`${API_BASE}/api/v1/reader/folders`),
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/note`, { headers: authHeaders() }),
+          fetch(`${API_BASE}/api/v1/reader/folders`, { headers: authHeaders() }),
         ])
         const noteData = noteRes.ok ? await noteRes.json() : { note_text: '' }
         const folderData = foldersRes.ok ? await foldersRes.json() : []

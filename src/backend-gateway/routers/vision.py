@@ -4,12 +4,14 @@ import base64
 import json
 import os
 import re
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/api/v1", tags=["vision"])
+logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
@@ -34,7 +36,7 @@ def _load_graph_data() -> dict:
         with open(_GRAPH_DATA_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"[Vision] Failed to load graph data: {e}")
+        logger.warning("[Vision] 图谱数据加载失败: %s", e)
         return {"nodes": [], "edges": []}
 
 
@@ -145,7 +147,7 @@ async def analyze_image(
     if len(contents) > MAX_FILE_SIZE:
         return JSONResponse(
             status_code=413,
-            content={"error": "File too large (max 5MB)"},
+            content={"error": "文件过大（最大 5MB）"},
         )
 
     # Validate file type
@@ -153,7 +155,7 @@ async def analyze_image(
     if not content_type.startswith("image/"):
         return JSONResponse(
             status_code=400,
-            content={"error": "Only image files are accepted (JPG/PNG)"},
+            content={"error": "仅支持图片文件（JPG/PNG）"},
         )
 
     image_b64 = base64.b64encode(contents).decode("utf-8")
@@ -167,12 +169,13 @@ async def analyze_image(
         # API key not configured
         return JSONResponse(
             status_code=503,
-            content={"error": f"Vision service unavailable: {e}"},
+            content={"error": "图片识别服务暂未配置"},
         )
     except Exception as e:
+        logger.error("Vision analysis failed: %s", e, exc_info=True)
         return JSONResponse(
             status_code=500,
-            content={"error": f"Vision analysis failed: {e}"},
+            content={"error": "图片识别失败，请稍后重试"},
         )
 
     # Parse structured fields from natural language response

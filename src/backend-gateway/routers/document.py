@@ -33,11 +33,23 @@ from core.kanripo_source import build_repo_record
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
+from core.user_learning_repository import (
+    get_document_note as repo_get_document_note,
+    get_study_progress as repo_get_study_progress,
+    save_document_note as repo_save_document_note,
+    save_study_session as repo_save_study_session,
+)
 from core.wikisource_source import build_wikisource_record, search_wikisource_catalog
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
+
+
+def _extract_user_id(user: Any) -> str | None:
+    if isinstance(user, dict) and user.get("sub"):
+        return str(user["sub"])
+    return None
 
 
 def _create_ocr_agent() -> OCRAgent:
@@ -242,9 +254,9 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
         return await _get_document(row["id"])
 
 
-async def _list_documents(limit: int = 50, source_type: str | None = None) -> list[dict[str, Any]]:
+async def _list_documents(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
     """Return bookshelf-ready document metadata ordered by most recently updated."""
-    where_clause = "WHERE d.source_type = $2" if source_type else ""
+    where_clause = "WHERE d.source_type = $3" if source_type else ""
     try:
         async with get_connection() as conn:
             sql = f"""
@@ -279,12 +291,15 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
                 FROM documents d
                 LEFT JOIN LATERAL (
                     SELECT current_paragraph, total_paragraphs
-                    FROM reading_history
+                    FROM user_reading_history
                     WHERE document_id = d.id
+                      AND user_id = $2::uuid
                     ORDER BY last_read_at DESC
                     LIMIT 1
                 ) h ON TRUE
-                LEFT JOIN document_notes n ON n.document_id = d.id
+                LEFT JOIN user_document_notes n
+                  ON n.document_id = d.id
+                 AND n.user_id = $2::uuid
                 {where_clause}
                 ORDER BY CASE
                     WHEN d.source_type = 'corpus' THEN 0
@@ -296,8 +311,9 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
             rows = await conn.fetch(
                 sql,
                 limit,
+                user_id,
                 source_type,
-            ) if source_type else await conn.fetch(sql, limit)
+            ) if source_type else await conn.fetch(sql, limit, user_id)
             return [dict(row) for row in rows]
     except RuntimeError:
         pass
@@ -324,15 +340,17 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
                 SUBSTR(COALESCE(NULLIF(d.featured_excerpt, ''), NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 1, 140) AS preview,
                 COALESCE((
                     SELECT current_paragraph
-                    FROM reading_history h
+                    FROM user_reading_history h
                     WHERE h.document_id = d.id
+                      AND h.user_id = ?
                     ORDER BY h.last_read_at DESC
                     LIMIT 1
                 ), 0) AS current_paragraph,
                 COALESCE((
                     SELECT total_paragraphs
-                    FROM reading_history h
+                    FROM user_reading_history h
                     WHERE h.document_id = d.id
+                      AND h.user_id = ?
                     ORDER BY h.last_read_at DESC
                     LIMIT 1
                 ), 0) AS total_paragraphs,
@@ -345,7 +363,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
                     ELSE 0
                 END AS has_note
             FROM documents d
-            LEFT JOIN document_notes n ON n.document_id = d.id
+            LEFT JOIN user_document_notes n ON n.document_id = d.id AND n.user_id = ?
             {where_clause_sqlite}
             ORDER BY CASE
                 WHEN d.source_type = 'corpus' THEN 0
@@ -357,7 +375,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None) -> li
         where_clause_sqlite = "WHERE d.source_type = ?" if source_type else ""
         cursor = await db.execute(
             sql.format(where_clause_sqlite=where_clause_sqlite),
-            (limit, source_type) if source_type else (limit,),
+            (user_id, user_id, user_id, limit, source_type) if source_type else (user_id, user_id, user_id, limit),
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
@@ -739,164 +757,31 @@ async def _translate_document_segments(
     return hydrated_document, len(generated_items), progress
 
 
-async def _get_document_note(document_id: str) -> dict[str, Any]:
+async def _get_document_note(document_id: str, user_id: str | None) -> dict[str, Any]:
     """Fetch saved note content for one document."""
-    try:
-        async with get_connection() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT document_id::text AS document_id, note_text, updated_at
-                FROM document_notes
-                WHERE document_id = $1::uuid
-                """,
-                document_id,
-            )
-            if row:
-                return dict(row)
-            return {"document_id": document_id, "note_text": "", "updated_at": None}
-    except RuntimeError:
-        pass
-
-    async with get_db() as db:
-        cursor = await db.execute(
-            """
-            SELECT document_id, note_text, updated_at
-            FROM document_notes
-            WHERE document_id = ?
-            """,
-            (document_id,),
-        )
-        row = await cursor.fetchone()
-        return dict(row) if row else {"document_id": document_id, "note_text": "", "updated_at": None}
+    return await repo_get_document_note(document_id, user_id)
 
 
-async def _save_document_note(document_id: str, note_text: str) -> dict[str, Any]:
+async def _save_document_note(document_id: str, user_id: str, note_text: str) -> dict[str, Any]:
     """Create or update a note attached to a document."""
-    try:
-        async with get_connection() as conn:
-            row = await conn.fetchrow(
-                """
-                INSERT INTO document_notes (document_id, note_text, updated_at)
-                VALUES ($1::uuid, $2, NOW())
-                ON CONFLICT (document_id)
-                DO UPDATE SET note_text = EXCLUDED.note_text, updated_at = NOW()
-                RETURNING document_id::text AS document_id, note_text, updated_at
-                """,
-                document_id,
-                note_text,
-            )
-            return dict(row)
-    except RuntimeError:
-        pass
-
-    async with get_db() as db:
-        await db.execute(
-            """
-            INSERT INTO document_notes (document_id, note_text, updated_at)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(document_id) DO UPDATE SET
-                note_text = excluded.note_text,
-                updated_at = CURRENT_TIMESTAMP
-            """,
-            (document_id, note_text),
-        )
-        await db.commit()
-    return await _get_document_note(document_id)
+    return await repo_save_document_note(document_id, user_id, note_text)
 
 
-async def _save_study_session(document_id: str, body: StudyProgressUpdateRequest) -> dict[str, Any]:
+async def _save_study_session(document_id: str, user_id: str, body: StudyProgressUpdateRequest) -> dict[str, Any]:
     """Persist one study-card review session."""
-    payload = (
-        body.completed_cards,
-        body.total_cards,
-        body.mastered_cards,
-        body.review_again_cards,
+    return await repo_save_study_session(
+        document_id=document_id,
+        user_id=user_id,
+        completed_cards=body.completed_cards,
+        total_cards=body.total_cards,
+        mastered_cards=body.mastered_cards,
+        review_again_cards=body.review_again_cards,
     )
-    try:
-        async with get_connection() as conn:
-            row = await conn.fetchrow(
-                """
-                INSERT INTO study_sessions (
-                    document_id, completed_cards, total_cards, mastered_cards, review_again_cards
-                ) VALUES ($1::uuid, $2, $3, $4, $5)
-                RETURNING
-                    document_id::text AS document_id,
-                    completed_cards,
-                    total_cards,
-                    mastered_cards,
-                    review_again_cards,
-                    created_at
-                """,
-                document_id,
-                *payload,
-            )
-            return dict(row)
-    except RuntimeError:
-        pass
-
-    async with get_db() as db:
-        await db.execute(
-            """
-            INSERT INTO study_sessions (
-                document_id, completed_cards, total_cards, mastered_cards, review_again_cards
-            ) VALUES (?, ?, ?, ?, ?)
-            """,
-            (document_id, *payload),
-        )
-        await db.commit()
-    return await _get_study_progress(document_id)
 
 
-async def _get_study_progress(document_id: str) -> dict[str, Any]:
+async def _get_study_progress(document_id: str, user_id: str | None) -> dict[str, Any]:
     """Return aggregate study progress for one document."""
-    try:
-        async with get_connection() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT
-                    COUNT(*)::int AS sessions_count,
-                    COALESCE(SUM(completed_cards), 0)::int AS completed_cards,
-                    COALESCE(SUM(mastered_cards), 0)::int AS mastered_cards,
-                    COALESCE(SUM(review_again_cards), 0)::int AS review_again_cards,
-                    MAX(created_at) AS last_reviewed_at
-                FROM study_sessions
-                WHERE document_id = $1::uuid
-                """,
-                document_id,
-            )
-            data = dict(row) if row else {}
-    except RuntimeError:
-        async with get_db() as db:
-            cursor = await db.execute(
-                """
-                SELECT
-                    COUNT(*) AS sessions_count,
-                    COALESCE(SUM(completed_cards), 0) AS completed_cards,
-                    COALESCE(SUM(mastered_cards), 0) AS mastered_cards,
-                    COALESCE(SUM(review_again_cards), 0) AS review_again_cards,
-                    MAX(created_at) AS last_reviewed_at
-                FROM study_sessions
-                WHERE document_id = ?
-                """,
-                (document_id,),
-            )
-            row = await cursor.fetchone()
-            data = dict(row) if row else {}
-
-    sessions = int(data.get("sessions_count") or 0)
-    completed = int(data.get("completed_cards") or 0)
-    mastered = int(data.get("mastered_cards") or 0)
-    review_again = int(data.get("review_again_cards") or 0)
-    accuracy = round(mastered / max(completed, 1), 2) if completed else 0.0
-    return {
-        "document_id": document_id,
-        "sessions_count": sessions,
-        "completed_cards": completed,
-        "mastered_cards": mastered,
-        "review_again_cards": review_again,
-        "mastery_rate": accuracy,
-        "last_reviewed_at": data.get("last_reviewed_at"),
-    }
+    return await repo_get_study_progress(document_id, user_id)
 
 
 async def _resolve_citation_reference(title: str, source: str, excerpt: str = "") -> dict[str, Any] | None:
@@ -970,9 +855,9 @@ async def _resolve_citation_reference(title: str, source: str, excerpt: str = ""
     }
 
 
-async def _get_recommendations(document_id: str | None, limit: int = 6) -> list[dict[str, Any]]:
+async def _get_recommendations(document_id: str | None, user_id: str | None, limit: int = 6) -> list[dict[str, Any]]:
     """Recommend next readings using shared entities, history, and wordbook signals."""
-    docs = await _list_documents(limit=200)
+    docs = await _list_documents(limit=200, user_id=user_id)
     if not docs:
         return []
 
@@ -987,11 +872,11 @@ async def _get_recommendations(document_id: str | None, limit: int = 6) -> list[
     history_ids: set[str] = set()
     wordbook_terms: list[str] = []
     try:
-        from routers.reader import _list_wordbook_entries, get_reading_history
+        from routers.reader import _list_reading_history, _list_wordbook_entries
 
-        history_items = await get_reading_history()
+        history_items = await _list_reading_history(user_id)
         history_ids = {str(item.get("id")) for item in history_items}
-        wordbook_entries = await _list_wordbook_entries(limit=20)
+        wordbook_entries = await _list_wordbook_entries(user_id, limit=20)
         wordbook_terms = [entry["word"] for entry in wordbook_entries if entry.get("word")]
     except Exception:
         pass
@@ -1118,9 +1003,13 @@ async def _update_document_results(
 
 
 @router.get("")
-async def list_documents(limit: int = Query(50, ge=1, le=200), source_type: str | None = Query(default=None)):
+async def list_documents(
+    limit: int = Query(50, ge=1, le=200),
+    source_type: str | None = Query(default=None),
+    _user: dict = Depends(require_auth),
+):
     """List documents for the bookshelf/home views."""
-    documents = await _list_documents(limit=limit, source_type=source_type)
+    documents = await _list_documents(limit=limit, source_type=source_type, user_id=_extract_user_id(_user))
     return {"documents": documents, "total": len(documents)}
 
 
@@ -1136,9 +1025,9 @@ async def resolve_citation(
 
 
 @router.get("/recommendations")
-async def get_recommendations(document_id: str | None = Query(default=None), limit: int = Query(6, ge=1, le=20)):
+async def get_recommendations(document_id: str | None = Query(default=None), limit: int = Query(6, ge=1, le=20), _user: dict = Depends(require_auth)):
     """Recommend next documents using reading history, wordbook, and shared entities."""
-    items = await _get_recommendations(document_id=document_id, limit=limit)
+    items = await _get_recommendations(document_id=document_id, user_id=_extract_user_id(_user), limit=limit)
     return {"documents": items, "total": len(items)}
 
 
@@ -1150,6 +1039,7 @@ async def list_catalog(
     primary_only: bool = Query(default=True),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    _user: dict = Depends(require_auth),
 ):
     """Browse the full Kanripo catalog with lazy-import status."""
     return await _list_catalog_entries(
@@ -1163,7 +1053,7 @@ async def list_catalog(
 
 
 @router.post("/catalog/import/{repo_id}")
-async def import_catalog_document(repo_id: str):
+async def import_catalog_document(repo_id: str, _user: dict = Depends(require_auth)):
     """Import one Kanripo text on demand and return the ready-to-read document."""
     existing = await _get_document_by_repo_id(repo_id)
     if existing:
@@ -1195,7 +1085,7 @@ async def import_catalog_document(repo_id: str):
 
 
 @router.post("/{document_id}/translation-cache")
-async def generate_translation_cache(document_id: str, body: TranslationCacheRequest):
+async def generate_translation_cache(document_id: str, body: TranslationCacheRequest, _user: dict = Depends(require_auth)):
     """Generate cached translations for corpus/source documents."""
     document = await _get_document(document_id)
     if not document:
@@ -1217,7 +1107,7 @@ async def generate_translation_cache(document_id: str, body: TranslationCacheReq
 
 
 @router.get("/{document_id}")
-async def get_document(document_id: str):
+async def get_document(document_id: str, _user: dict = Depends(require_auth)):
     """Return one document with full text content for reader/book shelf navigation."""
     row = await _get_document(document_id)
     if not row:
@@ -1226,9 +1116,9 @@ async def get_document(document_id: str):
 
 
 @router.get("/{document_id}/note")
-async def get_document_note(document_id: str):
+async def get_document_note(document_id: str, _user: dict = Depends(require_auth)):
     """Fetch the saved note for one document."""
-    return await _get_document_note(document_id)
+    return await _get_document_note(document_id, _extract_user_id(_user))
 
 
 @router.put("/{document_id}/note")
@@ -1237,11 +1127,11 @@ async def save_document_note(document_id: str, body: DocumentNoteUpdateRequest, 
     document = await _get_document(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
-    return await _save_document_note(document_id, body.note_text.strip())
+    return await _save_document_note(document_id, _extract_user_id(_user) or "", body.note_text.strip())
 
 
 @router.get("/{document_id}/study-cards")
-async def get_study_cards(document_id: str):
+async def get_study_cards(document_id: str, _user: dict = Depends(require_auth)):
     """Generate lightweight study cards and self-check prompts for one document."""
     document = await _get_document(document_id)
     if not document:
@@ -1279,12 +1169,12 @@ async def get_study_cards(document_id: str):
 
 
 @router.get("/{document_id}/study-progress")
-async def get_study_progress(document_id: str):
+async def get_study_progress(document_id: str, _user: dict = Depends(require_auth)):
     """Return aggregated study-card review progress for a document."""
     document = await _get_document(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
-    return await _get_study_progress(document_id)
+    return await _get_study_progress(document_id, _extract_user_id(_user))
 
 
 @router.post("/{document_id}/study-progress")
@@ -1293,7 +1183,7 @@ async def save_study_progress(document_id: str, body: StudyProgressUpdateRequest
     document = await _get_document(document_id)
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
-    return await _save_study_session(document_id, body)
+    return await _save_study_session(document_id, _extract_user_id(_user) or "", body)
 
 
 @router.post("/upload")
@@ -1434,7 +1324,7 @@ async def explain_word_endpoint(word: str, context: str = ""):
 
 
 @router.get("/export/{document_id}")
-async def export_document(document_id: str, format: str = "txt"):
+async def export_document(document_id: str, format: str = "txt", _user: dict = Depends(require_auth)):
     """
     Export a document as PDF or TXT.
     TXT: sections listed sequentially (original, punctuated, translated).

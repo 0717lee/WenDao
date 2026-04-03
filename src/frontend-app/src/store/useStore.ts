@@ -20,12 +20,32 @@ export interface PoemResult {
     topic: string
 }
 
+export interface AnswerContextAction {
+    id: string
+    label: string
+    kind: 'reader' | 'chat' | 'search' | 'study' | 'wordbook'
+    prompt?: string
+    query?: string
+    documentId?: string | null
+    citation?: { title: string; source: string; excerpt?: string }
+}
+
+export interface AnswerContext {
+    trustLabel: string
+    trustPoints: string[]
+    citationCount: number
+    relatedEntityCount: number
+    primaryCitation?: { title: string; source: string; excerpt?: string }
+    suggestedActions: AnswerContextAction[]
+}
+
 /** Chat message interface */
 export interface Message {
     id: string
     role: 'user' | 'assistant'
     content: string
     citations?: Array<{ title: string; source: string; excerpt?: string }>
+    answerContext?: AnswerContext
     entityIds?: string[]
     reasoningSteps?: ReasoningStep[]
     pendingEntities?: Array<{ label: string; group: string; desc: string; confidence: number; similar_to?: { id: string; label: string; similarity: number } }>
@@ -42,6 +62,7 @@ interface AppState {
     addMessage: (message: Message) => void
     updateLastMessage: (content: string) => void
     updateLastMessageCitations: (citations: NonNullable<Message['citations']>) => void
+    updateLastMessageAnswerContext: (answerContext: AnswerContext) => void
     updateLastMessageReasoning: (steps: ReasoningStep[]) => void
     updateLastMessagePoem: (poem: Partial<PoemResult>) => void
     setLoading: (loading: boolean) => void
@@ -80,6 +101,16 @@ export const useStore = create<AppState>((set) => ({
             updatedMessages[updatedMessages.length - 1] = {
                 ...updatedMessages[updatedMessages.length - 1],
                 citations,
+            }
+            return { messages: updatedMessages }
+        }),
+    updateLastMessageAnswerContext: (answerContext) =>
+        set((state) => {
+            if (state.messages.length === 0) return state
+            const updatedMessages = [...state.messages]
+            updatedMessages[updatedMessages.length - 1] = {
+                ...updatedMessages[updatedMessages.length - 1],
+                answerContext,
             }
             return { messages: updatedMessages }
         }),

@@ -96,7 +96,7 @@ class TestVisionAnalyzeEndpoint:
             data={"question": ""},
         )
         assert response.status_code == 413
-        assert "too large" in response.json()["error"].lower()
+        assert "文件过大" in response.json()["error"]
 
     def test_non_image_file_returns_400(self, client):
         """Non-image content type returns 400."""
@@ -106,6 +106,7 @@ class TestVisionAnalyzeEndpoint:
             data={"question": ""},
         )
         assert response.status_code == 400
+        assert "仅支持图片文件" in response.json()["error"]
 
     def test_custom_question_passed_to_agent(self, client):
         """Custom question is forwarded to VisionAgent."""

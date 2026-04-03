@@ -1,11 +1,12 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Search, Volume2, VolumeX } from 'lucide-react'
-import { useStore } from '../store/useStore'
+import { useStore, type AnswerContextAction } from '../store/useStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { ImageUploadPreview } from './ImageUploadPreview'
 import { useVoiceRecorder, playTTSAudio } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
+import { authHeaders } from '../store/useAuthStore'
 import { useGraphStore } from '../store/useGraphStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 import type { ReasoningStep } from './ReasoningTimeline'
@@ -33,8 +34,8 @@ export function ChatInterface() {
     const streamBufferRef = useRef('')
     const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const assistantContentRef = useRef('')
-    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageCitations, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
-    const { setDocument, setUploadStatus, setPendingAnchorText } = useDocumentStore()
+    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageCitations, updateLastMessageAnswerContext, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
+    const { setDocument, setUploadStatus, setPendingAnchorText, setPendingReaderPanel } = useDocumentStore()
     const setActiveTab = useGraphStore((state) => state.setActiveTab)
     const setReaderReturnTab = useGraphStore((state) => state.setReaderReturnTab)
     const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery)
@@ -87,11 +88,13 @@ export function ChatInterface() {
                 })
                 if (citation.excerpt) params.set('excerpt', citation.excerpt)
 
-                const resolveRes = await fetch(`${API_BASE}/api/v1/documents/resolve-citation?${params.toString()}`)
+                const resolveRes = await fetch(`${API_BASE}/api/v1/documents/resolve-citation?${params.toString()}`, {
+                    headers: authHeaders(),
+                })
                 const resolveData = resolveRes.ok ? await resolveRes.json() : { match: null }
 
                 if (resolveData.match?.document_id) {
-                    const documentRes = await fetch(`${API_BASE}/api/v1/documents/${resolveData.match.document_id}`)
+                    const documentRes = await fetch(`${API_BASE}/api/v1/documents/${resolveData.match.document_id}`, { headers: authHeaders() })
                     if (documentRes.ok) {
                         const data = await documentRes.json()
                         setDocument({
@@ -147,6 +150,51 @@ export function ChatInterface() {
             setActiveTab('search')
         },
         [queueSearchQuery, setActiveTab, setDocument, setPendingAnchorText, setReaderReturnTab, setUploadStatus]
+    )
+
+    const openDocumentById = useCallback(
+        async (documentId: string, panel?: 'study' | null) => {
+            try {
+                const documentRes = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: authHeaders() })
+                if (!documentRes.ok) return false
+                const data = await documentRes.json()
+                setDocument({
+                    id: data.id,
+                    title: data.title,
+                    author: data.author ?? undefined,
+                    dynasty: data.dynasty ?? undefined,
+                    category: data.category ?? undefined,
+                    sourceName: data.source_name ?? undefined,
+                    sourceUrl: data.source_url ?? undefined,
+                    chapterTitles: data.chapter_titles ?? undefined,
+                    chapterCount: data.chapter_count ?? undefined,
+                    featuredExcerpt: data.featured_excerpt ?? undefined,
+                    difficulty: data.difficulty ?? undefined,
+                    guideSummary: data.guide_summary ?? undefined,
+                    readingTip: data.reading_tip ?? undefined,
+                    recommendedChapters: data.recommended_chapters ?? undefined,
+                    segmentGuides: data.segment_guides ?? undefined,
+                    translationCache: data.translation_cache ?? undefined,
+                    translationStatus: data.translation_status ?? undefined,
+                    originalText: data.original_text,
+                    punctuatedText: data.punctuated_text || '',
+                    translatedText: data.translated_text || '',
+                    confidence: data.ocr_confidence,
+                    imageUrl: data.image_data || undefined,
+                    sourceType: data.source_type || 'user',
+                })
+                setUploadStatus(data.punctuated_text ? 'done' : 'idle')
+                if (panel) {
+                    setPendingReaderPanel(panel)
+                }
+                setReaderReturnTab('chat')
+                setActiveTab('reader')
+                return true
+            } catch {
+                return false
+            }
+        },
+        [setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
     )
 
     const handleVoiceToggle = useCallback(() => {
@@ -240,12 +288,13 @@ export function ChatInterface() {
 
             const response = await fetch(`${API_BASE}/api/v1/vision/analyze`, {
                 method: 'POST',
+                headers: authHeaders(),
                 body: formData,
             })
 
             if (!response.ok) {
                 const errBody = await response.json().catch(() => ({}))
-                throw new Error(errBody.error || `Server error ${response.status}`)
+                throw new Error(errBody.error || `图片识别失败（${response.status}）`)
             }
 
             const data = await response.json()
@@ -260,7 +309,7 @@ export function ChatInterface() {
                 const updatedMessages = [...state.messages]
                 updatedMessages[updatedMessages.length - 1] = {
                     ...last,
-                    content: analysis.raw_text || 'Analysis complete',
+                    content: analysis.raw_text || '图片解析完成',
                     visionResult: {
                         imagePreview,
                         buildingType: analysis.building_type || '',
@@ -319,17 +368,17 @@ export function ChatInterface() {
         try {
             const response = await fetch(`${API_BASE}/api/v1/creative/poem`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ topic }),
             })
 
             if (!response.ok) {
-                throw new Error(`Server error ${response.status}`)
+                throw new Error(`诗词生成请求失败（${response.status}）`)
             }
 
             const reader = response.body?.getReader()
             const decoder = new TextDecoder()
-            if (!reader) throw new Error('No response body')
+            if (!reader) throw new Error('诗词生成响应为空')
 
             let buffer = ''
             let currentEventType = ''
@@ -371,7 +420,7 @@ export function ChatInterface() {
                             setProgress('')
                         } else if (currentEventType === 'error') {
                             console.error('Poem stream error:', event.message)
-                            updateLastMessage(event.message || 'Poetry generation failed')
+                            updateLastMessage(event.message || '诗词生成失败，请稍后重试')
                             setLoading(false)
                             setProgress('')
                         }
@@ -388,6 +437,41 @@ export function ChatInterface() {
             setProgress('')
         }
     }
+
+    const handleAnswerAction = useCallback(
+        (action: AnswerContextAction) => {
+            if (action.citation) {
+                void handleCitationClick(action.citation)
+                return
+            }
+
+            if (action.kind === 'reader' && action.documentId) {
+                void openDocumentById(action.documentId)
+                return
+            }
+
+            if (action.kind === 'search' && action.query) {
+                queueSearchQuery(action.query)
+                setActiveTab('search')
+                return
+            }
+
+            if (action.kind === 'wordbook') {
+                setActiveTab('wordbook')
+                return
+            }
+
+            if (action.kind === 'study' && action.documentId) {
+                void openDocumentById(action.documentId, 'study')
+                return
+            }
+
+            if (action.prompt) {
+                setInputValue(action.prompt)
+            }
+        },
+        [handleCitationClick, openDocumentById, queueSearchQuery, setActiveTab]
+    )
 
     const sendMessage = async () => {
         if (isLoading) return
@@ -439,6 +523,27 @@ export function ChatInterface() {
 
             updateLastMessageReasoning(demoReasoning)
             updateLastMessageCitations(fallback.citations)
+            updateLastMessageAnswerContext({
+                trustLabel: '离线演示',
+                trustPoints: ['当前回答来自离线体验样例，建议上线环境核对真实引文。'],
+                citationCount: fallback.citations.length,
+                relatedEntityCount: 0,
+                primaryCitation: fallback.citations[0],
+                suggestedActions: [
+                    {
+                        id: 'demo-open-citation',
+                        label: '定位原文',
+                        kind: 'reader',
+                        citation: fallback.citations[0],
+                    },
+                    {
+                        id: 'demo-follow-chat',
+                        label: '继续追问',
+                        kind: 'chat',
+                        prompt: `请继续围绕“${userMessage.content}”做更白话的讲解。`,
+                    },
+                ],
+            })
             updateLastMessage(fallback.content)
             setLoading(false)
             setProgress('')
@@ -447,19 +552,19 @@ export function ChatInterface() {
         try {
             const response = await fetch(`${API_BASE}/api/v1/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
                 body: JSON.stringify({ message: userMessage.content }),
             })
 
             if (!response.ok) {
-                throw new Error('Network response was not ok')
+                throw new Error(`问答请求失败（${response.status}）`)
             }
 
             const reader = response.body?.getReader()
             const decoder = new TextDecoder()
 
             if (!reader) {
-                throw new Error('No response body')
+                throw new Error('问答响应为空')
             }
 
             let buffer = ''
@@ -531,6 +636,8 @@ export function ChatInterface() {
                         // Handle regular data events (type-based or content-based)
                         if (currentEventType === 'progress') {
                             setProgress(event.status || event.text || '')
+                        } else if (currentEventType === 'answer_context') {
+                            updateLastMessageAnswerContext(event)
                         } else if (currentEventType === 'citations') {
                             const citationData = Array.isArray(event) ? event : event.citations
                             if (citationData) {
@@ -641,7 +748,7 @@ export function ChatInterface() {
             )}
 
             {/* Messages */}
-            <MessageList messages={messages} onCitationClick={handleCitationClick} />
+            <MessageList messages={messages} onCitationClick={handleCitationClick} onAnswerAction={handleAnswerAction} />
 
             {/* Loading indicator */}
             {isLoading && currentProgress && (

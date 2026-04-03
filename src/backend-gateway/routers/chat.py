@@ -46,6 +46,62 @@ def sse_reasoning(step: str, label: str, status: str, duration: float = None, mo
     return f'event: reasoning\ndata: {json.dumps(data, ensure_ascii=False)}\n\n'
 
 
+def _build_answer_context(query: str, citations: list[dict], related_entities: list[str]) -> dict:
+    citation_count = len(citations)
+    primary_citation = citations[0] if citations else None
+    trust_points: list[str] = []
+
+    if citation_count > 0:
+        trust_points.append(f"本次回答引用了 {citation_count} 条古籍片段，可继续点开原文核对。")
+    else:
+        trust_points.append("本次回答没有检索到直接引文，建议再回到原文或检索页核对。")
+
+    if related_entities:
+        trust_points.append(f"系统同时关联了 {len(related_entities)} 个知识实体，适合继续追人物、典故与背景。")
+
+    if primary_citation:
+        trust_points.append(f"优先依据《{primary_citation['title']}》中的片段展开讲解。")
+
+    follow_prompt = (
+        f"请把刚才关于“{query}”的解释再说得更白话一些，像老师给初学者讲课一样，并补一个生活化例子。"
+    )
+    entity_prompt = (
+        f"请继续围绕“{query}”讲相关人物、典故和背景脉络，按容易理解的顺序展开。"
+        if related_entities
+        else f"请继续围绕“{query}”补充背景和前后文，让我更容易读懂原文。"
+    )
+
+    actions = [
+        {
+            "id": "open-primary",
+            "label": "定位原文",
+            "kind": "reader",
+            "citation": primary_citation,
+        },
+        {
+            "id": "simplify-answer",
+            "label": "换成更白话",
+            "kind": "chat",
+            "prompt": follow_prompt,
+        },
+        {
+            "id": "follow-allusions",
+            "label": "追人物典故",
+            "kind": "chat",
+            "prompt": entity_prompt,
+        },
+    ]
+
+    return {
+        "trustLabel": "有原文依据" if citation_count > 0 else "建议继续核对",
+        "trustPoints": trust_points,
+        "citationCount": citation_count,
+        "relatedEntityCount": len(related_entities),
+        "primaryCitation": primary_citation,
+        "suggestedActions": actions,
+    }
+
+
 async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerator[str, None]:
     """
     Generate SSE streaming response with reasoning events.
@@ -97,6 +153,8 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
         if related_entities:
             yield f'event: entities\ndata: {json.dumps({"entity_ids": related_entities}, ensure_ascii=False)}\n\n'
 
+        answer_context = _build_answer_context(query=query, citations=citations, related_entities=related_entities)
+        yield f'event: answer_context\ndata: {json.dumps(answer_context, ensure_ascii=False)}\n\n'
 
         # -- Done --
         yield 'event: done\ndata: {}\n\n'

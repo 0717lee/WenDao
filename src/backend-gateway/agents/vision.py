@@ -5,10 +5,11 @@ AI 工具 7 · 智谱 GLM-4V 古建筑图像识别分析
 构件特征、屋顶形制、年代等信息。
 """
 
-import os
 import base64
 from typing import Dict, Any, Optional
 from zhipuai import ZhipuAI
+
+from core.runtime_checks import get_zhipu_api_key
 
 ANALYSIS_PROMPT = """你是一位中国古建筑专家。请分析这张建筑图片，识别并回答：
 1. 建筑类型（宫殿/寺庙/民居/园林/桥梁/塔等）
@@ -25,7 +26,7 @@ class VisionAgent:
     """基于 GLM-4V-Flash 的古建筑图像识别"""
 
     def __init__(self):
-        api_key = os.getenv("ZHIPUAI_API_KEY", "")
+        api_key = get_zhipu_api_key()
         if not api_key:
             raise ValueError("ZHIPUAI_API_KEY 未配置")
         self.client = ZhipuAI(api_key=api_key)

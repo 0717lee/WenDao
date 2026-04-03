@@ -7,10 +7,11 @@ import os
 import jieba
 import logging
 from enum import Enum
-from typing import List, Optional
+from typing import Any, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from core import pg_database
 from core.database import get_db
 from core.lazy_proxy import LazyProxy
 from agents.rag import RAGAgent
@@ -22,6 +23,11 @@ if os.path.exists(DICT_PATH):
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 logger = logging.getLogger(__name__)
+
+
+def get_connection():
+    """Local wrapper so tests can patch either this symbol or pg_database.get_connection."""
+    return pg_database.get_connection()
 
 
 def _create_rag_agent() -> RAGAgent:
@@ -41,6 +47,7 @@ class SearchMode(str, Enum):
 class SearchResult(BaseModel):
     """搜索结果项"""
     id: str  # Changed from int to str to match document IDs like 'doc_1'
+    document_id: str | None = None
     title: str
     content: str
     source: str
@@ -63,6 +70,113 @@ def normalize_scores(scores: List[float]) -> List[float]:
     if max_score == min_score:
         return [1.0] * len(scores)
     return [(s - min_score) / (max_score - min_score) for s in scores]
+
+
+def _normalize_candidate_row(row: Any) -> dict:
+    if isinstance(row, dict):
+        return row
+    try:
+        return dict(row)
+    except Exception:
+        if isinstance(row, (list, tuple)) and len(row) >= 4:
+            preview = row[2] or ""
+            return {
+                "id": str(row[0]),
+                "title": row[1] or "",
+                "source_name": row[3] or "",
+                "original_text": preview,
+                "punctuated_text": preview,
+                "translated_text": preview,
+            }
+        return {
+            "id": "",
+            "title": "",
+            "source_name": "",
+            "original_text": "",
+            "punctuated_text": "",
+            "translated_text": "",
+        }
+
+
+async def _load_document_candidates(limit: int = 200) -> list[dict]:
+    try:
+        async with get_connection() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id::text AS id, title, source_name, original_text, punctuated_text, translated_text
+                FROM documents
+                ORDER BY COALESCE(updated_at, created_at) DESC
+                LIMIT $1
+                """,
+                limit,
+            )
+            return [dict(row) for row in rows]
+    except RuntimeError:
+        async with get_db() as db:
+            cursor = await db.execute(
+                """
+                SELECT id, title, source_name, original_text, punctuated_text, translated_text
+                FROM documents
+                ORDER BY COALESCE(updated_at, created_at) DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            return [_normalize_candidate_row(row) for row in await cursor.fetchall()]
+
+
+async def _resolve_document_id(
+    raw_id: str | None,
+    title: str,
+    source: str,
+    excerpt: str,
+    candidates: list[dict] | None = None,
+) -> str | None:
+    if raw_id:
+        candidate_list = candidates
+        if candidate_list is None:
+            candidate_list = await _load_document_candidates(limit=50)
+        for record in candidate_list:
+            if str(record.get("id")) == str(raw_id):
+                return str(record["id"])
+
+    candidate_list = candidates if candidates is not None else await _load_document_candidates()
+    terms = [value.strip() for value in (title, source, excerpt) if value and value.strip()]
+    if not terms:
+        return None
+
+    best_match: str | None = None
+    best_score = 0
+
+    for record in candidate_list:
+        score = 0
+        record_title = record.get("title") or ""
+        record_source_name = record.get("source_name") or ""
+        haystacks = [
+            record_title,
+            record_source_name,
+            record.get("original_text") or "",
+            record.get("punctuated_text") or "",
+            record.get("translated_text") or "",
+        ]
+
+        for term in terms:
+            if term == record_title:
+                score += 30
+            if term and term in record_title:
+                score += len(term) * 4
+            if term and term in record_source_name:
+                score += len(term) * 4
+            for text in haystacks[2:]:
+                if term and term in text:
+                    score += len(term) * 2
+                    break
+
+        if score > best_score:
+            best_match = str(record.get("id")) if record.get("id") is not None else None
+            best_score = score
+
+    return best_match if best_score > 0 else None
 
 
 async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
@@ -135,6 +249,7 @@ async def fulltext_search(query: str, limit: int = 10) -> List[SearchResult]:
 
         results.append(SearchResult(
             id=str(row[0]),
+            document_id=str(row[0]),
             title=title,
             content=preview,
             source=source,
@@ -156,13 +271,25 @@ async def vector_search(query: str, limit: int = 10) -> List[SearchResult]:
         raise HTTPException(status_code=500, detail=f"向量检索失败: {str(e)}")
 
     results = []
+    candidates = await _load_document_candidates()
     for doc, score in docs_with_scores:
         metadata = doc.metadata
+        title = metadata.get("title", "") or metadata.get("source", "") or "检索结果"
+        source = metadata.get("source", "") or "未知来源"
+        raw_document_id = metadata.get("document_id") or metadata.get("id")
+        document_id = await _resolve_document_id(
+            str(raw_document_id) if raw_document_id is not None else None,
+            title=title,
+            source=source,
+            excerpt=doc.page_content[:120],
+            candidates=candidates,
+        )
         results.append(SearchResult(
             id=str(metadata.get("id", 0)),
-            title=metadata.get("title", ""),
+            document_id=document_id,
+            title=title,
             content=doc.page_content,
-            source=metadata.get("source", ""),
+            source=source,
             score=float(score)
         ))
 

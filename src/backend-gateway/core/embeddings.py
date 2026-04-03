@@ -16,6 +16,8 @@ from pathlib import Path
 import httpx
 from langchain_core.embeddings import Embeddings
 
+from core.runtime_checks import get_zhipu_api_key
+
 logger = logging.getLogger(__name__)
 
 EMBED_DIM = 384  # 统一输出维度 (与 MiniLM-L12-v2 一致)
@@ -24,19 +26,26 @@ EMBED_DIM = 384  # 统一输出维度 (与 MiniLM-L12-v2 一致)
 class WenDaoEmbeddings(Embeddings):
     """带缓存的多后端 Embedding 适配器"""
 
-    def __init__(self, cache_dir: str = ".embedding_cache"):
+    def __init__(
+        self,
+        cache_dir: str = ".embedding_cache",
+        preferred_backend: str | None = None,
+        strict_backend: bool = False,
+    ):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         self._backends: list[str] = []
         self._zhipu_key: Optional[str] = None
         self._fastembed_model = None
         self._active_backend: Optional[str] = None
+        self._preferred_backend = preferred_backend
+        self._strict_backend = strict_backend
         self._init_backends()
 
     def _init_backends(self):
         """发现所有可用的 Embedding 后端"""
         # 方案 1: 智谱 API (embedding-3, 可配置维度)
-        zhipu_key = os.getenv("ZHIPUAI_API_KEY", "")
+        zhipu_key = get_zhipu_api_key()
         if zhipu_key:
             self._zhipu_key = zhipu_key
             self._backends.append("zhipuai")
@@ -63,8 +72,24 @@ class WenDaoEmbeddings(Embeddings):
         # 始终可用，无需模型下载或外部 API
         self._backends.append("sklearn")
 
+        if self._preferred_backend:
+            if self._preferred_backend in self._backends:
+                self._backends = [self._preferred_backend] + [
+                    backend for backend in self._backends if backend != self._preferred_backend
+                ]
+            elif self._strict_backend:
+                raise RuntimeError(f"Embedding backend '{self._preferred_backend}' 当前不可用")
+
         self._active_backend = self._backends[0]
         logger.info(f"[Embedding] 可用后端: {self._backends}, 当前使用: {self._active_backend}")
+
+    @property
+    def active_backend(self) -> str | None:
+        return self._active_backend
+
+    @property
+    def available_backends(self) -> tuple[str, ...]:
+        return tuple(self._backends)
 
     # ── 缓存 ──────────────────────────────────────────────
 

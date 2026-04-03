@@ -40,7 +40,7 @@ class TestGetHistoryEmpty:
         mock_cm, _ = _make_mock_connection(fetch_return=[])
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
-            result = await get_reading_history()
+            result = await get_reading_history({"sub": "user-1"})
 
         assert result == []
 
@@ -59,7 +59,7 @@ class TestGetHistoryWithRecords:
         mock_cm, _ = _make_mock_connection(fetch_return=fake_rows)
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
-            result = await get_reading_history()
+            result = await get_reading_history({"sub": "user-1"})
 
         assert len(result) == 1
         assert result[0]["title"] == "Test Doc"
@@ -76,7 +76,7 @@ class TestGetHistoryWithRecords:
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.get_connection", return_value=mock_cm):
             with pytest.raises(HTTPException) as exc_info:
-                await get_reading_history()
+                await get_reading_history({"sub": "user-1"})
 
         assert exc_info.value.status_code == 500
         assert exc_info.value.detail == "读取阅读记录失败"
@@ -104,12 +104,12 @@ class TestUpdateProgress:
 
         mock_cm, mock_conn = _make_mock_connection(execute_return="UPDATE 0")
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             body = ProgressUpdate(document_id="uuid-new", current_paragraph=1, total_paragraphs=20)
-            result = await update_progress(body)
+            result = await update_progress(body, {"sub": "user-1"})
 
         assert result["status"] == "ok"
-        assert mock_conn.execute.await_count == 2  # UPDATE + INSERT
+        mock_conn.execute.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_update_progress_db_error_raises_500(self):
@@ -140,9 +140,9 @@ class TestCreateFolder:
 
         mock_cm, _ = _make_mock_connection(fetchrow_return={"id": "folder-uuid-1"})
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             body = FolderCreate(name="My Favorites")
-            result = await create_folder(body)
+            result = await create_folder(body, {"sub": "user-1"})
 
         assert result["folder_id"] == "folder-uuid-1"
         assert result["name"] == "My Favorites"
@@ -157,10 +157,10 @@ class TestCreateFolder:
         mock_cm.__aexit__ = AsyncMock(return_value=False)
 
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             with pytest.raises(HTTPException) as exc_info:
                 body = FolderCreate(name="Broken")
-                await create_folder(body)
+                await create_folder(body, {"sub": "user-1"})
             assert exc_info.value.status_code == 500
 
 
@@ -171,14 +171,15 @@ class TestAddFavorite:
     async def test_add_favorite(self):
         from routers.reader import add_favorite, FavoriteAdd
 
-        mock_cm, mock_conn = _make_mock_connection()
+        mock_cm, mock_conn = _make_mock_connection(fetchrow_return={"id": "folder-uuid"})
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
             body = FavoriteAdd(document_id="doc-uuid", folder_id="folder-uuid")
-            result = await add_favorite(body)
+            result = await add_favorite(body, {"sub": "user-1"})
 
         assert result["status"] == "ok"
-        mock_conn.execute.assert_awaited_once()
+        assert mock_conn.fetchrow.await_count == 1
+        assert mock_conn.execute.await_count == 1
 
     @pytest.mark.asyncio
     async def test_add_favorite_db_error_raises_500(self):
@@ -210,7 +211,7 @@ class TestGetFavorites:
         mock_cm, _ = _make_mock_connection(fetch_return=[])
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
-            result = await get_favorites("folder-uuid")
+            result = await get_favorites("folder-uuid", {"sub": "user-1"})
 
         assert result == []
 
@@ -224,7 +225,7 @@ class TestGetFavorites:
         mock_cm, _ = _make_mock_connection(fetch_return=fake_rows)
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
-            result = await get_favorites("folder-uuid")
+            result = await get_favorites("folder-uuid", {"sub": "user-1"})
 
         assert len(result) == 1
         assert result[0]["title"] == "Ancient Text"
@@ -240,7 +241,7 @@ class TestGetFolders:
         mock_cm, _ = _make_mock_connection(fetch_return=[])
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
-            result = await get_folders()
+            result = await get_folders({"sub": "user-1"})
 
         assert result == []
 
@@ -310,6 +311,39 @@ class TestStudyOverview:
         assert result["sessions_count"] == 3
         assert result["mastery_rate"] == 0.75
         assert result["last_reviewed_document"]["title"] == "论语节选"
+
+
+class TestLearningFocus:
+    """Dashboard learning focus endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_learning_focus_returns_payload(self):
+        from routers.reader import get_learning_focus
+
+        with patch("routers.reader._build_learning_focus", new=AsyncMock(return_value={
+            "streak_days": 4,
+            "review_queue_count": 3,
+            "today_review": {
+                "title": "先复习《论语节选》",
+                "description": "回到上次的学习卡片。",
+                "action_label": "继续复习",
+                "action_type": "study",
+                "document_id": "doc-1",
+                "query": "",
+            },
+            "reading_paths": [
+                {"id": "path-classroom", "title": "课内古文快读", "description": "从熟悉篇目切入。", "action_type": "search", "query": "学而时习之", "badge": "入门"},
+            ],
+            "co_reading_prompts": [
+                {"id": "co-read-1", "title": "一句原文开读", "description": "像老师陪读。", "action_type": "chat", "prompt": "请从一句原文开始带我读。"},
+            ],
+        })):
+            result = await get_learning_focus({"sub": "user-1"})
+
+        assert result["streak_days"] == 4
+        assert result["today_review"]["action_type"] == "study"
+        assert result["reading_paths"][0]["title"] == "课内古文快读"
+        assert result["co_reading_prompts"][0]["action_type"] == "chat"
 
 
 if __name__ == "__main__":

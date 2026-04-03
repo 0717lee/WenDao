@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen } from 'lucide-react';
 import { API_BASE } from '../lib/api';
+import { authHeaders } from '../store/useAuthStore';
 
 interface HistoryItem {
   id: string;
@@ -27,7 +28,7 @@ const ReadingHistory: React.FC<ReadingHistoryProps> = ({ onNavigate }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/reader/history`);
+      const response = await fetch(`${API_BASE}/api/v1/reader/history`, { headers: authHeaders() });
       if (!response.ok) throw new Error('Failed to fetch history');
       const data = await response.json();
       setHistory(data);

@@ -5,7 +5,7 @@ import { RegisterPage } from './components/RegisterPage';
 import { Drawer } from './components/Drawer';
 import { useDocumentStore, type Document } from './store/useDocumentStore';
 import { useGraphStore } from './store/useGraphStore';
-import { useAuthStore } from './store/useAuthStore';
+import { authHeaders, useAuthStore } from './store/useAuthStore';
 import { useStore } from './store/useStore';
 import { API_BASE } from './lib/api';
 import { getDemoDocumentById, toReaderDocument } from './data/demoDocuments';
@@ -117,7 +117,7 @@ function App() {
         async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
             let nextDocument: Document | null = null;
             try {
-                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`);
+                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: authHeaders() });
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
                 nextDocument = buildReaderDocument(data);
@@ -173,7 +173,7 @@ function App() {
                 return;
             }
             try {
-                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`);
+                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: authHeaders() });
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
                 toggleComparisonDocument(buildReaderDocument(data));
@@ -216,7 +216,7 @@ function App() {
             case 'chat':
                 return <ChatInterface />;
             case 'search':
-                return <SearchPanel />;
+                return <SearchPanel onOpenDocument={openDocument} onAsk={jumpToChat} />;
             case 'reader':
                 if (getReaderView() === 'hub') {
                     return (

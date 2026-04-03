@@ -127,6 +127,80 @@ class TestDatabaseOperations:
         os.remove(test_db)
 
 
+class TestUserScopedBackfill:
+    """测试旧共享数据在单用户时自动回填到用户作用域表。"""
+
+    @pytest.mark.asyncio
+    async def test_init_backfills_shared_state_for_single_user(self):
+        test_db = "test_ancient_texts.db"
+        if os.path.exists(test_db):
+            os.remove(test_db)
+
+        await init_database(test_db)
+
+        async with get_db(test_db) as db:
+            cursor = await db.execute("SELECT id FROM documents WHERE source_type = 'sample' LIMIT 1")
+            row = await cursor.fetchone()
+            document_id = row["id"]
+
+            await db.execute(
+                "INSERT INTO users (id, username, email, hashed_password) VALUES (?, ?, ?, ?)",
+                ("user-1", "tester", "tester@example.com", "hashed"),
+            )
+            await db.execute(
+                "INSERT INTO reading_history (document_id, current_paragraph, total_paragraphs) VALUES (?, ?, ?)",
+                (document_id, 2, 8),
+            )
+            await db.execute(
+                "INSERT INTO favorite_folders (id, name) VALUES (?, ?)",
+                ("folder-1", "默认收藏夹"),
+            )
+            await db.execute(
+                "INSERT INTO favorites (document_id, folder_id) VALUES (?, ?)",
+                (document_id, "folder-1"),
+            )
+            await db.execute(
+                "INSERT INTO wordbook_entries (word, meaning, allusion, citations_json) VALUES (?, ?, ?, ?)",
+                ("仁", "爱人", "克己复礼", "[]"),
+            )
+            await db.execute(
+                "INSERT INTO document_notes (document_id, note_text) VALUES (?, ?)",
+                (document_id, "这是旧笔记"),
+            )
+            await db.execute(
+                """
+                INSERT INTO study_sessions (document_id, completed_cards, total_cards, mastered_cards, review_again_cards)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (document_id, 3, 5, 2, 1),
+            )
+            await db.commit()
+
+        await init_database(test_db)
+        await init_database(test_db)
+
+        async with get_db(test_db) as db:
+            cursor = await db.execute("SELECT COUNT(*) FROM user_reading_history WHERE user_id = ?", ("user-1",))
+            assert (await cursor.fetchone())[0] == 1
+
+            cursor = await db.execute("SELECT COUNT(*) FROM user_favorite_folders WHERE user_id = ?", ("user-1",))
+            assert (await cursor.fetchone())[0] == 1
+
+            cursor = await db.execute("SELECT COUNT(*) FROM user_favorites WHERE user_id = ?", ("user-1",))
+            assert (await cursor.fetchone())[0] == 1
+
+            cursor = await db.execute("SELECT COUNT(*) FROM user_wordbook_entries WHERE user_id = ?", ("user-1",))
+            assert (await cursor.fetchone())[0] == 1
+
+            cursor = await db.execute("SELECT COUNT(*) FROM user_document_notes WHERE user_id = ?", ("user-1",))
+            assert (await cursor.fetchone())[0] == 1
+
+            cursor = await db.execute("SELECT COUNT(*) FROM user_study_sessions WHERE user_id = ?", ("user-1",))
+            assert (await cursor.fetchone())[0] == 1
+
+        os.remove(test_db)
+
+
 class TestChatRequestModel:
     """测试3: ChatRequest模型验证必填字段（message非空）"""
 

@@ -70,8 +70,7 @@ class TestStreamChatResponse:
             "related_entities": [],
         }
 
-        with patch("core.entity_discovery.EntityDiscovery", side_effect=ImportError), \
-             patch("routers.chat.get_db", side_effect=Exception("skip db")):
+        with patch("routers.chat.get_db", side_effect=Exception("skip db")):
             steps_seen = []
             async for event in stream_chat_response("test query", mock_rag):
                 if event.startswith("event: reasoning"):
@@ -97,8 +96,7 @@ class TestStreamChatResponse:
             "related_entities": [],
         }
 
-        with patch("core.entity_discovery.EntityDiscovery", side_effect=ImportError), \
-             patch("routers.chat.get_db", side_effect=Exception("skip db")):
+        with patch("routers.chat.get_db", side_effect=Exception("skip db")):
             step_statuses = {}
             async for event in stream_chat_response("q", mock_rag):
                 if event.startswith("event: reasoning"):
@@ -119,8 +117,7 @@ class TestStreamChatResponse:
             "related_entities": [],
         }
 
-        with patch("core.entity_discovery.EntityDiscovery", side_effect=ImportError), \
-             patch("routers.chat.get_db", side_effect=Exception("skip db")):
+        with patch("routers.chat.get_db", side_effect=Exception("skip db")):
             event_types = []
             async for event in stream_chat_response("q", mock_rag):
                 if event.startswith("event: reasoning"):
@@ -159,8 +156,7 @@ class TestStreamChatResponse:
             "related_entities": [],
         }
 
-        with patch("core.entity_discovery.EntityDiscovery", side_effect=ImportError), \
-             patch("routers.chat.get_db", side_effect=Exception("skip db")):
+        with patch("routers.chat.get_db", side_effect=Exception("skip db")):
             reasoning_events = []
             async for event in stream_chat_response("", mock_rag):
                 if event.startswith("event: reasoning"):

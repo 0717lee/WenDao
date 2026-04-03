@@ -6,12 +6,14 @@ the knowledge graph entity list (ancient_texts_graph.json).
 
 Two paths:
   - Fast path: substring matching (no API needed)
-  - Enhanced path: GLM-4 extraction with constrained entity list (when ZHIPU_API_KEY set)
+  - Enhanced path: GLM-4 extraction with constrained entity list (when ZHIPUAI_API_KEY set)
 """
 import json
 import os
 import logging
 from typing import Dict, List, Optional
+
+from core.runtime_checks import get_zhipu_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +83,7 @@ class EntityExtractor:
         Returns None if API unavailable or call fails (caller falls back to fast path).
         Only returns entity IDs that exist in the known entity list.
         """
-        api_key = os.getenv("ZHIPU_API_KEY", "")
+        api_key = get_zhipu_api_key()
         if not api_key:
             return None
 
@@ -126,8 +128,12 @@ class EntityExtractor:
             if not isinstance(ids, list):
                 return None
 
-            # Filter to only known IDs
-            return [eid for eid in ids if eid in self._known_ids]
+            # Filter to only known IDs and preserve first-seen order.
+            filtered: List[str] = []
+            for eid in ids:
+                if eid in self._known_ids and eid not in filtered:
+                    filtered.append(eid)
+            return filtered
 
         except Exception as e:
             logger.warning("GLM-4 entity extraction failed: %s", e)

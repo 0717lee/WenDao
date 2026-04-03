@@ -59,6 +59,7 @@ class TestExportTxt:
     @pytest.mark.asyncio
     async def test_export_txt(self, mock_pg_pool, monkeypatch):
         from core import pg_database
+        from core.auth import require_auth
 
         monkeypatch.setattr(pg_database, "pool", mock_pg_pool)
 
@@ -68,6 +69,7 @@ class TestExportTxt:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[require_auth] = lambda: {"sub": "user-1"}
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -87,6 +89,7 @@ class TestExportPdf:
     @pytest.mark.asyncio
     async def test_export_pdf(self, mock_pg_pool, monkeypatch):
         from core import pg_database
+        from core.auth import require_auth
 
         monkeypatch.setattr(pg_database, "pool", mock_pg_pool)
 
@@ -96,6 +99,7 @@ class TestExportPdf:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[require_auth] = lambda: {"sub": "user-1"}
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -113,6 +117,7 @@ class TestExportNotFound:
     @pytest.mark.asyncio
     async def test_export_not_found(self, mock_pg_pool_not_found, monkeypatch):
         from core import pg_database
+        from core.auth import require_auth
 
         monkeypatch.setattr(pg_database, "pool", mock_pg_pool_not_found)
 
@@ -122,6 +127,7 @@ class TestExportNotFound:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[require_auth] = lambda: {"sub": "user-1"}
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -170,6 +176,7 @@ class TestExportEmptyDocument:
 
     @pytest.mark.asyncio
     async def test_export_empty_document(self, monkeypatch):
+        from core.auth import require_auth
         mock_conn = AsyncMock()
         mock_conn.fetchrow = AsyncMock(
             return_value={
@@ -195,6 +202,7 @@ class TestExportEmptyDocument:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[require_auth] = lambda: {"sub": "user-1"}
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -209,6 +217,7 @@ class TestExportCJKCharacters:
     @pytest.mark.asyncio
     async def test_export_cjk_pdf(self, mock_pg_pool, monkeypatch):
         from core import pg_database
+        from core.auth import require_auth
         monkeypatch.setattr(pg_database, "pool", mock_pg_pool)
 
         from httpx import ASGITransport, AsyncClient
@@ -217,6 +226,7 @@ class TestExportCJKCharacters:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[require_auth] = lambda: {"sub": "user-1"}
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -234,6 +244,7 @@ class TestExportTxtContent:
     @pytest.mark.asyncio
     async def test_export_txt_content_sections(self, mock_pg_pool, monkeypatch):
         from core import pg_database
+        from core.auth import require_auth
         monkeypatch.setattr(pg_database, "pool", mock_pg_pool)
 
         from httpx import ASGITransport, AsyncClient
@@ -242,6 +253,7 @@ class TestExportTxtContent:
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[require_auth] = lambda: {"sub": "user-1"}
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:

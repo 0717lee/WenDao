@@ -123,6 +123,9 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
           {loading ? (
             /* Skeleton loading */
             <div className="space-y-3">
+              <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                加载中...
+              </p>
               <div className="skeleton-shimmer h-4 w-16 rounded-lg" />
               <div className="skeleton-shimmer h-4 w-full rounded-lg" />
               <div className="skeleton-shimmer h-4 w-3/4 rounded-lg" />

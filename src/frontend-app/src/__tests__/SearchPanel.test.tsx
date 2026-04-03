@@ -7,14 +7,18 @@ global.fetch = vi.fn();
 
 describe('SearchPanel', () => {
   const searchPlaceholder = /输入人物、典故、概念或一句原文/i;
+  const props = {
+    onOpenDocument: vi.fn(),
+    onAsk: vi.fn(),
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('renders search input and button', () => {
-    render(<SearchPanel />);
-    
+    render(<SearchPanel {...props} />);
+
     expect(screen.getByPlaceholderText(searchPlaceholder)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /搜索/i })).toBeInTheDocument();
   });
@@ -27,20 +31,20 @@ describe('SearchPanel', () => {
           title: '斗拱结构',
           content: '斗拱是中国古代建筑特有的构件...',
           source: '营造法式',
-          score: 0.85
-        }
+          score: 0.85,
+        },
       ],
       mode: 'HYBRID',
-      total: 1
+      total: 1,
     };
 
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse
+      json: async () => mockResponse,
     });
 
-    render(<SearchPanel />);
-    
+    render(<SearchPanel {...props} />);
+
     const input = screen.getByPlaceholderText(searchPlaceholder);
     const button = screen.getByRole('button', { name: /搜索/i });
 
@@ -62,20 +66,20 @@ describe('SearchPanel', () => {
           title: '斗拱结构',
           content: '斗拱是中国古代建筑特有的构件，用于承重和装饰。',
           source: '营造法式',
-          score: 0.85
-        }
+          score: 0.85,
+        },
       ],
       mode: 'HYBRID',
-      total: 1
+      total: 1,
     };
 
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse
+      json: async () => mockResponse,
     });
 
-    render(<SearchPanel />);
-    
+    render(<SearchPanel {...props} />);
+
     const input = screen.getByPlaceholderText(searchPlaceholder);
     fireEvent.change(input, { target: { value: '斗拱' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
@@ -95,20 +99,20 @@ describe('SearchPanel', () => {
           title: '斗拱结构',
           content: '斗拱是中国古代建筑特有的构件，用于承重和装饰。',
           source: '营造法式',
-          score: 0.85
-        }
+          score: 0.85,
+        },
       ],
       mode: 'HYBRID',
-      total: 1
+      total: 1,
     };
 
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockResponse
+      json: async () => mockResponse,
     });
 
-    render(<SearchPanel />);
-    
+    render(<SearchPanel {...props} />);
+
     const input = screen.getByPlaceholderText(searchPlaceholder);
     fireEvent.change(input, { target: { value: '斗拱' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
@@ -117,18 +121,16 @@ describe('SearchPanel', () => {
       expect(screen.getByText('斗拱结构')).toBeInTheDocument();
     });
 
-    // Click on result to open modal
     fireEvent.click(screen.getByText('斗拱结构'));
 
-    // Modal should show full content
     await waitFor(() => {
       expect(screen.getAllByText('斗拱结构').length).toBeGreaterThan(1);
     });
   });
 
   it('supports switching between search modes', () => {
-    render(<SearchPanel />);
-    
+    render(<SearchPanel {...props} />);
+
     const [fulltextRadio, vectorRadio, hybridRadio] = screen.getAllByRole('radio');
 
     expect(hybridRadio).toBeChecked();
@@ -143,11 +145,11 @@ describe('SearchPanel', () => {
   it('shows error message when search fails', async () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ detail: '搜索关键词不能为空' })
+      json: async () => ({ detail: '搜索关键词不能为空' }),
     });
 
-    render(<SearchPanel />);
-    
+    render(<SearchPanel {...props} />);
+
     const input = screen.getByPlaceholderText(searchPlaceholder);
     fireEvent.change(input, { target: { value: '斗拱' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
@@ -160,7 +162,7 @@ describe('SearchPanel', () => {
   it('shows fallback actions when network request cannot reach the search service', async () => {
     (global.fetch as any).mockRejectedValueOnce(new Error('Failed to fetch'));
 
-    render(<SearchPanel />);
+    render(<SearchPanel {...props} />);
 
     const input = screen.getByPlaceholderText(searchPlaceholder);
     fireEvent.change(input, { target: { value: '孔子怎样谈仁' } });
@@ -170,5 +172,40 @@ describe('SearchPanel', () => {
       expect(screen.getByText(/离线体验样例结果/i)).toBeInTheDocument();
       expect(screen.getByText('体验样例 · 《论语·学而》')).toBeInTheDocument();
     });
+  });
+
+  it('routes search results to reading and QA actions', async () => {
+    const mockResponse = {
+      results: [
+        {
+          id: 'doc-42',
+          document_id: 'real-doc-42',
+          title: '斗拱结构',
+          content: '斗拱是中国古代建筑特有的构件，用于承重和装饰。',
+          source: '营造法式',
+          score: 0.85,
+        },
+      ],
+      mode: 'HYBRID',
+      total: 1,
+    };
+
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
+
+    render(<SearchPanel {...props} />);
+
+    fireEvent.change(screen.getByPlaceholderText(searchPlaceholder), { target: { value: '斗拱' } });
+    fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
+
+    expect(await screen.findByText('斗拱结构')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '打开原文' }));
+    expect(props.onOpenDocument).toHaveBeenCalledWith('real-doc-42');
+
+    fireEvent.click(screen.getByRole('button', { name: '去问答' }));
+    expect(props.onAsk).toHaveBeenCalledWith(expect.stringContaining('斗拱结构'));
   });
 });

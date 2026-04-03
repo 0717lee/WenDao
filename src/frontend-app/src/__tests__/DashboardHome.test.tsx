@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import DashboardHome from '../components/DashboardHome'
 
 function installFetchMock() {
@@ -48,7 +48,9 @@ function installFetchMock() {
 
     if (url.includes('/api/v1/reader/wordbook')) {
       return Promise.resolve({ ok: true, json: async () => ({ entries: [] }) })
-    }if (url.includes('/api/v1/documents/recommendations')) {
+    }
+
+    if (url.includes('/api/v1/documents/recommendations')) {
       return Promise.resolve({ ok: true, json: async () => ({ documents: [] }) })
     }
 
@@ -87,29 +89,29 @@ describe('DashboardHome', () => {
     installFetchMock()
   })
 
-  it('renders the new product positioning and sample entry', async () => {
+  it('renders the reading-first positioning and sample entry', async () => {
     render(<DashboardHome {...props} />)
 
     expect(
       screen.getByRole('heading', {
-        name: '这是一个帮你读懂古籍的阅读工具，识别上传只是辅助入口',
+        name: /专为古籍打造的阅读平台/i,
       })
     ).toBeInTheDocument()
-    expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /先读一篇精选导读/ })).toBeInTheDocument()
+    expect(screen.getByText('学习路径')).toBeInTheDocument()
   })
 
-  it('routes sample cards and search topics to the right callbacks', async () => {
+  it('routes the primary reading and search entries to the right callbacks', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByText('体验样例 · 《论语·学而》'))
+    fireEvent.click(await screen.findByRole('button', { name: /先读一篇精选导读/ }))
     expect(props.onOpenDocument).toHaveBeenCalledWith('sample-1')
 
-    const topicButtons = screen.getAllByRole('button', { name: /孔子怎样谈“仁”/ })
-    fireEvent.click(topicButtons[0])
+    fireEvent.click(screen.getByRole('button', { name: /按问题寻找原文/ }))
     expect(props.onSearch).toHaveBeenCalledWith('孔子怎样谈“仁”')
   })
 
-  it('keeps sample entry available when one dashboard request fails', async () => {
+  it('keeps the primary reading entry available when one dashboard request fails', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
       if (url.includes('/api/v1/documents?limit=12')) {
         return Promise.resolve({ ok: true, json: async () => ({ documents: [] }) })
@@ -140,7 +142,8 @@ describe('DashboardHome', () => {
       }
       if (url.includes('/api/v1/reader/wordbook')) {
         return Promise.resolve({ ok: true, json: async () => ({ entries: [] }) })
-      }if (url.includes('/api/v1/reader/study-overview')) {
+      }
+      if (url.includes('/api/v1/reader/study-overview')) {
         return Promise.resolve({ ok: true, json: async () => null })
       }
       return Promise.resolve({ ok: true, json: async () => ({}) })
@@ -148,25 +151,31 @@ describe('DashboardHome', () => {
 
     render(<DashboardHome {...props} />)
 
-    expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /先读一篇精选导读/ })).toBeInTheDocument()
   })
 
-  it('routes stat cards to reader hub and wordbook entry points', async () => {
+  it('routes overview cards and study CTA to the right entry points', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /可读篇目/ }))
+    await screen.findByRole('button', { name: /继续学习/ })
+
+    fireEvent.click(screen.getByRole('button', { name: /可读篇目/ }))
     expect(props.onOpenReaderHub).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: /字词本/i }))
+    fireEvent.click(screen.getByRole('button', { name: '打开字词本' }))
     expect(props.onOpenWordbook).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /继续学习/ }))
+    expect(props.onContinueStudy).toHaveBeenCalledWith('sample-1')
   })
 
-  it('routes hotspot entities to chat question', async () => {
+  it('routes the OCR helper entry to reader hub', async () => {
     render(<DashboardHome {...props} />)
 
-    const hotspotButton = await screen.findByRole('button', { name: /孔子.*4 关联/i })
-    fireEvent.click(hotspotButton)
+    fireEvent.click(await screen.findByRole('button', { name: /扫描图片并识别/ }))
 
-    expect(props.onAsk).toHaveBeenCalled()
+    await waitFor(() => {
+      expect(props.onOpenReaderHub).toHaveBeenCalled()
+    })
   })
 })

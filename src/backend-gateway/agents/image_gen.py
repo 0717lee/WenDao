@@ -4,16 +4,17 @@ AI 工具 6 · 智谱 CogView-3 古建筑概念图生成
 根据用户描述或知识文本，生成古建筑场景的概念插画。
 """
 
-import os
 from typing import Optional
 from zhipuai import ZhipuAI
+
+from core.runtime_checks import get_zhipu_api_key
 
 
 class ImageGenAgent:
     """基于 CogView-3-Flash 的古建筑概念图生成"""
 
     def __init__(self):
-        api_key = os.getenv("ZHIPUAI_API_KEY", "")
+        api_key = get_zhipu_api_key()
         if not api_key:
             raise ValueError("ZHIPUAI_API_KEY 未配置")
         self.client = ZhipuAI(api_key=api_key)

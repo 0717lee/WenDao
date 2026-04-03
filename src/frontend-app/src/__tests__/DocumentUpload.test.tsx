@@ -136,7 +136,7 @@ describe('DocumentUpload', () => {
   it('renders dual-entry page with upload zone and sample area', async () => {
     render(<DocumentUpload />)
 
-    expect(screen.getByText(/没有古籍图片，也可以马上开始/)).toBeInTheDocument()
+    expect(screen.getByText(/没有古籍图片，也可立即开始/)).toBeInTheDocument()
     expect(screen.getByText(/拖拽图片|点击上传/)).toBeInTheDocument()
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
   })
@@ -246,7 +246,7 @@ describe('DocumentUpload', () => {
     render(<DocumentUpload />)
 
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
-    expect(screen.getByText(/本地演示样例/)).toBeInTheDocument()
+    expect(screen.getByText(/当前展示的是本地样例/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('体验样例 · 《论语·学而》'))
 

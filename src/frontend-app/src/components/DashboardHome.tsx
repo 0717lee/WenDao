@@ -3,14 +3,16 @@ import {
   ArrowRight,
   BookOpen,
   Clock3,
+  Flame,
   LibraryBig,
-  Search,
   Sparkles,
   Star,
   ScrollText,
+  Users,
 } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { getDemoBookshelfDocuments } from '../data/demoDocuments'
+import { authHeaders } from '../store/useAuthStore'
 
 interface DashboardHomeProps {
   onOpenDocument: (documentId: string) => void
@@ -65,6 +67,31 @@ interface StudyOverview {
   last_reviewed_document?: { document_id: string; title: string; created_at?: string } | null
 }
 
+interface FocusAction {
+  action_type: 'reader' | 'study' | 'search' | 'chat' | 'wordbook'
+  document_id?: string | null
+  query?: string
+  prompt?: string
+}
+
+interface FocusItem extends FocusAction {
+  id: string
+  title: string
+  description: string
+}
+
+interface LearningFocus {
+  streak_days: number
+  review_queue_count: number
+  today_review: FocusAction & {
+    title: string
+    description: string
+    action_label: string
+  }
+  reading_paths: Array<FocusItem & { badge?: string }>
+  co_reading_prompts: FocusItem[]
+}
+
 const QUICK_QUESTION_PROMPTS = [
   '“学而时习之”到底在讲什么？',
   '请用白话解释《道德经》第一章',
@@ -104,6 +131,7 @@ export default function DashboardHome({
   const [wordbook, setWordbook] = useState<WordbookItem[]>([])
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([])
   const [studyOverview, setStudyOverview] = useState<StudyOverview | null>(null)
+  const [learningFocus, setLearningFocus] = useState<LearningFocus | null>(null)
   const [usingDemoSamples, setUsingDemoSamples] = useState(false)
 
   useEffect(() => {
@@ -113,7 +141,7 @@ export default function DashboardHome({
       setLoading(true)
       const loadJson = async <T,>(url: string, fallback: T): Promise<T> => {
         try {
-          const response = await fetch(url)
+          const response = await fetch(url, { headers: authHeaders() })
           if (!response.ok) return fallback
           return (await response.json()) as T
         } catch {
@@ -122,7 +150,7 @@ export default function DashboardHome({
       }
 
       try {
-        const [docsData, corpusData, sampleData, historyData, wordbookData, recommendationData, studyData] = await Promise.all([
+        const [docsData, corpusData, sampleData, historyData, wordbookData, recommendationData, studyData, focusData] = await Promise.all([
           loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [] }),
           loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=8&source_type=corpus`, { documents: [] }),
           loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [] }),
@@ -130,6 +158,7 @@ export default function DashboardHome({
           loadJson<{ entries: WordbookItem[] }>(`${API_BASE}/api/v1/reader/wordbook?limit=6`, { entries: [] }),
           loadJson<{ documents: RecommendationItem[] }>(`${API_BASE}/api/v1/documents/recommendations?limit=4`, { documents: [] }),
           loadJson<StudyOverview | null>(`${API_BASE}/api/v1/reader/study-overview`, null),
+          loadJson<LearningFocus | null>(`${API_BASE}/api/v1/reader/focus`, null),
         ])
 
         if (cancelled) return
@@ -148,6 +177,7 @@ export default function DashboardHome({
         setWordbook(Array.isArray(wordbookData.entries) ? wordbookData.entries : [])
         setRecommendations(Array.isArray(recommendationData.documents) ? recommendationData.documents : [])
         setStudyOverview(studyData && typeof studyData === 'object' ? studyData : null)
+        setLearningFocus(focusData && typeof focusData === 'object' ? focusData : null)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -159,6 +189,30 @@ export default function DashboardHome({
     }
   }, [])
 
+  const runFocusAction = (action: FocusAction) => {
+    if (action.action_type === 'reader' && action.document_id) {
+      onOpenDocument(action.document_id)
+      return
+    }
+    if (action.action_type === 'study' && action.document_id) {
+      onContinueStudy(action.document_id)
+      return
+    }
+    if (action.action_type === 'search' && action.query) {
+      onSearch(action.query)
+      return
+    }
+    if (action.action_type === 'chat' && action.prompt) {
+      onAsk(action.prompt)
+      return
+    }
+    if (action.action_type === 'wordbook') {
+      onOpenWordbook()
+      return
+    }
+    onOpenReaderHub()
+  }
+
   const firstCorpus = corpusDocuments[0]
   const firstSample = sampleDocuments[0]
   const primaryAction = () => {
@@ -166,7 +220,6 @@ export default function DashboardHome({
     if (firstSample) return onOpenDocument(firstSample.id)
     return onAsk(QUICK_QUESTION_PROMPTS[0])
   }
-  const featuredReadingDocuments = corpusDocuments.length > 0 ? corpusDocuments : sampleDocuments
   const heroEntryWays = [
     {
       key: 'corpus',
@@ -241,6 +294,27 @@ export default function DashboardHome({
     history.length > 0 ||
     wordbook.length > 0 ||
     (studyOverview?.sessions_count ?? 0) > 0
+  const continueStudyTarget =
+    studyOverview?.last_reviewed_document?.document_id ||
+    history[0]?.id ||
+    firstCorpus?.id ||
+    firstSample?.id ||
+    null
+  const recentTrailTitle =
+    studyOverview?.last_reviewed_document?.title ||
+    history[0]?.title ||
+    wordbook[0]?.word ||
+    null
+  const recentTrailTime =
+    studyOverview?.last_reviewed_document?.created_at ||
+    history[0]?.last_read_at ||
+    null
+
+  const streakDays = learningFocus?.streak_days ?? 0
+  const reviewQueueCount = learningFocus?.review_queue_count ?? 0
+  const todayReview = learningFocus?.today_review
+  const readingPaths = learningFocus?.reading_paths ?? []
+  const coReadingPrompts = learningFocus?.co_reading_prompts ?? []
 
   return (
     <div className="relative h-full overflow-y-auto px-4 py-5 md:px-6 md:py-7" style={{ backgroundColor: 'var(--gf-bg)' }}>
@@ -361,6 +435,246 @@ export default function DashboardHome({
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <div
+            className="rounded-[28px] p-4 md:p-5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  阅读概览
+                </h3>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  把继续阅读、字词积累和典籍入口收在一个地方。
+                </p>
+              </div>
+              {usingDemoSamples && (
+                <span
+                  className="rounded-full px-3 py-1 text-[11px]"
+                  style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                >
+                  样例已切到本地兜底
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {statCards.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={item.action}
+                  className="rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                  style={{
+                    background: item.surface,
+                    border: '1px solid rgba(26,30,35,0.06)',
+                    boxShadow: '0 10px 24px rgba(26,30,35,0.04)',
+                  }}
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                      {item.label}
+                    </span>
+                    <item.icon className="h-4 w-4" style={{ color: item.accent }} />
+                  </div>
+                  <div className="text-3xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
+                    {loading ? '—' : item.value}
+                  </div>
+                  <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                    {item.hint}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="rounded-[28px] p-4 md:p-5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-4">
+              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                学习路径
+              </h3>
+              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                继续读、回看字词、复习卡片，不让理解停在第一次阅读。
+              </p>
+            </div>
+
+            {hasLearningTrail ? (
+              <div className="space-y-4">
+                <div
+                  className="rounded-[24px] px-4 py-4"
+                  style={{ backgroundColor: 'rgba(248,244,233,0.92)', border: '1px solid rgba(201,160,99,0.16)' }}
+                >
+                  <div className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                    最近学习
+                  </div>
+                  <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                    {recentTrailTitle ? `继续处理：${recentTrailTitle}` : '继续回到上次的阅读位置'}
+                  </div>
+                  <div className="mt-1 text-xs" style={{ color: 'rgba(26,30,35,0.48)' }}>
+                    {recentTrailTime ? `上次记录：${formatTimeLabel(recentTrailTime)}` : '已形成基础学习轨迹'}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                    <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
+                      学习记录 {studyOverview?.sessions_count ?? 0}
+                    </span>
+                    <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
+                      生词 {wordbook.length}
+                    </span>
+                    <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
+                      最近阅读 {history.length}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (continueStudyTarget) {
+                      onContinueStudy(continueStudyTarget)
+                    } else {
+                      onOpenReaderHub()
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                >
+                  继续学习
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className="rounded-[24px] px-4 py-4"
+                style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.06)' }}
+              >
+                <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                  先读一篇古籍、保存一个字词或完成一次卡片复习，这里就会开始沉淀你的学习路径。
+                </div>
+                <button
+                  onClick={primaryAction}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+                >
+                  开始第一篇
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+          <div
+            className="rounded-[28px] p-4 md:p-5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  今日复习
+                </h3>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  每天只做一件最值得先做的学习动作。
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.55)' }}>
+                <Flame className="h-3.5 w-3.5" />
+                连续 {streakDays} 天
+              </div>
+            </div>
+
+            <div
+              className="rounded-[24px] px-4 py-4"
+              style={{ backgroundColor: 'rgba(248,244,233,0.92)', border: '1px solid rgba(201,160,99,0.18)' }}
+            >
+              <div className="text-[11px] tracking-[0.22em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                优先任务
+              </div>
+              <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                {todayReview?.title || '先开始一次阅读'}
+              </div>
+              <div className="mt-1 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
+                {todayReview?.description || '先打开一篇古籍，后续会自动形成你的复习重点。'}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.62)' }}>
+                  待复习 {reviewQueueCount}
+                </span>
+                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.62)' }}>
+                  掌握率 {Math.round((studyOverview?.mastery_rate ?? 0) * 100)}%
+                </span>
+              </div>
+              <button
+                onClick={() => runFocusAction(todayReview || { action_type: 'reader' })}
+                className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+              >
+                {todayReview?.action_label || '开始阅读'}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            {readingPaths.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {readingPaths.map((path) => (
+                  <button
+                    key={path.id}
+                    onClick={() => runFocusAction(path)}
+                    className="w-full rounded-[20px] px-4 py-3 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.8)', border: '1px solid rgba(26,30,35,0.06)' }}
+                  >
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>{path.title}</span>
+                      {path.badge && (
+                        <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}>
+                          {path.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.5)' }}>{path.description}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div
+            className="rounded-[28px] p-4 md:p-5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <div className="mb-4">
+              <div className="mb-2 inline-flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                <Users className="h-3.5 w-3.5" />
+                共读灵感
+              </div>
+              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                像有人陪你一起读
+              </h3>
+              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                每次给一个切入点，帮助你把问答、检索和阅读串起来。
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {coReadingPrompts.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => runFocusAction(item)}
+                  className="w-full rounded-[20px] px-4 py-3 text-left transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.8)', border: '1px solid rgba(26,30,35,0.06)' }}
+                >
+                  <div className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>{item.title}</div>
+                  <div className="mt-1 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.5)' }}>{item.description}</div>
+                </button>
+              ))}
+              {coReadingPrompts.length === 0 && (
+                <div className="rounded-[20px] px-4 py-4 text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.5)' }}>
+                  先完成一次阅读或问答，这里会出现更贴合你的共读建议。
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         <section

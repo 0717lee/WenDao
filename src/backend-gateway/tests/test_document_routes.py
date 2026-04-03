@@ -19,9 +19,11 @@ sys.modules['agents.speech'] = MagicMock()
 class TestDocumentRouterPaths:
     def test_static_document_routes_are_not_shadowed_by_document_id(self):
         from routers.document import router
+        from core.auth import require_auth
 
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[require_auth] = lambda: {"sub": "user-1"}
         client = TestClient(app)
 
         with patch("routers.document._get_recommendations", new=AsyncMock(return_value=[])), \

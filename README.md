@@ -103,9 +103,26 @@ npm run dev          # http://localhost:5173
 **后端**
 ```bash
 cd src/backend-gateway
-python -m pip install -r requirements.txt
-python scripts/build_kanripo_corpus.py   # 首次构建真实古籍库快照（已内置可直接跳过）
-uvicorn main:app --reload --port 8000
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python scripts/build_kanripo_corpus.py   # 首次构建真实古籍库快照（已内置可直接跳过）
+.venv\Scripts\python -m uvicorn main:app --reload --port 8000
+```
+
+说明：
+
+- 后端优先使用项目内 `.venv` 解释器。若直接调用系统 `python` / `pytest`，启动时会提示解释器不在项目虚拟环境中。
+- `ZHIPUAI_API_KEY` 是当前统一命名；旧变量 `ZHIPU_API_KEY` 仍可兼容读取，但建议尽快迁移。
+- 若更换了 embedding 后端或相关环境变量，请执行一次 `.venv\Scripts\python scripts/rebuild_ancient_index.py` 重建 FAISS 索引，索引元数据会记录构建时所用 backend。
+
+### 4. 运行测试
+
+```bash
+cd src/frontend-app
+npm test
+
+cd ../backend-gateway
+.venv\Scripts\python -m pytest
 ```
 
 ## 项目结构

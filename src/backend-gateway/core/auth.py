@@ -60,3 +60,12 @@ async def require_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return decode_token(credentials.credentials)
+
+
+async def maybe_auth(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> dict | None:
+    """FastAPI dependency: return JWT payload when present, otherwise None."""
+    if credentials is None:
+        return None
+    return decode_token(credentials.credentials)

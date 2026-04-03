@@ -41,8 +41,8 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
       setLoading(true)
       try {
         const [cardsResponse, summaryResponse] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-cards`),
-          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`),
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-cards`, { headers: authHeaders() }),
+          fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, { headers: authHeaders() }),
         ])
         const data = cardsResponse.ok ? await cardsResponse.json() : { cards: [], quiz: [] }
         const summaryData = summaryResponse.ok ? await summaryResponse.json() : null
@@ -101,7 +101,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
         }),
       })
 
-      const summaryResponse = await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`)
+      const summaryResponse = await fetch(`${API_BASE}/api/v1/documents/${documentId}/study-progress`, { headers: authHeaders() })
       const summaryData = summaryResponse.ok ? await summaryResponse.json() : null
       setSummary(summaryData)
     } catch {

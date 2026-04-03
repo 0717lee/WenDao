@@ -4,16 +4,78 @@ T3.4.2 · 月之暗面 Kimi (Moonshot) 长文 RAG 知识检索代理
 结合本地 FAISS (真实 Embedding) 做向量检索后，将相关文档段交由
 Kimi 生成通俗化的古籍知识解读。
 """
-import os, asyncio, logging
+import asyncio
+import json
+import logging
+import os
+from pathlib import Path
 from typing import Dict, Any
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
+INDEX_METADATA_FILE = "index.meta.json"
 
 SYSTEM_PROMPT = """你是"古籍智解"系统的知识讲解员。
 你的任务是根据提供的古籍原文片段，用通俗易懂的现代中文为用户讲解古籍内容的含义、背景与历史。
 回答应控制在 150 字以内，语言生动，适合阅读理解。
 如果相关文档片段为空，请基于你自身的古籍知识回答。"""
+
+
+def _load_index_metadata(db_path: Path) -> dict[str, Any] | None:
+    metadata_path = db_path / INDEX_METADATA_FILE
+    if not metadata_path.exists():
+        return None
+    try:
+        return json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("[RAGAgent] 索引元数据读取失败: %s", exc)
+        return None
+
+
+def inspect_faiss_index_compatibility() -> dict[str, Any]:
+    from core.embeddings import WenDaoEmbeddings
+
+    db_path = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "faiss_db")))
+    index_file = db_path / "index.faiss"
+    pkl_file = db_path / "index.pkl"
+    metadata = _load_index_metadata(db_path)
+
+    if not index_file.exists() or not pkl_file.exists():
+        return {"status": "missing_index", "db_path": str(db_path)}
+
+    if metadata is None:
+        return {"status": "missing_metadata", "db_path": str(db_path)}
+
+    expected_backend = metadata.get("embedding_backend")
+    cache_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".embedding_cache"))
+    try:
+        embeddings = WenDaoEmbeddings(
+            cache_dir=cache_dir,
+            preferred_backend=expected_backend,
+            strict_backend=bool(expected_backend),
+        )
+    except RuntimeError as exc:
+        return {
+            "status": "backend_unavailable",
+            "db_path": str(db_path),
+            "expected_backend": expected_backend,
+            "reason": str(exc),
+        }
+
+    if embeddings.active_backend != expected_backend:
+        return {
+            "status": "backend_mismatch",
+            "db_path": str(db_path),
+            "expected_backend": expected_backend,
+            "active_backend": embeddings.active_backend,
+        }
+
+    return {
+        "status": "ok",
+        "db_path": str(db_path),
+        "expected_backend": expected_backend,
+        "active_backend": embeddings.active_backend,
+    }
 
 
 class RAGAgent:
@@ -142,18 +204,54 @@ class RAGAgent:
             from langchain_community.docstore.in_memory import InMemoryDocstore
             from core.embeddings import WenDaoEmbeddings
 
-            db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "faiss_db"))
+            db_path = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "faiss_db")))
+            metadata = _load_index_metadata(db_path)
+            expected_backend = metadata.get("embedding_backend") if metadata else None
 
             cache_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".embedding_cache"))
-            self.embeddings = WenDaoEmbeddings(cache_dir=cache_dir)
+            try:
+                self.embeddings = WenDaoEmbeddings(
+                    cache_dir=cache_dir,
+                    preferred_backend=expected_backend,
+                    strict_backend=bool(expected_backend),
+                )
+            except RuntimeError as exc:
+                logger.warning(
+                    "[RAGAgent] FAISS 索引需要 embedding backend %s，但当前环境不可用：%s；将使用纯 LLM 模式",
+                    expected_backend,
+                    exc,
+                )
+                self.vectorstore = None
+                return
 
-            index_file = os.path.join(db_path, "index.faiss")
-            pkl_file = os.path.join(db_path, "index.pkl")
+            if metadata is None:
+                logger.warning("[RAGAgent] FAISS 索引缺少 index.meta.json，已禁用向量检索，请先重建索引")
+                self.vectorstore = None
+                return
+            elif self.embeddings.active_backend != expected_backend:
+                logger.warning(
+                    "[RAGAgent] 当前 embedding 后端 %s 与索引记录 %s 不一致，将使用纯 LLM 模式",
+                    self.embeddings.active_backend,
+                    expected_backend,
+                )
+                self.vectorstore = None
+                return
+
+            index_file = db_path / "index.faiss"
+            pkl_file = db_path / "index.pkl"
 
             if os.path.exists(index_file) and os.path.exists(pkl_file):
                 # 用 Python IO 读取，避免 FAISS C++ 路径编码问题
                 with open(index_file, "rb") as f:
                     index = faiss_lib.deserialize_index(np.frombuffer(f.read(), dtype=np.uint8))
+                if metadata and metadata.get("embedding_dim") and metadata["embedding_dim"] != index.d:
+                    logger.warning(
+                        "[RAGAgent] FAISS 维度 %s 与元数据记录 %s 不一致，将使用纯 LLM 模式",
+                        index.d,
+                        metadata["embedding_dim"],
+                    )
+                    self.vectorstore = None
+                    return
                 with open(pkl_file, "rb") as f:
                     docstore, index_to_docstore_id = pickle.load(f)
                 self.vectorstore = FAISS(
@@ -162,7 +260,10 @@ class RAGAgent:
                     docstore=docstore,
                     index_to_docstore_id=index_to_docstore_id,
                 )
-                logger.info("[RAGAgent] FAISS 知识库加载成功 (真实 Embedding)")
+                logger.info(
+                    "[RAGAgent] FAISS 知识库加载成功 (embedding=%s)",
+                    self.embeddings.active_backend or "unknown",
+                )
             else:
                 logger.warning("[RAGAgent] FAISS 索引文件不存在: %s，将使用纯 LLM 模式", db_path)
                 self.vectorstore = None

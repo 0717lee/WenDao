@@ -9,11 +9,13 @@ import json
 import re
 from openai import OpenAI
 
+from core.runtime_checks import get_zhipu_api_key
+
 
 class WordExplainerAgent:
     def __init__(self):
         self.zhipu_client = OpenAI(
-            api_key=os.getenv("ZHIPUAI_API_KEY", ""),
+            api_key=get_zhipu_api_key(),
             base_url="https://open.bigmodel.cn/api/paas/v4",
         )
         self._rag_agent = None

@@ -25,7 +25,7 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
     async function load() {
       setLoading(true)
       try {
-        const response = await fetch(`${API_BASE}/api/v1/reader/wordbook?limit=200`)
+        const response = await fetch(`${API_BASE}/api/v1/reader/wordbook?limit=200`, { headers: authHeaders() })
         const data = response.ok ? await response.json() : { entries: [] }
         if (!cancelled) setEntries(data.entries || [])
       } catch {

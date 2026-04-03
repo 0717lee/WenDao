@@ -8,6 +8,7 @@ import { searchDemoDocuments } from '../data/demoDocuments';
 
 interface SearchResult {
   id: string;
+  document_id?: string | null;
   title: string;
   content: string;
   source: string;
@@ -21,6 +22,11 @@ interface SearchResponse {
 }
 
 type SearchMode = 'FULLTEXT' | 'VECTOR' | 'HYBRID';
+
+interface SearchPanelProps {
+  onOpenDocument?: (documentId: string) => void;
+  onAsk?: (prompt: string) => void;
+}
 
 const SEARCH_QUERY_POOL = [
   '孔子怎样理解“仁”与“礼”',
@@ -58,7 +64,7 @@ function pickSuggestedQueries(previous: string[] = []) {
   return next;
 }
 
-const SearchPanel: React.FC = () => {
+const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('HYBRID');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -134,13 +140,35 @@ const SearchPanel: React.FC = () => {
     }
   };
 
+  const openQuestionAnswer = (prompt: string) => {
+    if (onAsk) {
+      onAsk(prompt);
+      return;
+    }
+    setDraftMessage(prompt);
+    setActiveTab('chat');
+  };
+
   const jumpToChatExplanation = () => {
     const nextPrompt = query.trim()
       ? `请用白话解释“${query.trim()}”相关的古籍内容，并说明它为什么重要`
-      : '请用白话解释一段古文，并顺手补充它的背景和关键词'
-    setDraftMessage(nextPrompt)
-    setActiveTab('chat')
-  }
+      : '请用白话解释一段古文，并顺手补充它的背景和关键词';
+    openQuestionAnswer(nextPrompt);
+  };
+
+  const buildResultAskPrompt = (result: SearchResult) =>
+    `请结合《${result.title}》里的这段内容继续讲解：${result.content.slice(0, 120)}`;
+
+  const openResultDocument = (result: SearchResult) => {
+    if (!result.document_id) return;
+    setSelectedResult(null);
+    onOpenDocument?.(String(result.document_id));
+  };
+
+  const askAboutResult = (result: SearchResult) => {
+    setSelectedResult(null);
+    openQuestionAnswer(buildResultAskPrompt(result));
+  };
 
   return (
     <div className="relative flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
@@ -340,8 +368,8 @@ const SearchPanel: React.FC = () => {
             <div
               key={result.id}
               onClick={() => setSelectedResult(result)}
-            className="p-4 rounded-[24px] transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
-            style={{
+              className="p-4 rounded-[24px] transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
+              style={{
                 background: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,244,233,0.96) 100%)',
                 border: '1px solid rgba(26,30,35,0.06)',
                 boxShadow: '0 14px 30px rgba(26,30,35,0.04)',
@@ -349,15 +377,40 @@ const SearchPanel: React.FC = () => {
             >
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>{result.title}</h3>
-                  <span className="text-xs font-mono px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(201,160,99,0.14)', color: 'var(--gf-gold)' }}>
-                    {(result.score * 100).toFixed(1)}%
-                  </span>
-                </div>
+                <span className="text-xs font-mono px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(201,160,99,0.14)', color: 'var(--gf-gold)' }}>
+                  {(result.score * 100).toFixed(1)}%
+                </span>
+              </div>
               <p className="text-sm mb-2 line-clamp-2" style={{ color: 'rgba(26,30,35,0.6)' }}>
                 {result.content.substring(0, 100)}...
               </p>
               <div className="text-xs" style={{ color: 'rgba(26,30,35,0.35)' }}>
                 {result.source || '未知'}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openResultDocument(result);
+                  }}
+                  disabled={!onOpenDocument || !result.document_id}
+                  className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
+                  style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+                >
+                  {result.document_id ? '打开原文' : '原文待导入'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    askAboutResult(result);
+                  }}
+                  className="rounded-full px-3 py-1.5 text-xs transition-all duration-300"
+                  style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                >
+                  去问答
+                </button>
               </div>
             </div>
           ))}
@@ -407,6 +460,30 @@ const SearchPanel: React.FC = () => {
                 <p className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
                   {selectedResult.content}
                 </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openResultDocument(selectedResult)}
+                    disabled={!onOpenDocument || !selectedResult.document_id}
+                    className="rounded-full px-4 py-2 text-sm transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
+                    style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+                  >
+                    {selectedResult.document_id ? '打开原文' : '原文待导入'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => askAboutResult(selectedResult)}
+                    className="rounded-full px-4 py-2 text-sm transition-all duration-300"
+                    style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                  >
+                    去问答
+                  </button>
+                </div>
+                {!selectedResult.document_id && (
+                  <p className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                    这条结果目前来自索引片段，还没有映射到可直接打开的阅读页，你仍可继续问答追问。
+                  </p>
+                )}
               </div>
             </motion.div>
           </motion.div>

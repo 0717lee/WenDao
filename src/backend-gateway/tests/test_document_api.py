@@ -219,7 +219,7 @@ class TestBookshelfEndpoints:
         with patch("routers.document._list_documents", new=AsyncMock(return_value=[
             {"id": "doc-1", "title": "论语节选", "status": "done", "preview": "学而时习之"},
         ])):
-            result = await list_documents(limit=10)
+            result = await list_documents(limit=10, _user={"sub": "user-1"})
 
         assert result["total"] == 1
         assert result["documents"][0]["title"] == "论语节选"
@@ -233,7 +233,7 @@ class TestBookshelfEndpoints:
             "title": "论语节选",
             "original_text": "学而时习之",
         })):
-            result = await get_document("doc-1")
+            result = await get_document("doc-1", {"sub": "user-1"})
 
         assert result["id"] == "doc-1"
         assert result["title"] == "论语节选"
@@ -245,7 +245,7 @@ class TestBookshelfEndpoints:
 
         with patch("routers.document._get_document", new=AsyncMock(return_value=None)):
             with pytest.raises(HTTPException) as exc_info:
-                await get_document("missing")
+                await get_document("missing", {"sub": "user-1"})
 
         assert exc_info.value.status_code == 404
 
@@ -262,7 +262,7 @@ class TestDocumentNotes:
             "note_text": "这里在讲学习与实践。",
             "updated_at": "2026-03-27T08:00:00",
         })):
-            result = await get_document_note("doc-1")
+            result = await get_document_note("doc-1", {"sub": "user-1"})
 
         assert result["note_text"] == "这里在讲学习与实践。"
 
@@ -299,7 +299,7 @@ class TestStudyCards:
             "punctuated_text": "学而时习之，不亦说乎。知之为知之，不知为不知。",
             "translated_text": "学习后经常复习，是很快乐的。知道就是知道，不知道就是不知道。",
         })):
-            result = await get_study_cards("doc-1")
+            result = await get_study_cards("doc-1", {"sub": "user-1"})
 
         assert len(result["cards"]) >= 1
         assert len(result["quiz"]) >= 1
@@ -320,7 +320,7 @@ class TestStudyProgress:
                  "mastery_rate": 0.75,
                  "last_reviewed_at": "2026-03-27T10:00:00",
              })):
-            result = await get_study_progress("doc-1")
+            result = await get_study_progress("doc-1", {"sub": "user-1"})
 
         assert result["sessions_count"] == 2
         assert result["mastery_rate"] == 0.75
@@ -376,7 +376,7 @@ class TestCitationResolution:
         with patch("routers.document._get_recommendations", new=AsyncMock(return_value=[
             {"id": "doc-2", "title": "孟子节选", "recommendation_score": 9, "reasons": ["与你的阅读记录有关"]},
         ])):
-            result = await get_recommendations(document_id="doc-1", limit=5)
+            result = await get_recommendations(document_id="doc-1", limit=5, _user={"sub": "user-1"})
 
         assert result["total"] == 1
         assert result["documents"][0]["title"] == "孟子节选"
@@ -395,7 +395,7 @@ class TestCatalogEndpoints:
             ],
             "total": 1,
         })):
-            result = await list_catalog(limit=20)
+            result = await list_catalog(limit=20, _user={"sub": "user-1"})
 
         assert result["total"] == 1
         assert result["entries"][0]["repo_id"] == "KR1h0004"
@@ -405,7 +405,7 @@ class TestCatalogEndpoints:
         from routers.document import import_catalog_document
 
         with patch("routers.document._get_document_by_repo_id", new=AsyncMock(return_value={"id": "doc-1", "title": "《论语》"})):
-            result = await import_catalog_document("KR1h0004")
+            result = await import_catalog_document("KR1h0004", {"sub": "user-1"})
 
         assert result["imported"] is False
         assert result["document"]["id"] == "doc-1"
@@ -417,7 +417,7 @@ class TestCatalogEndpoints:
         with patch("routers.document._get_document_by_repo_id", new=AsyncMock(side_effect=[None, {"id": "ws-doc-1", "title": "《古文观止》"}])), \
              patch("routers.document.build_wikisource_record", return_value={"id": "ws-doc-1", "repo_id": "WS:古文觀止", "title": "《古文观止》"}), \
              patch("routers.document._upsert_document_record", new=AsyncMock()):
-            result = await import_catalog_document("WS:古文觀止")
+            result = await import_catalog_document("WS:古文觀止", {"sub": "user-1"})
 
         assert result["imported"] is True
         assert result["document"]["id"] == "ws-doc-1"
@@ -440,7 +440,7 @@ class TestTranslationCacheEndpoint:
         }
 
         with patch("routers.document._get_document", new=AsyncMock(return_value=existing_document)):
-            result = await generate_translation_cache("doc-1", TranslationCacheRequest(max_segments=2))
+            result = await generate_translation_cache("doc-1", TranslationCacheRequest(max_segments=2), {"sub": "user-1"})
 
         assert result["generated"] is False
         assert result["document"]["translation_cache"][0]["title"] == "学而"
@@ -468,6 +468,7 @@ class TestTranslationCacheEndpoint:
             result = await generate_translation_cache(
                 "doc-1",
                 TranslationCacheRequest(strategy="next", max_segments=2),
+                {"sub": "user-1"},
             )
 
         assert result["generated"] is True

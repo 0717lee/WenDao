@@ -7,15 +7,19 @@ import asyncio
 import base64
 import json
 import logging
+import os
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from core.runtime_checks import get_zhipu_api_key
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/creative", tags=["creative"])
+MEDIA_ENHANCEMENT_TIMEOUT = float(os.getenv("CREATIVE_MEDIA_TIMEOUT_SECONDS", "2.5"))
 
 
 class PoemRequest(BaseModel):
@@ -30,9 +34,8 @@ def _sse_event(event_type: str, data: dict) -> str:
 async def _generate_poem(topic: str) -> str:
     """Call GLM-4 to generate classical Chinese poetry on the given topic."""
     from zhipuai import ZhipuAI
-    import os
 
-    api_key = os.getenv("ZHIPUAI_API_KEY", "")
+    api_key = get_zhipu_api_key()
     if not api_key:
         raise ValueError("ZHIPUAI_API_KEY not configured")
 
@@ -84,7 +87,7 @@ async def stream_poem_response(topic: str) -> AsyncGenerator[str, None]:
         poem_text = await _generate_poem(topic)
     except Exception as e:
         logger.error(f"Poem generation failed: {e}")
-        yield _sse_event("error", {"message": f"Poem generation failed: {str(e)}"})
+        yield _sse_event("error", {"message": "诗词生成失败，请稍后重试"})
         return
 
     yield _sse_event("poem", {"text": poem_text})
@@ -94,18 +97,26 @@ async def stream_poem_response(topic: str) -> AsyncGenerator[str, None]:
     image_task = asyncio.create_task(_safe_generate_image(topic))
     audio_task = asyncio.create_task(_safe_generate_audio(poem_text))
 
-    # Wait for image
-    image_url = await image_task
+    # Optional enhancements: bounded wait so media never blocks the main poem path indefinitely.
+    image_url = await _await_optional_media(image_task, "poem_image")
     if image_url:
         yield _sse_event("poem_image", {"url": image_url})
 
-    # Wait for audio
-    audio_bytes = await audio_task
+    audio_bytes = await _await_optional_media(audio_task, "poem_audio")
     if audio_bytes:
         audio_b64 = base64.b64encode(audio_bytes).decode()
         yield _sse_event("poem_audio", {"audio_base64": audio_b64})
 
     yield _sse_event("done", {})
+
+
+async def _await_optional_media(task: asyncio.Task, label: str):
+    try:
+        return await asyncio.wait_for(task, timeout=MEDIA_ENHANCEMENT_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.warning("%s generation timed out after %.1fs; skipping optional enhancement", label, MEDIA_ENHANCEMENT_TIMEOUT)
+        task.cancel()
+        return None
 
 
 async def _safe_generate_image(topic: str) -> str | None:

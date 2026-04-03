@@ -132,6 +132,7 @@ def test_vector_mode_uses_faiss(app_client):
     assert response.status_code == 200
     data = response.json()
     assert "results" in data
+    assert any(result.get("document_id") for result in data["results"])
 
 
 def test_search_limit_parameter(app_client):

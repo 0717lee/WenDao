@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, GraduationCap, Loader2, NotebookText } from 'lucide-react';
 import { authHeaders } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
+import { useStore } from '../store/useStore';
 import { ReaderNotesPanel } from './ReaderNotesPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
@@ -27,6 +28,8 @@ export function ThreeColumnReader() {
   const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel, updateDocument } = useDocumentStore();
   const readerReturnTab = useGraphStore((state) => state.readerReturnTab);
   const setAppTab = useGraphStore((state) => state.setActiveTab);
+  const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery);
+  const setDraftMessage = useStore((state) => state.setDraftMessage);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -132,17 +135,10 @@ export function ThreeColumnReader() {
     }, 200);
   };
 
-  const renderText = (text: string, label: string) => {
+  const renderTextBlocks = (text: string, label: string) => {
     if (!text) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无内容</p>
     return (
-    <div className="space-y-2 relative z-10">
-      <h3
-        className="text-base font-medium sticky top-0 py-2 border-b z-20"
-        style={{ color: 'var(--gf-text)', backgroundColor: 'rgba(247,246,243,0.85)', borderColor: 'rgba(26,30,35,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
-      >
-        {label}
-      </h3>
-      <div className="space-y-2 leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
+      <>
         {text
           .split(/\n+/)
           .filter((block) => block.length > 0)
@@ -172,9 +168,25 @@ export function ThreeColumnReader() {
               </p>
             );
           })}
+      </>
+    )
+  };
+
+  const renderColumn = (label: string, content: ReactNode) => {
+    return (
+      <div className="space-y-2 relative z-10">
+        <h3
+          className="text-base font-medium sticky top-0 py-2 border-b z-20"
+          style={{ color: 'var(--gf-text)', backgroundColor: 'rgba(247,246,243,0.85)', borderColor: 'rgba(26,30,35,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        >
+          {label}
+        </h3>
+        <div className="space-y-2 leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
+          {content}
+        </div>
       </div>
-    </div>
-  )};
+    )
+  }
 
   const renderTranslatedFallback = () => {
     if (translationCache.length > 0) {
@@ -233,7 +245,7 @@ export function ThreeColumnReader() {
       const strategy = (currentDocument.translationCache?.length ?? 0) > 0 ? 'next' : 'recommended'
       const response = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/translation-cache`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ strategy, max_segments: 6 }),
       })
       if (!response.ok) throw new Error('translation cache failed')
@@ -251,6 +263,22 @@ export function ThreeColumnReader() {
     } finally {
       setTranslationGenerating(false)
     }
+  }
+
+  const openReaderCompanion = (kind: 'explain' | 'allusion' | 'study') => {
+    if (kind === 'study') {
+      setSidePanel('study')
+      return
+    }
+
+    if (kind === 'allusion') {
+      queueSearchQuery(`${currentDocument.title} 典故 人物`)
+      setAppTab('search')
+      return
+    }
+
+    setDraftMessage(`请像老师带读一样解释《${currentDocument.title}》：先说主旨，再讲关键句，再给两条继续阅读建议。`)
+    setAppTab('chat')
   }
 
   // Mobile: Tab interface
@@ -360,6 +388,29 @@ export function ThreeColumnReader() {
                   ))}
                 </div>
               )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => openReaderCompanion('explain')}
+                  className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                >
+                  解释这篇
+                </button>
+                <button
+                  onClick={() => openReaderCompanion('allusion')}
+                  className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+                >
+                  追人物典故
+                </button>
+                <button
+                  onClick={() => openReaderCompanion('study')}
+                  className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                  style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
+                >
+                  进入复习
+                </button>
+              </div>
               {!currentDocument.translatedText && currentDocument.sourceType === 'corpus' && (
                 <button
                   onClick={generateTranslationCache}
@@ -388,9 +439,9 @@ export function ThreeColumnReader() {
               ))}
             </div>
           )}
-          {activeReaderTab === 'original' && renderText(currentDocument.originalText, '原文')}
-          {activeReaderTab === 'punctuated' && currentDocument.punctuatedText && renderText(currentDocument.punctuatedText, '标点文')}
-          {activeReaderTab === 'translated' && currentDocument.translatedText && renderText(currentDocument.translatedText, '白话译')}
+          {activeReaderTab === 'original' && renderColumn('原文', renderTextBlocks(currentDocument.originalText, '原文'))}
+          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderTextBlocks(currentDocument.punctuatedText, '标点文') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无标点文</p>)}
+          {activeReaderTab === 'translated' && renderColumn('白话译', currentDocument.translatedText ? renderTextBlocks(currentDocument.translatedText, '白话译') : renderTranslatedFallback())}
         </div>
 
         {sidePanel === 'notes' && (
@@ -500,6 +551,29 @@ export function ThreeColumnReader() {
                 已缓存部分分段白话译，可先读右侧摘要，再继续补全全文。
               </div>
             )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={() => openReaderCompanion('explain')}
+                className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+              >
+                解释这篇
+              </button>
+              <button
+                onClick={() => openReaderCompanion('allusion')}
+                className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+              >
+                追人物典故
+              </button>
+              <button
+                onClick={() => openReaderCompanion('study')}
+                className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
+              >
+                进入复习
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -524,7 +598,7 @@ export function ThreeColumnReader() {
             >
               <div className="bg-xuan-paper rounded-[20px]"></div>
               <div className="ink-wash-blob w-32 h-32 -top-10 -left-10 bg-[var(--gf-gold)] opacity-10"></div>
-              {renderText(currentDocument.originalText, '原文')}
+              {renderColumn('原文', renderTextBlocks(currentDocument.originalText, '原文'))}
             </motion.div>
           </ScrollSyncPane>
 
@@ -532,20 +606,24 @@ export function ThreeColumnReader() {
             <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
               <div className="bg-xuan-paper rounded-[20px]"></div>
               <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
-              {currentDocument.punctuatedText
-                ? renderText(currentDocument.punctuatedText, '标点文')
-                : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>暂无标点文</p>
-              }
+              {renderColumn(
+                '标点文',
+                currentDocument.punctuatedText
+                  ? renderTextBlocks(currentDocument.punctuatedText, '标点文')
+                  : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>暂无标点文</p>
+              )}
             </motion.div>
           </ScrollSyncPane>
 
           <ScrollSyncPane>
             <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
               <div className="bg-xuan-paper rounded-[20px]"></div>
-              {currentDocument.translatedText
-                ? renderText(currentDocument.translatedText, '白话译')
-                : renderTranslatedFallback()
-              }
+              {renderColumn(
+                '白话译',
+                currentDocument.translatedText
+                  ? renderTextBlocks(currentDocument.translatedText, '白话译')
+                  : renderTranslatedFallback()
+              )}
             </motion.div>
           </ScrollSyncPane>
 

@@ -6,6 +6,7 @@ import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
 import { API_BASE } from '../lib/api';
 import { getDemoBookshelfDocuments, getDemoDocumentById, toReaderDocument } from '../data/demoDocuments';
+import { authHeaders } from '../store/useAuthStore';
 
 interface SampleDocument {
   id: string;
@@ -37,7 +38,7 @@ export function DocumentUpload() {
     async function loadSamples() {
       setLoadingSamples(true);
       try {
-        const response = await fetch(`${API_BASE}/api/v1/documents?limit=6&source_type=sample`);
+        const response = await fetch(`${API_BASE}/api/v1/documents?limit=6&source_type=sample`, { headers: authHeaders() });
         const data = response.ok ? await response.json() : { documents: [] };
         if (!cancelled) {
           const nextSamples = Array.isArray(data.documents) && data.documents.length > 0
@@ -67,7 +68,7 @@ export function DocumentUpload() {
   const openSampleDocument = useCallback(
     async (documentId: string) => {
       try {
-        const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`);
+        const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, { headers: authHeaders() });
         if (!response.ok) {
           throw new Error('Load sample failed');
         }

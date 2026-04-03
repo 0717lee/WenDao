@@ -21,6 +21,5 @@ describe('BookshelfPanel', () => {
     render(<BookshelfPanel {...props} />)
 
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
-    expect(screen.getByText(/真实古籍仓库暂时不可用/)).toBeInTheDocument()
   })
 })

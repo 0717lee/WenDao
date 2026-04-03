@@ -60,7 +60,7 @@ async def speech_asr(file: UploadFile = File(...)):
         audio_bytes = await file.read()
 
         if not audio_bytes:
-            return {"text": "", "error": "No audio data received"}
+            return {"text": "", "error": "未收到音频数据"}
 
         # Detect format and convert to PCM for iFlytek
         source_format = _detect_audio_format(file.filename or "", file.content_type or "")
@@ -90,7 +90,7 @@ async def speech_tts(request: TTSRequest):
     Returns { "audio_base64": "..." } with base64-encoded audio bytes.
     """
     if not request.text or not request.text.strip():
-        return {"audio_base64": "", "error": "No text provided"}
+        return {"audio_base64": "", "error": "请输入要朗读的文字"}
 
     try:
         from agents.speech import SpeechAgent
