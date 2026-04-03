@@ -71,13 +71,16 @@ def _build_answer_context(query: str, citations: list[dict], related_entities: l
         else f"请继续围绕“{query}”补充背景和前后文，让我更容易读懂原文。"
     )
 
-    actions = [
-        {
+    actions = []
+    if primary_citation:
+        actions.append({
             "id": "open-primary",
             "label": "定位原文",
             "kind": "reader",
             "citation": primary_citation,
-        },
+        })
+
+    actions.extend([
         {
             "id": "simplify-answer",
             "label": "换成更白话",
@@ -90,7 +93,7 @@ def _build_answer_context(query: str, citations: list[dict], related_entities: l
             "kind": "chat",
             "prompt": entity_prompt,
         },
-    ]
+    ])
 
     return {
         "trustLabel": "有原文依据" if citation_count > 0 else "建议继续核对",
@@ -174,7 +177,7 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
 
     except Exception as e:
         logger.exception("[ChatRouter] 流式响应生成失败: %s", e)
-        error_msg = f"抱歉，处理您的请求时发生错误：{str(e)}"
+        error_msg = "抱歉，处理您的请求时出现异常，请稍后重试。"
         yield f'event: error\ndata: {json.dumps({"message": error_msg}, ensure_ascii=False)}\n\n'
 
 
@@ -202,4 +205,4 @@ async def chat(request: Request, body: ChatRequest):
         )
     except Exception as e:
         logger.exception("[ChatRouter] 聊天API错误: %s", e)
-        raise HTTPException(status_code=500, detail=f"服务器错误：{str(e)}")
+        raise HTTPException(status_code=500, detail="服务器错误，请稍后重试")

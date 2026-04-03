@@ -28,6 +28,13 @@ SAMPLE_GRAPH_DATA = {
 }
 
 
+def _auth_headers():
+    from core.auth import create_token
+
+    token = create_token("test-user", "tester")
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture
 def client():
     """Create test client with mocked VisionAgent."""
@@ -56,12 +63,21 @@ def _make_image_file(size_bytes: int = 1024, filename: str = "test.jpg", content
 class TestVisionAnalyzeEndpoint:
     """Tests for POST /api/v1/vision/analyze"""
 
+    def test_upload_requires_auth(self, client):
+        response = client.post(
+            "/api/v1/vision/analyze",
+            files=[_make_image_file()],
+            data={"question": ""},
+        )
+        assert response.status_code == 401
+
     def test_upload_returns_200_with_structured_analysis(self, client):
         """Valid image upload returns structured analysis fields."""
         response = client.post(
             "/api/v1/vision/analyze",
             files=[_make_image_file()],
             data={"question": ""},
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         body = response.json()
@@ -81,6 +97,7 @@ class TestVisionAnalyzeEndpoint:
                 "/api/v1/vision/analyze",
                 files=[_make_image_file()],
                 data={"question": ""},
+                headers=_auth_headers(),
             )
         assert response.status_code == 200
         body = response.json()
@@ -94,6 +111,7 @@ class TestVisionAnalyzeEndpoint:
             "/api/v1/vision/analyze",
             files=[_make_image_file(size_bytes=large_size)],
             data={"question": ""},
+            headers=_auth_headers(),
         )
         assert response.status_code == 413
         assert "文件过大" in response.json()["error"]
@@ -104,6 +122,7 @@ class TestVisionAnalyzeEndpoint:
             "/api/v1/vision/analyze",
             files=[("file", ("test.txt", io.BytesIO(b"hello"), "text/plain"))],
             data={"question": ""},
+            headers=_auth_headers(),
         )
         assert response.status_code == 400
         assert "仅支持图片文件" in response.json()["error"]
@@ -114,6 +133,7 @@ class TestVisionAnalyzeEndpoint:
             "/api/v1/vision/analyze",
             files=[_make_image_file()],
             data={"question": "This is a custom question about the building"},
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
 

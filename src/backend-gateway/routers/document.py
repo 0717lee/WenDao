@@ -1187,7 +1187,7 @@ async def save_study_progress(document_id: str, body: StudyProgressUpdateRequest
 
 
 @router.post("/upload")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...), _user: dict = Depends(require_auth)):
     """
     Upload an image for OCR recognition.
     Supports JPG, PNG, TIFF formats.
@@ -1222,7 +1222,7 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @router.put("/{document_id}/text")
-async def update_document_text(document_id: str, body: DocumentTextUpdateRequest):
+async def update_document_text(document_id: str, body: DocumentTextUpdateRequest, _user: dict = Depends(require_auth)):
     """Save the manually corrected OCR text before opening the SSE processing stream."""
     updated = await _update_document_text(document_id, body.text.strip())
     if not updated:
@@ -1232,7 +1232,7 @@ async def update_document_text(document_id: str, body: DocumentTextUpdateRequest
 
 @router.get("/process/{document_id}")
 @router.post("/process/{document_id}")
-async def process_document(document_id: str):
+async def process_document(document_id: str, _user: dict = Depends(require_auth)):
     """
     Process an uploaded document: punctuate and translate ancient text.
     Returns SSE stream with progress events and final result.
@@ -1317,7 +1317,7 @@ def _sse_event(event_type: str, data: dict) -> str:
 
 
 @router.post("/explain")
-async def explain_word_endpoint(word: str, context: str = ""):
+async def explain_word_endpoint(word: str, context: str = "", _user: dict = Depends(require_auth)):
     """Explain an ancient Chinese word/term with meaning, allusion, and citations."""
     result = await word_explainer.explain_word(word, context)
     return result

@@ -134,6 +134,10 @@ def _calculate_streak_days(values: list[str]) -> int:
     if not parsed_dates:
         return 0
 
+    today = datetime.now().date()
+    if parsed_dates[0] not in {today, today - timedelta(days=1)}:
+        return 0
+
     streak = 1
     current = parsed_dates[0]
     for next_date in parsed_dates[1:]:

@@ -23,6 +23,28 @@ sys.modules['agents.speech'] = MagicMock()
 
 # ---- Upload Tests ----
 
+class TestProtectedDocumentRoutes:
+    def test_upload_and_processing_routes_require_auth(self):
+        from routers.document import router
+
+        app = FastAPI()
+        app.include_router(router)
+        client = TestClient(app)
+
+        upload_response = client.post(
+            "/api/v1/documents/upload",
+            files=[("file", ("test.jpg", b"fake", "image/jpeg"))],
+        )
+        text_response = client.put(
+            "/api/v1/documents/doc-1/text",
+            json={"text": "修订原文"},
+        )
+        process_response = client.post("/api/v1/documents/process/doc-1")
+
+        assert upload_response.status_code == 401
+        assert text_response.status_code == 401
+        assert process_response.status_code == 401
+
 class TestUploadDocumentSuccess:
     """Test successful document upload with OCR."""
 

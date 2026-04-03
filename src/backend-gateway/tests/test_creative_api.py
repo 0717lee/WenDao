@@ -7,6 +7,13 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 
+def _auth_headers():
+    from core.auth import create_token
+
+    token = create_token("test-user", "tester")
+    return {"Authorization": f"Bearer {token}"}
+
+
 SAMPLE_POEM = "春风拂柳绿丝条\n细雨润花红满朝\n山色空蒙水如镜\n人间最美是春宵"
 SAMPLE_IMAGE_URL = "https://example.com/cogview/spring_poem.png"
 SAMPLE_AUDIO_BYTES = b"\x00\x01\x02\x03FAKE_AUDIO_DATA"
@@ -103,11 +110,19 @@ def client_all_media_fail():
 class TestPoemEndpoint:
     """Tests for POST /api/v1/creative/poem SSE endpoint."""
 
+    def test_poem_endpoint_requires_auth(self, client):
+        response = client.post(
+            "/api/v1/creative/poem",
+            json={"topic": "spring"},
+        )
+        assert response.status_code == 401
+
     def test_poem_endpoint_returns_sse_stream(self, client):
         """Poem endpoint returns SSE with correct content type."""
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": "spring"},
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         assert "text/event-stream" in response.headers.get("content-type", "")
@@ -117,6 +132,7 @@ class TestPoemEndpoint:
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": "spring"},
+            headers=_auth_headers(),
         )
         events = _parse_sse_events(response.text)
         poem_events = [e for e in events if e["event"] == "poem"]
@@ -129,6 +145,7 @@ class TestPoemEndpoint:
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": "spring"},
+            headers=_auth_headers(),
         )
         events = _parse_sse_events(response.text)
         image_events = [e for e in events if e["event"] == "poem_image"]
@@ -140,6 +157,7 @@ class TestPoemEndpoint:
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": "spring"},
+            headers=_auth_headers(),
         )
         events = _parse_sse_events(response.text)
         audio_events = [e for e in events if e["event"] == "poem_audio"]
@@ -154,6 +172,7 @@ class TestPoemEndpoint:
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": "spring"},
+            headers=_auth_headers(),
         )
         events = _parse_sse_events(response.text)
         assert events[-1]["event"] == "done"
@@ -163,6 +182,7 @@ class TestPoemEndpoint:
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": "spring"},
+            headers=_auth_headers(),
         )
         events = _parse_sse_events(response.text)
         reasoning_events = [e for e in events if e["event"] == "reasoning"]
@@ -176,6 +196,7 @@ class TestPoemEndpoint:
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": ""},
+            headers=_auth_headers(),
         )
         assert response.status_code == 400
 
@@ -184,6 +205,7 @@ class TestPoemEndpoint:
         response = client.post(
             "/api/v1/creative/poem",
             json={"topic": "   "},
+            headers=_auth_headers(),
         )
         assert response.status_code == 400
 
@@ -196,6 +218,7 @@ class TestGracefulDegradation:
         response = client_image_fail.post(
             "/api/v1/creative/poem",
             json={"topic": "bamboo"},
+            headers=_auth_headers(),
         )
         events = _parse_sse_events(response.text)
         event_types = [e["event"] for e in events]
@@ -208,6 +231,7 @@ class TestGracefulDegradation:
         response = client_all_media_fail.post(
             "/api/v1/creative/poem",
             json={"topic": "bamboo"},
+            headers=_auth_headers(),
         )
         events = _parse_sse_events(response.text)
         event_types = [e["event"] for e in events]

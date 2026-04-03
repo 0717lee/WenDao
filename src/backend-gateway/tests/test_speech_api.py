@@ -8,6 +8,13 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 
+def _auth_headers():
+    from core.auth import create_token
+
+    token = create_token("test-user", "tester")
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture
 def client():
     """Create test client with mocked SpeechAgent."""
@@ -68,12 +75,20 @@ def _make_audio_file(size_bytes: int = 512, filename: str = "recording.webm", co
 class TestASREndpoint:
     """Tests for POST /api/v1/speech/asr"""
 
+    def test_asr_requires_auth(self, client):
+        response = client.post(
+            "/api/v1/speech/asr",
+            files=[_make_audio_file()],
+        )
+        assert response.status_code == 401
+
     @patch("routers.speech_api._convert_to_pcm", return_value=b"\x00" * 1024)
     def test_asr_returns_transcription(self, mock_convert, client):
         """Valid audio upload returns transcribed text."""
         response = client.post(
             "/api/v1/speech/asr",
             files=[_make_audio_file()],
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -87,6 +102,7 @@ class TestASREndpoint:
         response = client_asr_fail.post(
             "/api/v1/speech/asr",
             files=[_make_audio_file()],
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -99,6 +115,7 @@ class TestASREndpoint:
         response = client_asr_exception.post(
             "/api/v1/speech/asr",
             files=[_make_audio_file()],
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -111,6 +128,7 @@ class TestASREndpoint:
         response = client.post(
             "/api/v1/speech/asr",
             files=[_make_audio_file(filename="test.wav", content_type="audio/wav")],
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -122,6 +140,7 @@ class TestASREndpoint:
         response = client.post(
             "/api/v1/speech/asr",
             files=[_make_audio_file(filename="test.mp3", content_type="audio/mpeg")],
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -131,11 +150,19 @@ class TestASREndpoint:
 class TestTTSEndpoint:
     """Tests for POST /api/v1/speech/tts"""
 
+    def test_tts_requires_auth(self, client):
+        response = client.post(
+            "/api/v1/speech/tts",
+            json={"text": "Hello test"},
+        )
+        assert response.status_code == 401
+
     def test_tts_returns_audio_base64(self, client):
         """Valid text returns base64-encoded audio."""
         response = client.post(
             "/api/v1/speech/tts",
             json={"text": "Hello test"},
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -150,6 +177,7 @@ class TestTTSEndpoint:
         response = client.post(
             "/api/v1/speech/tts",
             json={"text": ""},
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -161,6 +189,7 @@ class TestTTSEndpoint:
         response = client.post(
             "/api/v1/speech/tts",
             json={"text": "   "},
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()
@@ -172,6 +201,7 @@ class TestTTSEndpoint:
         response = client_tts_fail.post(
             "/api/v1/speech/tts",
             json={"text": "Test text for TTS"},
+            headers=_auth_headers(),
         )
         assert response.status_code == 200
         data = response.json()

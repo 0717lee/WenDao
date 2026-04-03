@@ -4,6 +4,7 @@ load_dotenv()  # 在所有业务模块之前加载 .env 中的 API Keys
 
 from core.runtime_checks import log_startup_checks, prepare_runtime_environment
 from agents.rag import inspect_faiss_index_compatibility
+from core.auth import DEFAULT_JWT_SECRET, get_jwt_secret
 
 prepare_runtime_environment()
 
@@ -58,8 +59,8 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
     """Combined lifespan: SQLite + PostgreSQL initialization."""
-    jwt_secret = os.getenv("JWT_SECRET", "")
-    if jwt_secret in {"", "change-this-to-a-random-string-in-production", "wendao-dev-secret-change-in-production"}:
+    jwt_secret = get_jwt_secret()
+    if jwt_secret == DEFAULT_JWT_SECRET:
         logger.warning("JWT_SECRET 仍是默认值，当前仅适合开发/演示环境")
     log_startup_checks(logger)
     rag_probe = inspect_faiss_index_compatibility()

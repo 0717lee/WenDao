@@ -4,8 +4,9 @@ import base64
 import io
 import logging
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File
 from pydantic import BaseModel
+from core.auth import require_auth
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ def _detect_audio_format(filename: str, content_type: str) -> str:
 
 
 @router.post("/asr")
-async def speech_asr(file: UploadFile = File(...)):
+async def speech_asr(file: UploadFile = File(...), _user: dict = Depends(require_auth)):
     """
     Transcribe audio to text via iFlytek ASR.
     Accepts audio files (webm/wav/mp3) from browser MediaRecorder.
@@ -84,7 +85,7 @@ async def speech_asr(file: UploadFile = File(...)):
 
 
 @router.post("/tts")
-async def speech_tts(request: TTSRequest):
+async def speech_tts(request: TTSRequest, _user: dict = Depends(require_auth)):
     """
     Synthesize text to speech via iFlytek TTS.
     Returns { "audio_base64": "..." } with base64-encoded audio bytes.

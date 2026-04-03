@@ -1,43 +1,69 @@
-/**
- * useStore Tests
- * Coverage: Zustand store state management
- */
-import { describe, it, expect, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { useStore } from '../store/useStore'
 
 describe('useStore', () => {
-  it('test_add_message', () => {
-    /**
-     * Test add message to store
-     * Verify: messages are added to store correctly
-     * TODO:
-     * 1. Import useStore hook
-     * 2. Render hook
-     * 3. Call addMessage action
-     * 4. Assert message is in messages array
-     */
+  beforeEach(() => {
+    useStore.setState({
+      messages: [],
+      isLoading: false,
+      currentProgress: '',
+      draftMessage: '',
+      ttsAutoRead: false,
+    })
   })
 
-  it('test_update_last_message', () => {
-    /**
-     * Test update last message
-     * Verify: last message can be updated (for streaming)
-     * TODO:
-     * 1. Add initial message
-     * 2. Call updateLastMessage with new content
-     * 3. Assert last message content is updated
-     * 4. Assert message count remains same
-     */
+  it('adds a message to the store', () => {
+    useStore.getState().addMessage({
+      id: 'msg-1',
+      role: 'user',
+      content: '测试消息',
+      timestamp: Date.now(),
+    })
+
+    expect(useStore.getState().messages).toHaveLength(1)
+    expect(useStore.getState().messages[0].content).toBe('测试消息')
   })
 
-  it('test_set_progress', () => {
-    /**
-     * Test set progress
-     * Verify: progress state is updated correctly
-     * TODO:
-     * 1. Call setProgress with stage and percentage
-     * 2. Assert progress state contains correct values
-     * 3. Assert progress can be cleared
-     */
+  it('updates only the last message during streaming', () => {
+    useStore.getState().addMessage({
+      id: 'msg-1',
+      role: 'user',
+      content: '提问',
+      timestamp: Date.now(),
+    })
+    useStore.getState().addMessage({
+      id: 'msg-2',
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+    })
+
+    useStore.getState().updateLastMessage('流式回答')
+
+    expect(useStore.getState().messages).toHaveLength(2)
+    expect(useStore.getState().messages[0].content).toBe('提问')
+    expect(useStore.getState().messages[1].content).toBe('流式回答')
+  })
+
+  it('stores answer context and progress state', () => {
+    useStore.getState().addMessage({
+      id: 'msg-1',
+      role: 'assistant',
+      content: '回答',
+      timestamp: Date.now(),
+    })
+
+    useStore.getState().updateLastMessageAnswerContext({
+      trustLabel: '有原文依据',
+      trustPoints: ['引用了 1 条古籍片段'],
+      citationCount: 1,
+      relatedEntityCount: 2,
+      primaryCitation: { title: '论语', source: '学而篇' },
+      suggestedActions: [],
+    })
+    useStore.getState().setProgress('正在检索古籍...')
+
+    expect(useStore.getState().messages[0].answerContext?.trustLabel).toBe('有原文依据')
+    expect(useStore.getState().currentProgress).toBe('正在检索古籍...')
   })
 })

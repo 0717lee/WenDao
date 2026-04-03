@@ -345,6 +345,26 @@ class TestLearningFocus:
         assert result["reading_paths"][0]["title"] == "课内古文快读"
         assert result["co_reading_prompts"][0]["action_type"] == "chat"
 
+    def test_calculate_streak_days_resets_for_stale_activity(self):
+        from routers.reader import _calculate_streak_days
+
+        values = [
+            "2026-03-28T08:00:00",
+            "2026-03-27T08:00:00",
+            "2026-03-26T08:00:00",
+        ]
+        assert _calculate_streak_days(values) == 0
+
+    def test_calculate_streak_days_keeps_yesterday_streak(self):
+        from routers.reader import _calculate_streak_days
+        from datetime import datetime, timedelta
+
+        yesterday = (datetime.now() - timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+        two_days_ago = yesterday - timedelta(days=1)
+        values = [yesterday.isoformat(), two_days_ago.isoformat()]
+
+        assert _calculate_streak_days(values) == 2
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

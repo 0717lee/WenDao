@@ -7,8 +7,9 @@ import re
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form
 from fastapi.responses import JSONResponse
+from core.auth import require_auth
 
 router = APIRouter(prefix="/api/v1", tags=["vision"])
 logger = logging.getLogger(__name__)
@@ -137,6 +138,7 @@ def match_vision_to_graph(vision_text: str, graph_data: dict) -> list:
 async def analyze_image(
     file: UploadFile = File(...),
     question: str = Form(""),
+    _user: dict = Depends(require_auth),
 ):
     """
     Upload an architecture photo for AI recognition.

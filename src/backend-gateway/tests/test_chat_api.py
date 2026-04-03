@@ -61,6 +61,7 @@ class TestChatRouterFunctions:
         all_events = "".join(events)
         assert "event: error" in all_events
         assert "抱歉" in all_events
+        assert "测试错误" not in all_events
 
 
 class TestChatRequestValidation:
@@ -117,6 +118,30 @@ class TestSSEEventFormat:
             assert event.endswith("\n\n")
 
 
+class TestAnswerContext:
+    def test_answer_context_omits_locate_source_when_no_citation(self):
+        from routers.chat import _build_answer_context
+
+        payload = _build_answer_context("测试问题", citations=[], related_entities=[])
+
+        assert all(action["id"] != "open-primary" for action in payload["suggestedActions"])
+
+
+class TestChatRouteErrors:
+    @pytest.mark.asyncio
+    async def test_chat_route_redacts_streaming_response_errors(self):
+        from fastapi import HTTPException
+        from models.schemas import ChatRequest
+        from routers.chat import chat
+
+        request = MagicMock()
+        with patch("routers.chat.StreamingResponse", side_effect=RuntimeError("sensitive failure")):
+            with pytest.raises(HTTPException) as exc_info:
+                await chat(request, ChatRequest(message="测试"))
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "服务器错误，请稍后重试"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
-

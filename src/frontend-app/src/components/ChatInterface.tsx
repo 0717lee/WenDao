@@ -514,6 +514,21 @@ export function ChatInterface() {
 
         const applyDemoFallback = () => {
             const fallback = buildDemoChatResponse(userMessage.content)
+            const fallbackActions: AnswerContextAction[] = []
+            if (fallback.citations[0]) {
+                fallbackActions.push({
+                    id: 'demo-open-citation',
+                    label: '定位原文',
+                    kind: 'reader',
+                    citation: fallback.citations[0],
+                })
+            }
+            fallbackActions.push({
+                id: 'demo-follow-chat',
+                label: '继续追问',
+                kind: 'chat',
+                prompt: `请继续围绕“${userMessage.content}”做更白话的讲解。`,
+            })
             const demoReasoning: ReasoningStep[] = [
                 { step: 'retrieval', label: '检索体验样例', status: 'complete', duration: 0.02, model: '离线演示', fallback: true },
                 { step: 'entity_extraction', label: '抽取关联实体', status: 'complete', duration: 0.01, model: '离线演示', fallback: true },
@@ -529,20 +544,7 @@ export function ChatInterface() {
                 citationCount: fallback.citations.length,
                 relatedEntityCount: 0,
                 primaryCitation: fallback.citations[0],
-                suggestedActions: [
-                    {
-                        id: 'demo-open-citation',
-                        label: '定位原文',
-                        kind: 'reader',
-                        citation: fallback.citations[0],
-                    },
-                    {
-                        id: 'demo-follow-chat',
-                        label: '继续追问',
-                        kind: 'chat',
-                        prompt: `请继续围绕“${userMessage.content}”做更白话的讲解。`,
-                    },
-                ],
+                suggestedActions: fallbackActions,
             })
             updateLastMessage(fallback.content)
             setLoading(false)
