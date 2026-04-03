@@ -12,6 +12,13 @@ from unittest.mock import Mock, patch, AsyncMock, MagicMock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
+def _auth_headers():
+    from core.auth import create_token
+
+    token = create_token("test-user", "tester")
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest.fixture
 def mock_pg_pool():
     """Mock asyncpg pool + connection for document queries."""
@@ -162,7 +169,8 @@ class TestExplainEndpoint:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 resp = await client.post(
-                    "/api/v1/documents/explain?word=斗拱&context=建筑构件"
+                    "/api/v1/documents/explain?word=斗拱&context=建筑构件",
+                    headers=_auth_headers(),
                 )
 
             assert resp.status_code == 200
