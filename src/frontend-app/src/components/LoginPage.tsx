@@ -22,7 +22,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
             setUsername('')
             setPassword('')
         } catch (err: any) {
-            setError(err.message || '登录失败')
+            setError(err.message || '登录没有成功，请检查账号和密码后再试')
         } finally {
             setLoading(false)
         }
@@ -52,7 +52,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        登录后可同步阅读进度与个人收藏
+                        登录后即可同步阅读进度、收藏内容和学习记录
                     </p>
                 </div>
 

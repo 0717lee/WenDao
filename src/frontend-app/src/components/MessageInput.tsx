@@ -49,7 +49,7 @@ export function MessageInput({
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="输入人物、典故、概念或一句原文，继续追问..."
+                placeholder="输入人物、典故、概念或一句原文，继续往下问"
                 disabled={disabled}
                 className="flex-1 resize-none rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 disabled:opacity-50 transition-shadow"
                 style={{
@@ -81,7 +81,7 @@ export function MessageInput({
                             : 'hover:bg-black/5'
                     }`}
                     style={!isRecording && !isTranscribing ? { color: 'rgba(26,30,35,0.45)' } : undefined}
-                    title={isRecording ? '停止录音' : isTranscribing ? '识别中...' : '语音输入'}
+                    title={isRecording ? '结束录音' : isTranscribing ? '正在识别语音' : '语音输入'}
                 >
                     {isTranscribing ? (
                         <Loader2 className="w-5 h-5 animate-spin" />

@@ -135,7 +135,7 @@ export function ThreeColumnReader() {
   };
 
   const renderTextBlocks = (text: string, label: string) => {
-    if (!text) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无内容</p>
+    if (!text) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这一栏暂时还没有内容</p>
     return (
       <>
         {text
@@ -233,7 +233,7 @@ export function ThreeColumnReader() {
       )
     }
 
-    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无白话译</p>
+    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>此处尚无白话疏解</p>
   }
 
   const generateTranslationCache = async () => {
@@ -258,7 +258,7 @@ export function ThreeColumnReader() {
         })
       }
     } catch {
-      setTranslationError('翻译生成失败，请稍后重试')
+      setTranslationError('白话疏解暂未生成，请稍后再试')
     } finally {
       setTranslationGenerating(false)
     }
@@ -295,7 +295,7 @@ export function ThreeColumnReader() {
               返回
             </button>
             <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.title))}
+              {isSample ? currentDocument.title : (progressSyncError ? '阅读记录暂未同步' : (documentMeta || currentDocument.title))}
             </span>
           </div>
           <div className="flex gap-2">
@@ -323,7 +323,7 @@ export function ThreeColumnReader() {
           {[
             { key: 'original' as const, label: '原文' },
             { key: 'punctuated' as const, label: '标点文' },
-            { key: 'translated' as const, label: '白话译' },
+            { key: 'translated' as const, label: '白话疏解' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -356,7 +356,7 @@ export function ThreeColumnReader() {
             >
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                  阅读导读
+                  开卷导读
                 </span>
                 {currentDocument.difficulty && (
                   <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}>
@@ -382,7 +382,7 @@ export function ThreeColumnReader() {
                       className="rounded-full px-3 py-1 text-[11px]"
                       style={{ backgroundColor: 'rgba(201,160,99,0.14)', color: 'var(--gf-gold)' }}
                     >
-                      先读：{title}
+                      先从这里读起：{title}
                     </span>
                   ))}
                 </div>
@@ -393,21 +393,21 @@ export function ThreeColumnReader() {
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
-                  解释这篇
+                  义理辨析
                 </button>
                 <button
                   onClick={() => openReaderCompanion('allusion')}
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                 >
-                  追人物典故
+                  顺览人物典故
                 </button>
                 <button
                   onClick={() => openReaderCompanion('study')}
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
                 >
-                  进入复习
+                  顺着往下读
                 </button>
               </div>
               {!currentDocument.translatedText && currentDocument.sourceType === 'corpus' && (
@@ -417,7 +417,7 @@ export function ThreeColumnReader() {
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
                   {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  {translationCache.length > 0 ? '继续按需补全白话译' : '生成推荐章节白话译'}
+                  {translationCache.length > 0 ? '续补白话疏解' : '生成推荐章节白话疏解'}
                 </button>
               )}
               {translationError && (
@@ -439,8 +439,8 @@ export function ThreeColumnReader() {
             </div>
           )}
           {activeReaderTab === 'original' && renderColumn('原文', renderTextBlocks(currentDocument.originalText, '原文'))}
-          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderTextBlocks(currentDocument.punctuatedText, '标点文') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>暂无标点文</p>)}
-          {activeReaderTab === 'translated' && renderColumn('白话译', currentDocument.translatedText ? renderTextBlocks(currentDocument.translatedText, '白话译') : renderTranslatedFallback())}
+          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderTextBlocks(currentDocument.punctuatedText, '标点文') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>)}
+          {activeReaderTab === 'translated' && renderColumn('白话疏解', currentDocument.translatedText ? renderTextBlocks(currentDocument.translatedText, '白话疏解') : renderTranslatedFallback())}
         </div>
 
         {sidePanel === 'notes' && (
@@ -483,7 +483,7 @@ export function ThreeColumnReader() {
                 {currentDocument.title}
               </div>
               <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.42)' }}>
-                {progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.sourceName || '阅读进度会自动记录')}
+                {progressSyncError ? '阅读记录暂未同步' : (documentMeta || currentDocument.sourceName || '阅读记录会自动保存')}
               </div>
             </div>
           </div>
@@ -547,7 +547,7 @@ export function ThreeColumnReader() {
             )}
             {!currentDocument.translatedText && translationCache.length > 0 && (
               <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                已缓存部分分段白话译，可先读右侧摘要，再继续补全全文。
+                已缓存部分分段白话疏解，可先读右侧摘要，再续补全文。
               </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
@@ -570,7 +570,7 @@ export function ThreeColumnReader() {
                 className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                 style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
               >
-                进入复习
+                顺着往下读
               </button>
             </div>
           </div>
@@ -609,7 +609,7 @@ export function ThreeColumnReader() {
                 '标点文',
                 currentDocument.punctuatedText
                   ? renderTextBlocks(currentDocument.punctuatedText, '标点文')
-                  : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>暂无标点文</p>
+                  : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>
               )}
             </motion.div>
           </ScrollSyncPane>
@@ -618,9 +618,9 @@ export function ThreeColumnReader() {
             <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
               <div className="bg-xuan-paper rounded-[20px]"></div>
               {renderColumn(
-                '白话译',
+                '白话疏解',
                 currentDocument.translatedText
-                  ? renderTextBlocks(currentDocument.translatedText, '白话译')
+                  ? renderTextBlocks(currentDocument.translatedText, '白话疏解')
                   : renderTranslatedFallback()
               )}
             </motion.div>

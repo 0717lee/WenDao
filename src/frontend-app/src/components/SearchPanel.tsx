@@ -119,7 +119,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       } else {
         setError(
           message.includes('Failed to fetch')
-            ? '检索服务暂时不可用，请稍后重试，或先回到阅读中心继续阅读。'
+            ? '检索服务暂时不可用，请稍后重试，或先回到阅读页继续阅读。'
             : message
         );
         setResults([]);
@@ -159,7 +159,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   };
 
   const buildResultAskPrompt = (result: SearchResult) =>
-    `请结合《${result.title}》里的这段内容继续讲解：${result.content.slice(0, 120)}`;
+    `请结合《${result.title}》里的这段内容继续义理辨析：${result.content.slice(0, 120)}`;
 
   const openResultDocument = (result: SearchResult) => {
     if (!result.document_id) return;
@@ -189,13 +189,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       >
         <div className="mb-4">
           <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
-            典籍定位
+            寻章摘句
           </div>
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
             在库中检索人物、典故与原文片段
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            适合查找人物、典故、概念和原句片段。若已找到目标原文但尚未读懂，可前往问答页详细解读。
+            义理未明时，可转至问道解疑继续辨析。
           </p>
         </div>
 
@@ -264,7 +264,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            定位内容后，可前往问答页深入解读
+            转至问道解疑，可作辨析。
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -273,7 +273,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(140,26,17,0.12)', color: 'var(--gf-gugong-red)', backgroundColor: 'rgba(140,26,17,0.06)' }}
             >
-              前往问答解读
+              转至问道解疑
             </button>
             <button
               type="button"
@@ -312,14 +312,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                 className="rounded-full px-3 py-1.5 text-xs transition-colors"
                 style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
               >
-                去阅读中心看看
+                转至阅读页
               </button>
               <button
                 onClick={reshuffleSuggestions}
                 className="rounded-full px-3 py-1.5 text-xs transition-colors"
                 style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
               >
-                换一组尝试词
+                换一组关键词
               </button>
             </div>
           )}
@@ -337,7 +337,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         {results.length === 0 && !loading && !error && !query && (
           <div className="text-center mt-20 opacity-35">
             <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>输入人物、典故或原句开始检索</p>
+            <p style={{ color: 'var(--gf-text)' }}>输入人物、典故或原句，开始检索</p>
           </div>
         )}
 
@@ -345,10 +345,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           <div className="text-center mt-20 opacity-45">
             <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
             <p className="mb-3" style={{ color: 'var(--gf-text)' }}>
-              没有找到“{query}”的结果
+              没找到“{query}”相关内容
             </p>
             <p className="text-sm mb-4" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              可以试试人物名、典故名、关键概念，或换成一句更完整的原文。
+              原句未得，可试人物名、典故名，或换作更完整的原文。
             </p>
             <div className="flex justify-center flex-wrap gap-2">
               {suggestedQueries.map((item) => (
@@ -400,7 +400,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
                   style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                 >
-                  {result.document_id ? '打开原文' : '原文待导入'}
+                  {result.document_id ? '翻开原文' : '原文待导入'}
                 </button>
                 <button
                   type="button"
@@ -470,7 +470,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                     className="rounded-full px-4 py-2 text-sm transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
                     style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                   >
-                    {selectedResult.document_id ? '打开原文' : '原文待导入'}
+                    {selectedResult.document_id ? '翻开原文' : '原文待导入'}
                   </button>
                   <button
                     type="button"
@@ -483,7 +483,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                 </div>
                 {!selectedResult.document_id && (
                   <p className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    这条结果目前来自索引片段，还没有映射到可直接打开的阅读页，你仍可继续问答追问。
+                    这条结果目前来自索引片段，尚未映射至可直接翻开的阅读页，你仍可继续问答追问。
                   </p>
                 )}
               </div>

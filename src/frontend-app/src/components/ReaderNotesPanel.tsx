@@ -66,7 +66,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       if (!response.ok) throw new Error('save failed')
       showMessage('笔记已保存')
     } catch {
-      showMessage('笔记保存失败')
+      showMessage('笔记没有保存成功，请稍后再试')
     } finally {
       setSaving(false)
     }
@@ -101,7 +101,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       if (!response.ok) throw new Error('favorite failed')
       showMessage(`已加入${folder.name}`)
     } catch {
-      showMessage('收藏失败，请稍后重试')
+      showMessage('收藏没有成功，请稍后再试')
     }
   }
 
@@ -146,7 +146,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
           <BookMarked className="h-3.5 w-3.5" />
-          {folders.length > 0 ? `默认收藏夹：${folders[0].name}` : '可自动创建默认收藏夹'}
+          {folders.length > 0 ? `默认收藏夹：${folders[0].name}` : '需要时会自动创建默认收藏夹'}
         </div>
         <button
           onClick={handleSaveNote}

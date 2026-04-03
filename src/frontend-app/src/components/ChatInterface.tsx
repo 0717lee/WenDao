@@ -321,7 +321,7 @@ export function ChatInterface() {
             })
         } catch (error) {
             console.error('Vision API error:', error)
-            updateLastMessage('图片分析失败，请稍后重试。')
+            updateLastMessage('图片分析没有完成，请稍后再试，或先改用文字提问。')
         } finally {
             setLoading(false)
             setProgress('')
@@ -417,7 +417,7 @@ export function ChatInterface() {
                             setProgress('')
                         } else if (currentEventType === 'error') {
                             console.error('Poem stream error:', event.message)
-                            updateLastMessage(event.message || '诗词生成失败，请稍后重试')
+                            updateLastMessage(event.message || '诗词生成没有完成，请稍后再试')
                             setLoading(false)
                             setProgress('')
                         }
@@ -429,7 +429,7 @@ export function ChatInterface() {
             }
         } catch (error) {
             console.error('Poem API error:', error)
-            updateLastMessage('诗词生成失败，请稍后重试。')
+            updateLastMessage('诗词生成没有完成，请稍后再试。')
             setLoading(false)
             setProgress('')
         }
@@ -711,13 +711,13 @@ export function ChatInterface() {
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="max-w-2xl">
                                 <div className="mb-2 text-[11px] tracking-[0.26em]" style={{ color: 'var(--gf-gold)' }}>
-                                    释义 · 解读
+                                    问道解疑
                                 </div>
                                 <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                                    此处专注解读，不代为检索全文
+                                    问道解疑
                                 </h2>
                                 <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                                    适合解释原文含义、比较思想源流、补充历史背景与梳理典故脉络。若尚未定位到相关篇章，建议先前往检索页。
+                                    义理辨析与典故参照。
                                 </p>
                             </div>
                             <button
@@ -726,7 +726,7 @@ export function ChatInterface() {
                                 style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.66)' }}
                             >
                                 <Search className="h-3.5 w-3.5" />
-                                前往检索
+                                转至寻章摘句
                             </button>
                         </div>
 

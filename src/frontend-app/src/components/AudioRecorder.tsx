@@ -40,7 +40,7 @@ export function useVoiceRecorder() {
                         streamRef.current = null
 
                         if (audioChunksRef.current.length === 0) {
-                            onError('未录制到音频')
+                            onError('没有录到声音，请重新录一段')
                             return
                         }
 
@@ -58,10 +58,10 @@ export function useVoiceRecorder() {
                             if (data.text) {
                                 onTranscription(data.text)
                             } else {
-                                onError(data.error || '未能识别，请重新录音')
+                                onError(data.error || '这段语音没识别出来，请换一句再录')
                             }
                         } catch {
-                            onError('语音识别失败，请重试')
+                            onError('语音识别没有成功，请检查麦克风后再试，或直接输入问题')
                         }
                         setIsTranscribing(false)
                     }
@@ -71,7 +71,7 @@ export function useVoiceRecorder() {
                     setIsRecording(true)
                 } catch (err) {
                     console.error('[VoiceRecorder] Microphone access denied:', err)
-                    onError('无法访问麦克风，请授予权限')
+                    onError('无法使用麦克风，请先检查权限设置')
                 }
             }
         },

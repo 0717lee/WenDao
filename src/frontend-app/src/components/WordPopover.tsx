@@ -123,7 +123,7 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
             /* Skeleton loading */
             <div className="space-y-3">
               <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                加载中...
+                正在查找释义...
               </p>
               <div className="skeleton-shimmer h-4 w-16 rounded-lg" />
               <div className="skeleton-shimmer h-4 w-full rounded-lg" />
@@ -145,7 +145,7 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
                 }}
               >
                 <BookPlus className="w-4 h-4" />
-                {saved ? '已加入生词本' : saving ? '保存中...' : '加入生词本'}
+                {saved ? '已加入字词本' : saving ? '正在保存...' : '加入字词本'}
               </button>
 
               {/* Meaning */}
@@ -211,7 +211,7 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
             </>
           ) : (
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.4)' }}>
-              无法加载释义
+              无法取到这个词的释义，请换一个词再试
             </p>
           )}
         </div>

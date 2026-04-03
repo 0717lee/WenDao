@@ -34,7 +34,7 @@ export function OCRPreview() {
 
       eventSource.addEventListener('progress', (e) => {
         const data = JSON.parse(e.data);
-        setProcessProgress(data.status || data.message || '处理中...');
+        setProcessProgress(data.status || data.message || '正在继续整理文本...');
       });
 
       eventSource.addEventListener('done', (e) => {
@@ -53,13 +53,13 @@ export function OCRPreview() {
       eventSource.addEventListener('error', (e) => {
         console.error('SSE error:', e);
         setUploadStatus('error');
-        setProcessProgress('处理失败，请重试');
+        setProcessProgress('整理没有完成，请稍后再试');
         eventSource.close();
       });
     } catch (error) {
       console.error('Process error:', error);
       setUploadStatus('error');
-      setProcessProgress('处理失败，请重试');
+      setProcessProgress('整理没有完成，请稍后再试');
     }
   };
 
@@ -90,7 +90,7 @@ export function OCRPreview() {
           }}
         >
           <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
-            OCR 校对
+            拍页校读
           </div>
           <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先校对识别结果，再继续整理</h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
@@ -118,7 +118,7 @@ export function OCRPreview() {
                   className="max-w-full max-h-full object-contain"
                 />
               ) : (
-                <p style={{ color: 'rgba(26,30,35,0.3)' }}>无图片预览</p>
+                <p style={{ color: 'rgba(26,30,35,0.3)' }}>当前没有可预览的图片</p>
               )}
             </div>
           </div>
@@ -180,7 +180,7 @@ export function OCRPreview() {
                 {uploadStatus === 'processing' ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    处理中...
+                    正在继续整理
                   </>
                 ) : (
                   '继续处理'

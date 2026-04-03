@@ -94,7 +94,7 @@ interface LearningFocus {
 
 const QUICK_QUESTION_PROMPTS = [
   '“学而时习之”到底在讲什么？',
-  '请用白话解释《道德经》第一章',
+  '《道德经》第一章到底想说什么？',
   '孔子和孟子的思想有什么联系？',
 ]
 
@@ -223,27 +223,27 @@ export default function DashboardHome({
   const heroEntryWays = [
     {
       key: 'corpus',
-      eyebrow: '古籍起步',
-      title: firstCorpus ? '先从古籍库读一部经典' : firstSample ? '先读一篇精选导读' : '打开阅读枢纽',
-      description: '主图库已接入真实典籍，首次开启即可直接畅读长卷。',
+      eyebrow: '开卷即览',
+      title: firstCorpus ? '先翻开一部经典' : firstSample ? '先读一篇导读' : '转至阅读页',
+      description: '古籍库里已有可以直接翻开的文本，第一次来也能立刻上手。',
       action: primaryAction,
       accent: 'var(--gf-gugong-red)',
       accentSoft: 'rgba(140,26,17,0.08)',
     },
     {
       key: 'search',
-      eyebrow: '原句定位',
-      title: '按问题寻找原文',
-      description: '从人物、典故或名句切入，精准定位后再深入阅读。',
+      eyebrow: '寻章摘句',
+      title: '先从一句话找起',
+      description: '记得一句原文、一个人物或一个典故，从这里最快找到。',
       action: () => onSearch(SEARCH_TOPICS[0]),
       accent: '#7b5b44',
       accentSoft: 'rgba(123,91,68,0.08)',
     },
     {
       key: 'scan',
-      eyebrow: '辅助上传',
-      title: '扫描图片并识别',
-      description: '为实物影像保留的 OCR 通道，辅助完成断句与白话对照。',
+      eyebrow: '拍页即读',
+      title: '有图片时再走这里',
+      description: '手头有影印页或扫描图，用 OCR 转成可读文字，再做断句和对照。',
       action: onOpenReaderHub,
       accent: 'var(--gf-gold)',
       accentSoft: 'rgba(201,160,99,0.12)',
@@ -256,7 +256,7 @@ export default function DashboardHome({
       value: history.length,
       icon: Clock3,
       accent: '#5b8aab',
-      hint: '阅读记录已并入阅读中心。',
+      hint: '回到上次停下的地方，接着往后读。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(237,244,247,0.96) 100%)',
       action: onOpenReaderHub,
     },
@@ -265,7 +265,7 @@ export default function DashboardHome({
       value: corpusDocuments.length,
       icon: LibraryBig,
       accent: 'var(--gf-gugong-red)',
-      hint: '主阅读功能来自真实古籍。',
+      hint: '从这些可以直接翻开的古籍开始。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(250,239,236,0.94) 100%)',
       action: firstCorpus ? () => onOpenDocument(firstCorpus.id) : onOpenReaderHub,
     },
@@ -274,7 +274,7 @@ export default function DashboardHome({
       value: wordbook.length,
       icon: Star,
       accent: '#3c8a51',
-      hint: '留住释义与典故。',
+      hint: '遇到难词随手收，积少成多。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(239,246,241,0.96) 100%)',
       action: onOpenWordbook,
     },
@@ -283,7 +283,7 @@ export default function DashboardHome({
       value: documents.length + corpusDocuments.length + sampleDocuments.length,
       icon: ScrollText,
       accent: 'var(--gf-gold)',
-      hint: '阅读与典籍库现已合并。',
+      hint: '样例、古籍和你上传的文档，汇总在这里。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(248,244,233,0.98) 100%)',
       action: onOpenReaderHub,
     },
@@ -356,10 +356,10 @@ export default function DashboardHome({
                   style={{ backgroundColor: 'rgba(140,26,17,0.09)', color: 'var(--gf-gugong-red)' }}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  古籍阅读主阵地
+                  开卷导读
                 </span>
                 <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
-                  读原典、看释义、探出处
+                  先读原文，再徐徐通晓
                 </div>
               </div>
 
@@ -368,20 +368,20 @@ export default function DashboardHome({
                   className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  专为古籍打造的阅读平台，
+                  先把古籍翻开，
                   <br className="hidden md:block" />
-                  从原典开始探索
+                  一句一句通晓其义
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  建议先畅读古籍库经典、检索原句或直接提问；若手头有实物典籍图片，再进入扫描识别与对照阅读流程。
+                  既可翻开一篇古籍，亦可由一句未明之语发问。
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>经典入门</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>直接开读</span>
                 <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>原句检索</span>
                 <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>继续追问</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>图片识别可选</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>有图再上传</span>
               </div>
             </div>
 
@@ -396,7 +396,7 @@ export default function DashboardHome({
             >
               <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
                 <BookOpen className="h-4 w-4" />
-                第一次进入先这样用
+                第一次打开，可先由此入手
               </div>
               <div className="space-y-4">
                 {heroEntryWays.map((item, index) => (
@@ -442,10 +442,10 @@ export default function DashboardHome({
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  阅读概览
+                  开卷总览
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  把继续阅读、字词积累和典籍入口收在一个地方。
+                  此后可续前读。
                 </p>
               </div>
               {usingDemoSamples && (
@@ -453,7 +453,7 @@ export default function DashboardHome({
                   className="rounded-full px-3 py-1 text-[11px]"
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
-                  样例已切到本地兜底
+                  当前为离线体验样例
                 </span>
               )}
             </div>
@@ -493,12 +493,12 @@ export default function DashboardHome({
           >
             <div className="mb-4">
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                学习路径
+                学习脉络
               </h3>
-              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                继续读、回看字词、复习卡片，不让理解停在第一次阅读。
-              </p>
-            </div>
+                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  读、记、问、复习，尽量不断线。
+                </p>
+              </div>
 
             {hasLearningTrail ? (
               <div className="space-y-4">
@@ -507,17 +507,17 @@ export default function DashboardHome({
                   style={{ backgroundColor: 'rgba(248,244,233,0.92)', border: '1px solid rgba(201,160,99,0.16)' }}
                 >
                   <div className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    最近学习
+                    最近读到这里
                   </div>
                   <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                    {recentTrailTitle ? `继续处理：${recentTrailTitle}` : '继续回到上次的阅读位置'}
+                    {recentTrailTitle ? `继续读：${recentTrailTitle}` : '回到上次停下的地方'}
                   </div>
                   <div className="mt-1 text-xs" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                    {recentTrailTime ? `上次记录：${formatTimeLabel(recentTrailTime)}` : '已形成基础学习轨迹'}
+                    {recentTrailTime ? `上次读到：${formatTimeLabel(recentTrailTime)}` : '你的阅读记录会从这里一点点长出来。'}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                     <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                      学习记录 {studyOverview?.sessions_count ?? 0}
+                      复习 {studyOverview?.sessions_count ?? 0} 次
                     </span>
                     <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
                       生词 {wordbook.length}
@@ -539,7 +539,7 @@ export default function DashboardHome({
                   className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
-                  继续学习
+                  转至续读
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -549,14 +549,14 @@ export default function DashboardHome({
                 style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.06)' }}
               >
                 <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
-                  先读一篇古籍、保存一个字词或完成一次卡片复习，这里就会开始沉淀你的学习路径。
+                  先读一篇、记一词，或做一轮卡片，此处便会替你记住进度。
                 </div>
                 <button
                   onClick={primaryAction}
                   className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                 >
-                  开始第一篇
+                  转至起读
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -572,10 +572,10 @@ export default function DashboardHome({
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  今日复习
+                  今日一课
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  每天只做一件最值得先做的学习动作。
+                  起手一事。
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.55)' }}>
@@ -589,13 +589,13 @@ export default function DashboardHome({
               style={{ backgroundColor: 'rgba(248,244,233,0.92)', border: '1px solid rgba(201,160,99,0.18)' }}
             >
               <div className="text-[11px] tracking-[0.22em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                优先任务
+                今天先做这个
               </div>
               <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                {todayReview?.title || '先开始一次阅读'}
+                {todayReview?.title || '先翻开一篇古籍'}
               </div>
               <div className="mt-1 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                {todayReview?.description || '先打开一篇古籍，后续会自动形成你的复习重点。'}
+                {todayReview?.description || '先翻开一篇古籍，你的复习节奏就会慢慢长出来。'}
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.62)' }}>
@@ -610,7 +610,7 @@ export default function DashboardHome({
                 className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                 style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
               >
-                {todayReview?.action_label || '开始阅读'}
+                {todayReview?.action_label || '转至起读'}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -646,13 +646,13 @@ export default function DashboardHome({
             <div className="mb-4">
               <div className="mb-2 inline-flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.58)' }}>
                 <Users className="h-3.5 w-3.5" />
-                共读灵感
+                今天可以这样读
               </div>
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                像有人陪你一起读
+                起手一卷
               </h3>
               <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                每次给一个切入点，帮助你把问答、检索和阅读串起来。
+                由此起手，便可续读。
               </p>
             </div>
 
@@ -684,10 +684,10 @@ export default function DashboardHome({
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  下一步继续读什么
+                  起手一卷
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  根据你最近读过的内容和字词收藏，推荐下一篇继续读。
+                  依近来所读与字词收藏，续推数篇可读之作。
                 </p>
               </div>
             <div className="flex gap-2">
@@ -696,14 +696,14 @@ export default function DashboardHome({
                 className="rounded-xl px-3 py-1.5 text-xs"
                 style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
               >
-                打开对照阅读
+                转至对照
               </button>
               <button
                 onClick={onOpenWordbook}
                 className="rounded-xl px-3 py-1.5 text-xs"
                 style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
               >
-                打开字词本
+                转至字词本
               </button>
             </div>
           </div>
@@ -720,7 +720,7 @@ export default function DashboardHome({
                   {item.title}
                 </div>
                 <div className="line-clamp-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                  {item.preview || '暂无摘要'}
+                  {item.preview || '翻开后可继续对照原文、标点和白话。'}
                 </div>
                 {item.reasons && item.reasons.length > 0 && (
                   <div className="mt-2 text-[11px]" style={{ color: 'var(--gf-gold)' }}>
@@ -731,7 +731,7 @@ export default function DashboardHome({
             ))}
             {!loading && recommendations.length === 0 && (
               <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                暂无推荐，先读一篇样例或上传一张扫描页试试看。
+                先读一篇，推荐会慢慢准起来。
               </p>
             )}
           </div>

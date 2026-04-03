@@ -41,7 +41,7 @@ function TabLoader() {
                     style={{ borderColor: 'rgba(140,26,17,0.15)', borderTopColor: 'var(--gf-gugong-red)' }}
                 />
                 <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    正在整理书房...
+                    正在准备页面...
                 </span>
             </div>
         </div>
@@ -319,7 +319,7 @@ function App() {
                         side="left"
                         open={drawerOpen}
                         onClose={() => setDrawerOpen(false)}
-                        title="阅读入口"
+                        title="页面导航"
                         icon={
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />

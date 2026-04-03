@@ -32,14 +32,14 @@ export default function ComparePanel() {
             对照阅读
           </h2>
           <p style={{ color: 'rgba(26,30,35,0.45)' }}>
-            先前往阅读中心选取 1–2 份体验样例或自上传文档加入对照，即可将原文、标点与白话并排阅读。
+            先去阅读页选 1–2 份样例或自有文档加入对照，就能把原文、标点和白话并排来看。
           </p>
           <button
             onClick={() => setActiveTab('reader')}
             className="mt-5 rounded-[18px] px-4 py-2.5 text-sm text-white"
             style={{ backgroundColor: 'var(--gf-gugong-red)' }}
           >
-            前往阅读中心
+            前往阅读页
           </button>
         </div>
       </div>
@@ -118,7 +118,7 @@ export default function ComparePanel() {
                       {COLUMN_TITLES[field]}
                     </div>
                     <div className="max-h-[360px] overflow-y-auto scrollbar-hide whitespace-pre-wrap text-sm leading-7" style={{ color: 'rgba(26,30,35,0.72)' }}>
-                      {doc[field] || '暂无内容'}
+                      {doc[field] || '暂时还没有内容'}
                     </div>
                   </div>
                 ))}

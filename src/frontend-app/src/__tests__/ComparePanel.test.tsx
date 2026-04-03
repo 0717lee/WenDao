@@ -13,7 +13,7 @@ describe('ComparePanel', () => {
   it('routes empty state to reader hub', () => {
     render(<ComparePanel />)
 
-    fireEvent.click(screen.getByRole('button', { name: '前往阅读中心' }))
+    fireEvent.click(screen.getByRole('button', { name: '前往阅读页' }))
 
     expect(useGraphStore.getState().activeTab).toBe('reader')
   })

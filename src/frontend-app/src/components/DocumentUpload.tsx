@@ -157,8 +157,8 @@ export function DocumentUpload() {
       const message = error instanceof Error ? error.message : 'Upload failed';
       setUploadErrorMessage(
         message.toLowerCase().includes('fetch')
-          ? '识别服务暂时不可用，建议先打开体验样例继续体验。'
-          : '上传失败，请检查图片格式，或先切换到体验样例继续体验。'
+          ? '识别服务暂时不可用，建议先转至体验样例续读。'
+          : '上传没有成功，请检查图片格式后再试，或先从体验样例开始。'
       );
       setUploadStatus('error');
     }
@@ -200,16 +200,16 @@ export function DocumentUpload() {
               style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              开始读古籍
+              开卷即览
             </span>
             <h2
               className="text-2xl leading-tight md:text-3xl"
               style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
             >
-              没有古籍图片，也可立即开始
+              无古籍图片，亦可即刻起读
             </h2>
             <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.58)' }}>
-              想先读懂一段古文，可从体验样例、问答或检索入手；手头有扫描页时，再通过上传入口开始识别。
+              欲通晓古文，可由体验样例、问道解疑或寻章摘句入手。
             </p>
           </div>
         </section>
@@ -230,7 +230,7 @@ export function DocumentUpload() {
                     先从体验样例开始
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    直接打开内置经典片段，进入阅读、释义和继续提问
+                    翻开内置经典片段，即可进入阅读、释义与追问
                   </p>
                 </div>
                 <BookOpen className="h-4 w-4" style={{ color: 'rgba(26,30,35,0.3)' }} />
@@ -238,7 +238,7 @@ export function DocumentUpload() {
 
               {usingDemoSamples && (
                 <div className="mb-3 rounded-[22px] px-4 py-3 text-xs leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
-                  当前展示的是本地样例。即使识别服务暂时不可用，也能先完整体验阅读流程。
+                  当前展示本地样例。即使识别服务暂时不可用，亦可先完整体验阅读流程。
                 </div>
               )}
 
@@ -263,14 +263,14 @@ export function DocumentUpload() {
                       </span>
                     </div>
                     <div className="line-clamp-3 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                      {doc.preview || '打开后即可查看原文、标点和白话对照。'}
+                      {doc.preview || '翻开后即可对照原文、标点和白话。'}
                     </div>
                   </button>
                 ))}
 
                 {!loadingSamples && sampleDocuments.length === 0 && (
                   <p className="text-sm" style={{ color: 'rgba(26,30,35,0.35)' }}>
-                    暂未加载到体验样例，可先向 AI 提问，或通过上传开始。
+                    暂未载入体验样例，可先发问，或由上传入口续进。
                   </p>
                 )}
               </div>
@@ -287,10 +287,10 @@ export function DocumentUpload() {
               >
                 <div className="mb-4">
                   <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                    片段问答
+                    问道解疑
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    输入原文或疑问，AI 会给出白话解读
+                    输入原文或疑问，AI 会给出白话疏解与义理辨析
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -322,7 +322,7 @@ export function DocumentUpload() {
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                      典籍定位
+                      寻章摘句
                     </h3>
                     <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
                       在已入库的典籍中定位原文片段
@@ -357,10 +357,10 @@ export function DocumentUpload() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                   <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                    上传古籍图片
+                    拍页即读
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    如果你手头有影印页、扫描图或馆藏图片，可以从这里开始识别。
+                    若手头有影印页、扫描图或馆藏图片，可由此开始识别整理。
                   </p>
                 </div>
               <ScanText className="h-4 w-4" style={{ color: 'var(--gf-gugong-red)' }} />
@@ -393,7 +393,7 @@ export function DocumentUpload() {
                       className="w-14 h-14 border-2 rounded-full animate-spin"
                       style={{ borderColor: 'rgba(26,30,35,0.1)', borderTopColor: 'var(--gf-gugong-red)' }}
                     />
-                    <p className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>上传中...</p>
+                    <p className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>正在上传图片</p>
                   </>
                 ) : (
                   <>
@@ -403,7 +403,7 @@ export function DocumentUpload() {
                         {isDragActive ? '松开上传' : '拖拽图片或点击上传'}
                       </p>
                       <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                        支持 JPG、PNG、TIFF 格式，上传后会自动进入 OCR、断句和白话翻译流程
+                        支持 JPG、PNG、TIFF 格式，上传后即会进入 OCR、断句与白话翻译流程
                       </p>
                     </div>
                   </>
@@ -416,14 +416,14 @@ export function DocumentUpload() {
                 className="mt-4 rounded-[22px] px-4 py-3 text-sm"
                 style={{ backgroundColor: 'rgba(176,58,58,0.08)', border: '1px solid rgba(176,58,58,0.15)', color: '#b03a3a' }}
               >
-                <div>{uploadErrorMessage || '上传失败，请检查图片格式后再试。'}</div>
+                <div>{uploadErrorMessage || '上传未成，请检查图片格式后再试。'}</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={openFallbackSample}
                     className="rounded-full px-3 py-1.5 text-xs transition-colors"
                     style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
                   >
-                    打开体验样例
+                    转至体验样例
                   </button>
                   <button
                     onClick={() => askQuestion(QUICK_QUESTION_PROMPTS[0])}

@@ -75,9 +75,9 @@ const ReadingHistory: React.FC<ReadingHistoryProps> = ({ onNavigate }) => {
           </div>
           <div className="text-center mt-16 opacity-35">
             <BookOpen className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>暂无阅读记录</p>
+            <p style={{ color: 'var(--gf-text)' }}>尚无阅读记录</p>
             <p className="mt-2 text-sm" style={{ color: 'rgba(26,30,35,0.5)' }}>
-              阅读文档后，进度会自动记录在这里。
+              阅读文档后，进度自会记载于此。
             </p>
           </div>
         </div>
@@ -93,15 +93,15 @@ const ReadingHistory: React.FC<ReadingHistoryProps> = ({ onNavigate }) => {
             学习进度
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            这里会记下你读过的样例和文档，方便下次接着读。
+            此处记载已读样例与文档，便于下次续读。
           </p>
         </div>
         {history.length === 0 ? (
           <div className="text-center mt-16 opacity-35">
             <BookOpen className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>暂无阅读记录</p>
+            <p style={{ color: 'var(--gf-text)' }}>尚无阅读记录</p>
             <p className="mt-2 text-sm" style={{ color: 'rgba(26,30,35,0.5)' }}>
-              可以先打开一篇体验样例，或上传一张古籍图片开始阅读。
+              可先翻开一篇体验样例，或上传一页古籍图片以启阅读。
             </p>
           </div>
         ) : (

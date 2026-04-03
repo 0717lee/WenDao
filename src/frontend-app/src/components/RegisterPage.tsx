@@ -33,7 +33,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             setPassword('')
             setConfirmPassword('')
         } catch (err: any) {
-            setError(err.message || '注册失败')
+            setError(err.message || '注册没有成功，请稍后再试')
         } finally {
             setLoading(false)
         }
@@ -69,7 +69,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        注册后可保存阅读进度、字词收藏与学习记录
+                        注册后即可保存阅读进度、字词收藏和学习记录
                     </p>
                 </div>
 
@@ -232,7 +232,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        从一句古文开始，把阅读慢慢留下来
+                        从一句古文开始，把阅读一点点积累下来
                     </p>
                 </div>
             </div>

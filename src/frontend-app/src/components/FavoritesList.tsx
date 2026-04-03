@@ -132,7 +132,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
         {folders.length === 0 ? (
           <div className="text-center mt-16 opacity-35">
             <Folder className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>暂无收藏夹</p>
+            <p style={{ color: 'var(--gf-text)' }}>还没有收藏内容</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -166,7 +166,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
                       {!docs ? (
                         <div className="p-3 text-sm flex items-center gap-2" style={{ color: 'rgba(26,30,35,0.4)' }}>
                           <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(26,30,35,0.1)', borderTopColor: 'var(--gf-gugong-red)' }} />
-                          加载中...
+                          正在载入...
                         </div>
                       ) : docs.length === 0 ? (
                         <div className="p-3 text-sm" style={{ color: 'rgba(26,30,35,0.3)' }}>
