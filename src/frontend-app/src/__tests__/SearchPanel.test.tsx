@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SearchPanel from '../components/SearchPanel';
+import { useDocumentStore } from '../store/useDocumentStore';
 
 // Mock fetch API
 global.fetch = vi.fn();
@@ -14,6 +15,7 @@ describe('SearchPanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    useDocumentStore.getState().reset();
   });
 
   it('renders search input and button', () => {
@@ -185,6 +187,7 @@ describe('SearchPanel', () => {
           content: '斗拱是中国古代建筑特有的构件，用于承重和装饰。',
           source: '营造法式',
           score: 0.85,
+          anchor_text: '斗拱是中国古代建筑特有的构件',
         },
       ],
       mode: 'HYBRID',
@@ -203,8 +206,9 @@ describe('SearchPanel', () => {
 
     expect(await screen.findByText('斗拱结构')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '打开原文' }));
+    fireEvent.click(screen.getByRole('button', { name: '翻开原文' }));
     expect(props.onOpenDocument).toHaveBeenCalledWith('real-doc-42');
+    expect(useDocumentStore.getState().pendingAnchorText).toBe('斗拱是中国古代建筑特有的构件');
 
     fireEvent.click(screen.getByRole('button', { name: '去问答' }));
     expect(props.onAsk).toHaveBeenCalledWith(expect.stringContaining('斗拱结构'));

@@ -136,7 +136,7 @@ describe('DocumentUpload', () => {
   it('renders dual-entry page with upload zone and sample area', async () => {
     render(<DocumentUpload />)
 
-    expect(screen.getByText(/没有古籍图片，也可立即开始/)).toBeInTheDocument()
+    expect(screen.getByText(/无古籍图片，亦可即刻起读/)).toBeInTheDocument()
     expect(screen.getByText(/拖拽图片|点击上传/)).toBeInTheDocument()
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
   })
@@ -209,8 +209,8 @@ describe('DocumentUpload', () => {
     await waitFor(() => {
       const state = useDocumentStore.getState()
       expect(state.uploadStatus).toBe('error')
-      expect(screen.getByText(/上传失败/)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: '打开体验样例' })).toBeInTheDocument()
+      expect(screen.getByText(/上传没有成功/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '转至体验样例' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: '先问一句古文' })).toBeInTheDocument()
     })
   })
@@ -246,7 +246,7 @@ describe('DocumentUpload', () => {
     render(<DocumentUpload />)
 
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
-    expect(screen.getByText(/当前展示的是本地样例/)).toBeInTheDocument()
+    expect(screen.getByText(/当前展示本地样例/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('体验样例 · 《论语·学而》'))
 

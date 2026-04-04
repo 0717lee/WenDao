@@ -3,7 +3,7 @@ import { create } from 'zustand';
 type TabType = 'home' | 'chat' | 'search' | 'reader' | 'bookshelf' | 'compare' | 'history' | 'favorites' | 'wordbook';
 
 interface GraphStore {
-    // Tab navigation (shared so any component can switch tabs)
+    // Global tab navigation (shared so any component can switch tabs)
     activeTab: TabType;
     setActiveTab: (tab: TabType) => void;
 

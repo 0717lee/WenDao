@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Entity extractor for GraphRAG.
+Entity extractor for reading cues.
 Identifies known entities from text chunks by matching against
-the knowledge graph entity list (ancient_texts_graph.json).
+the internal entity lexicon used by recommendations and reader hints.
 
 Two paths:
   - Fast path: substring matching (no API needed)
@@ -17,30 +17,47 @@ from core.runtime_checks import get_zhipu_api_key
 
 logger = logging.getLogger(__name__)
 
-# Path to the knowledge graph data file
-_GRAPH_DATA_PATH = os.path.join(
+# Preferred entity lexicon path, with legacy graph-shaped data as fallback.
+_ENTITY_DATA_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "data", "reading_entities.json"
+)
+_LEGACY_ENTITY_DATA_PATH = os.path.join(
     os.path.dirname(__file__), "..", "data", "ancient_texts_graph.json"
 )
 
 
 class EntityExtractor:
-    """Extract known entities from text using the knowledge graph entity list."""
+    """Extract known entities from text using the internal entity lexicon."""
 
     def __init__(self, graph_path: Optional[str] = None):
         self._label_to_id: Dict[str, str] = {}
         self._known_ids: set = set()
-        self._load_entities(graph_path or _GRAPH_DATA_PATH)
+        self._load_entities(graph_path or _ENTITY_DATA_PATH, allow_legacy_fallback=graph_path is None)
 
-    def _load_entities(self, path: str) -> None:
-        """Load entity labels and IDs from graph JSON file."""
+    def _load_entities(self, path: str, allow_legacy_fallback: bool = True) -> None:
+        """Load entity labels and IDs from an entity lexicon JSON file."""
         try:
             abs_path = os.path.abspath(path)
             if not os.path.exists(abs_path):
-                logger.warning("Graph data file not found: %s", abs_path)
-                return
+                legacy_path = os.path.abspath(_LEGACY_ENTITY_DATA_PATH)
+                if allow_legacy_fallback and os.path.exists(legacy_path):
+                    abs_path = legacy_path
+                else:
+                    logger.warning("Entity lexicon file not found: %s", abs_path)
+                    return
             with open(abs_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            for node in data.get("nodes", []):
+
+            if isinstance(data, dict):
+                raw_entities = data.get("entities")
+                if not isinstance(raw_entities, list):
+                    raw_entities = data.get("nodes", [])
+            else:
+                raw_entities = []
+
+            for node in raw_entities:
+                if not isinstance(node, dict):
+                    continue
                 label = node.get("label", "")
                 node_id = node.get("id", "")
                 if label and node_id:
@@ -52,7 +69,7 @@ class EntityExtractor:
                 abs_path,
             )
         except Exception as e:
-            logger.warning("Failed to load graph data: %s", e)
+            logger.warning("Failed to load entity lexicon: %s", e)
 
     # ------------------------------------------------------------------
     # Fast path: substring matching

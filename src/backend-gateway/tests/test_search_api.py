@@ -185,3 +185,37 @@ async def test_fulltext_search_includes_private_docs_for_owner():
 
     assert len(results) == 1
     assert results[0].document_id == "doc-private"
+
+
+@pytest.mark.asyncio
+async def test_fulltext_search_prioritizes_exact_quote_with_segment_location():
+    from routers.search import fulltext_search
+
+    with patch("routers.search._load_document_candidates", new=AsyncMock(return_value=[
+        {
+            "id": "doc-lunyu",
+            "title": "《论语》",
+            "source_name": "Kanripo",
+            "author": "孔子弟子",
+            "dynasty": "春秋",
+            "category": "四书",
+            "original_text": "学而时习之不亦说乎有朋自远方来不亦乐乎",
+            "punctuated_text": "学而时习之，不亦说乎？有朋自远方来，不亦乐乎？",
+            "translated_text": "学习以后经常温习，不也是快乐的吗？",
+            "segments": [
+                {
+                    "title": "学而篇",
+                    "text": "学而时习之，不亦说乎？有朋自远方来，不亦乐乎？",
+                    "excerpt": "学而时习之，不亦说乎？",
+                    "summary": "适合作为《论语》入门句。"
+                }
+            ],
+            "source_type": "corpus",
+            "owner_user_id": None,
+        }
+    ])):
+        results = await fulltext_search("学而时习之", user_id=None)
+
+    assert len(results) == 1
+    assert results[0].source.endswith("学而篇")
+    assert results[0].anchor_text == "学而时习之，不亦说乎？"

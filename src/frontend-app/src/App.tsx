@@ -73,6 +73,17 @@ function App() {
         readingTip: data.reading_tip ?? data.readingTip ?? undefined,
         recommendedChapters: data.recommended_chapters ?? data.recommendedChapters ?? undefined,
         segmentGuides: data.segment_guides ?? data.segmentGuides ?? undefined,
+        segments: Array.isArray(data.segments)
+          ? data.segments.map((segment: any) => ({
+              index: segment.index ?? 0,
+              title: segment.title ?? '',
+              text: segment.text ?? '',
+              excerpt: segment.excerpt ?? undefined,
+              summary: segment.summary ?? undefined,
+              charCount: segment.char_count ?? segment.charCount ?? undefined,
+              lineCount: segment.line_count ?? segment.lineCount ?? undefined,
+            }))
+          : undefined,
         translationCache: data.translation_cache ?? data.translationCache ?? undefined,
         translationStatus: data.translation_status ?? data.translationStatus ?? undefined,
         originalText: data.original_text ?? data.originalText,

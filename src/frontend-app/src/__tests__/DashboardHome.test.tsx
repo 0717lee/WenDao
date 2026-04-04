@@ -94,20 +94,20 @@ describe('DashboardHome', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /专为古籍打造的阅读平台/i,
+        name: /先把古籍翻开/i,
       })
     ).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /先读一篇精选导读/ })).toBeInTheDocument()
-    expect(screen.getByText('学习路径')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /先读一篇导读/ })).toBeInTheDocument()
+    expect(screen.getByText('学习脉络')).toBeInTheDocument()
   })
 
   it('routes the primary reading and search entries to the right callbacks', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /先读一篇精选导读/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /先读一篇导读/ }))
     expect(props.onOpenDocument).toHaveBeenCalledWith('sample-1')
 
-    fireEvent.click(screen.getByRole('button', { name: /按问题寻找原文/ }))
+    fireEvent.click(screen.getByRole('button', { name: /先从一句话找起/ }))
     expect(props.onSearch).toHaveBeenCalledWith('孔子怎样谈“仁”')
   })
 
@@ -151,28 +151,28 @@ describe('DashboardHome', () => {
 
     render(<DashboardHome {...props} />)
 
-    expect(await screen.findByRole('button', { name: /先读一篇精选导读/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /先读一篇导读/ })).toBeInTheDocument()
   })
 
   it('routes overview cards and study CTA to the right entry points', async () => {
     render(<DashboardHome {...props} />)
 
-    await screen.findByRole('button', { name: /继续学习/ })
+    await screen.findByRole('button', { name: /转至续读/ })
 
     fireEvent.click(screen.getByRole('button', { name: /可读篇目/ }))
     expect(props.onOpenReaderHub).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: '打开字词本' }))
+    fireEvent.click(screen.getByRole('button', { name: '转至字词本' }))
     expect(props.onOpenWordbook).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: /继续学习/ }))
+    fireEvent.click(screen.getByRole('button', { name: /转至续读/ }))
     expect(props.onContinueStudy).toHaveBeenCalledWith('sample-1')
   })
 
   it('routes the OCR helper entry to reader hub', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /扫描图片并识别/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /有图片时再走这里/ }))
 
     await waitFor(() => {
       expect(props.onOpenReaderHub).toHaveBeenCalled()

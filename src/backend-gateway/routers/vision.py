@@ -1,4 +1,4 @@
-"""Vision API: Architecture photo recognition with knowledge graph linking."""
+"""Vision API: architecture photo recognition with related reading cues."""
 
 import base64
 import json
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
-# Architecture-specific terms for graph node matching
+# Architecture-specific terms for contextual matching
 ARCH_TERMS = [
     "斗拱", "飞檐", "歇山顶", "庑殿顶", "悬山顶", "硬山顶",
     "琉璃瓦", "藻井", "斗栱", "营造法式", "梁柱", "彩画",
@@ -26,20 +26,29 @@ ARCH_TERMS = [
     "宫殿", "寺庙", "佛塔", "园林", "民居", "牌坊",
 ]
 
-# Path to knowledge graph data
-_GRAPH_DATA_PATH = os.path.join(
+# Path to related-reading entity data
+_ENTITY_DATA_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "data", "reading_entities.json"
+)
+_LEGACY_ENTITY_DATA_PATH = os.path.join(
     os.path.dirname(__file__), "..", "data", "ancient_texts_graph.json"
 )
 
 
-def _load_graph_data() -> dict:
-    """Load knowledge graph JSON data from file."""
+def _load_entity_data() -> dict:
+    """Load related-reading entity data from file."""
     try:
-        with open(_GRAPH_DATA_PATH, "r", encoding="utf-8") as f:
+        target_path = _ENTITY_DATA_PATH if os.path.exists(_ENTITY_DATA_PATH) else _LEGACY_ENTITY_DATA_PATH
+        with open(target_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        logger.warning("[Vision] 图谱数据加载失败: %s", e)
-        return {"nodes": [], "edges": []}
+        logger.warning("[Vision] 阅读线索词表加载失败: %s", e)
+        return {"entities": []}
+
+
+# Backward-compatible alias for existing tests/imports.
+def _load_graph_data() -> dict:
+    return _load_entity_data()
 
 
 def parse_vision_result(raw_text: str) -> dict:
@@ -100,16 +109,20 @@ def parse_vision_result(raw_text: str) -> dict:
     }
 
 
-def match_vision_to_graph(vision_text: str, graph_data: dict) -> list:
+def match_vision_to_entities(vision_text: str, graph_data: dict) -> list:
     """
-    Match vision analysis text against knowledge graph nodes.
-    Uses substring matching on node labels and architecture-specific terms.
+    Match vision analysis text against internal reading entities.
+    Uses substring matching on labels and architecture-specific terms.
     Returns list of {id, label} dicts for matched nodes.
     """
     matched = []
     seen_ids = set()
 
-    for node in graph_data.get("nodes", []):
+    raw_entities = graph_data.get("entities")
+    if not isinstance(raw_entities, list):
+        raw_entities = graph_data.get("nodes", [])
+
+    for node in raw_entities:
         node_id = node.get("id", "")
         node_label = node.get("label", "")
         node_desc = node.get("desc", "") or node.get("description", "") or ""
@@ -135,6 +148,11 @@ def match_vision_to_graph(vision_text: str, graph_data: dict) -> list:
     return matched
 
 
+# Backward-compatible alias for existing tests/imports.
+def match_vision_to_graph(vision_text: str, graph_data: dict) -> list:
+    return match_vision_to_entities(vision_text, graph_data)
+
+
 @router.post("/vision/analyze")
 @limiter.limit("10/minute")
 async def analyze_image(
@@ -145,7 +163,7 @@ async def analyze_image(
 ):
     """
     Upload an architecture photo for AI recognition.
-    Returns structured analysis + matched knowledge graph nodes.
+    Returns structured analysis + matched related-reading entities.
     """
     contents = await file.read()
 
@@ -186,11 +204,12 @@ async def analyze_image(
     # Parse structured fields from natural language response
     analysis = parse_vision_result(raw_text)
 
-    # Match against knowledge graph
-    graph_data = _load_graph_data()
-    matched_nodes = match_vision_to_graph(raw_text, graph_data)
+    # Match against related-reading entities
+    entity_data = _load_entity_data()
+    matched_nodes = match_vision_to_entities(raw_text, entity_data)
 
     return {
         "analysis": analysis,
         "matched_graph_nodes": matched_nodes,
+        "matched_reading_entities": matched_nodes,
     }

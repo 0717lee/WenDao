@@ -86,20 +86,29 @@ async def main() -> int:
 
     translator_agent = TranslatorAgent() if args.with_translation_cache else None
     records = []
+    failures: list[tuple[str, str]] = []
     for work in CURATED_WORKS:
-        record = build_repo_record(work, cache_dir=args.cache_dir)
-        if translator_agent:
-            record = await prewarm_translation_cache(
-                record,
-                translator_agent=translator_agent,
-                cache_dir=args.cache_dir,
-                max_segments=args.translation_segments,
-            )
-        records.append(record)
-        print(f"[OK] {work['repo_id']} -> {work['title']} ({len(record['punctuated_text'])} chars)")
+        try:
+            record = build_repo_record(work, cache_dir=args.cache_dir)
+            if translator_agent:
+                record = await prewarm_translation_cache(
+                    record,
+                    translator_agent=translator_agent,
+                    cache_dir=args.cache_dir,
+                    max_segments=args.translation_segments,
+                )
+            records.append(record)
+            print(f"[OK] {work['repo_id']} -> {work['title']} ({len(record['punctuated_text'])} chars)")
+        except Exception as exc:
+            failures.append((str(work["repo_id"]), str(exc)))
+            print(f"[WARN] {work['repo_id']} -> {work['title']} skipped: {exc}")
 
     serialize_json(records, args.output)
     print(f"[DONE] Wrote {len(records)} corpus documents to {args.output}")
+    if failures:
+        print(f"[WARN] Skipped {len(failures)} works during rebuild")
+        for repo_id, message in failures:
+            print(f"  - {repo_id}: {message}")
     return 0
 
 

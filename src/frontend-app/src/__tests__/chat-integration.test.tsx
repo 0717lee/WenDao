@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/useAuthStore'
 // Mock fetch with URL-based routing
 global.fetch = vi.fn()
 
-const chatPlaceholder = /输入人物、典故、概念或一句原文，继续追问/i
+const chatPlaceholder = /输入人物、典故、概念或一句原文，继续往下问/i
 
 function mockChatFetch(mockReader: any) {
     (global.fetch as any).mockImplementation((url: string) => {
@@ -183,7 +183,7 @@ describe('Chat Integration E2E', () => {
 
         await waitFor(() => {
             expect(screen.getByText(/离线演示解读/)).toBeInTheDocument()
-            expect(screen.getByText(/体验样例 · 《论语·学而》/)).toBeInTheDocument()
+            expect(screen.getAllByText(/体验样例 · 《论语·学而》/).length).toBeGreaterThan(0)
         })
     })
 })

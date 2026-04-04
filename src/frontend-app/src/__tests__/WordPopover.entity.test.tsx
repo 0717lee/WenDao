@@ -44,7 +44,7 @@ describe('WordPopover', () => {
     })
   }
 
-  it('renders explanation content without knowledge graph jump button', async () => {
+  it('renders explanation content without jump-out actions', async () => {
     setupFetchMocks()
     const { WordPopover } = await import('../components/WordPopover')
     render(<WordPopover {...defaultProps} />)
@@ -63,7 +63,7 @@ describe('WordPopover', () => {
     render(<WordPopover {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getByText('无法加载释义')).toBeTruthy()
+      expect(screen.getByText('无法取到这个词的释义，请换一个词再试')).toBeTruthy()
     })
   })
 })

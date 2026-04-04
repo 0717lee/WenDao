@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 import time
 import uuid
@@ -40,11 +41,38 @@ CURATED_WORKS = [
     {"repo_id": "KR1f0001", "title": "《孝经》", "dynasty": "先秦", "author": "佚名", "category": "经学典籍"},
     {"repo_id": "KR1h0004", "title": "《论语》", "dynasty": "春秋", "author": "孔子弟子", "category": "四书"},
     {"repo_id": "KR1h0001", "title": "《孟子》", "dynasty": "战国", "author": "孟子弟子", "category": "四书"},
+    {"repo_id": "KR1h0018", "title": "《中庸辑略》", "dynasty": "南宋", "author": "石𡼖", "category": "四书"},
+    {"repo_id": "KR1h0029", "title": "《大学疏义》", "dynasty": "南宋", "author": "真德秀", "category": "四书"},
     {"repo_id": "KR2a0001", "title": "《史记》", "dynasty": "西汉", "author": "司马迁", "category": "史书"},
+    {"repo_id": "KR2a0012", "title": "《三国志》", "dynasty": "西晋", "author": "陈寿", "category": "史书"},
+    {"repo_id": "KR2b0007", "title": "《资治通鉴》", "dynasty": "北宋", "author": "司马光", "category": "史书"},
+    {"repo_id": "KR2e0001", "title": "《国语》", "dynasty": "春秋战国", "author": "相传左丘明", "category": "史书"},
+    {"repo_id": "KR2e0003", "title": "《战国策》", "dynasty": "西汉", "author": "刘向整理", "category": "史书"},
+    {"repo_id": "KR2e0006", "title": "《贞观政要》", "dynasty": "唐", "author": "吴兢", "category": "史书"},
+    {"repo_id": "KR2g0003", "title": "《晏子春秋》", "dynasty": "春秋", "author": "晏婴相关记载", "category": "史书"},
+    {"repo_id": "KR3a0002", "title": "《荀子》", "dynasty": "战国", "author": "荀况", "category": "儒家"},
+    {"repo_id": "KR3a0006", "title": "《盐铁论》", "dynasty": "西汉", "author": "桓宽", "category": "政论"},
+    {"repo_id": "KR3a0042", "title": "《近思录》", "dynasty": "南宋", "author": "朱熹", "category": "理学"},
+    {"repo_id": "KR3a0058", "title": "《大学衍义》", "dynasty": "南宋", "author": "真德秀", "category": "政论"},
+    {"repo_id": "KR3b0003", "title": "《孙子》", "dynasty": "春秋", "author": "孙武", "category": "兵家"},
+    {"repo_id": "KR3c0001", "title": "《管子》", "dynasty": "春秋战国", "author": "托名管仲", "category": "政论"},
+    {"repo_id": "KR3c0005", "title": "《韩非子》", "dynasty": "战国", "author": "韩非", "category": "法家"},
+    {"repo_id": "KR3j0002", "title": "《墨子》", "dynasty": "战国", "author": "墨翟", "category": "墨家"},
+    {"repo_id": "KR3j0009", "title": "《吕氏春秋》", "dynasty": "秦", "author": "吕不韦门客", "category": "杂家"},
+    {"repo_id": "KR3j0092", "title": "《梦溪笔谈》", "dynasty": "北宋", "author": "沈括", "category": "笔记"},
     {"repo_id": "KR3l0002", "title": "《世说新语》", "dynasty": "刘宋", "author": "刘义庆", "category": "笔记小说"},
+    {"repo_id": "KR3l0090", "title": "《山海经》", "dynasty": "先秦", "author": "佚名", "category": "志怪"},
+    {"repo_id": "KR3l0099", "title": "《搜神记》", "dynasty": "东晋", "author": "干宝", "category": "志怪"},
     {"repo_id": "KR4a0001", "title": "《楚辞》", "dynasty": "西汉", "author": "王逸编", "category": "辞赋"},
+    {"repo_id": "KR4h0001", "title": "《文选》", "dynasty": "南朝梁", "author": "萧统编", "category": "文学总集"},
+    {"repo_id": "KR4i0001", "title": "《文心雕龙》", "dynasty": "南朝梁", "author": "刘勰", "category": "文学理论"},
     {"repo_id": "KR5c0045", "title": "《道德经》", "dynasty": "战国", "author": "老子", "category": "道家"},
     {"repo_id": "KR5c0126", "title": "《庄子》", "dynasty": "战国", "author": "庄子", "category": "道家"},
+    {"repo_id": "KR5c0124", "title": "《列子》", "dynasty": "战国", "author": "列子", "category": "道家"},
+    {"repo_id": "KR1e0008", "title": "《春秋穀梁传》", "dynasty": "汉前传本", "author": "穀梁赤传", "category": "经学典籍"},
+    {"repo_id": "KR6c0023", "title": "《金刚经》", "dynasty": "姚秦", "author": "鸠摩罗什译", "category": "佛学"},
+    {"repo_id": "KR6c0128", "title": "《心经》", "dynasty": "唐", "author": "玄奘译", "category": "佛学"},
+    {"repo_id": "KR6q0083", "title": "《坛经》", "dynasty": "元刊本", "author": "宗宝编", "category": "佛学"},
 ]
 
 PRIMARY_REPO_IDS = {item["repo_id"] for item in CURATED_WORKS}
@@ -68,13 +96,13 @@ def get_converter():
     return OpenCC("t2s") if OpenCC else None
 
 
-def run_git(args: list[str], cwd: Path | None = None, retries: int = 3) -> None:
+def run_git(args: list[str], cwd: Path | None = None, retries: int = 3, timeout_seconds: int = 300) -> None:
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
             subprocess.run(
                 ["git", *args], cwd=cwd, check=True,
-                timeout=60, capture_output=True,
+                timeout=timeout_seconds, capture_output=True,
             )
             return
         except subprocess.TimeoutExpired as exc:
@@ -95,7 +123,19 @@ def ensure_repo(repo_id: str, cache_dir: Path = DEFAULT_CACHE_DIR) -> Path:
     cache_dir.mkdir(parents=True, exist_ok=True)
     repo_dir = cache_dir / repo_id
     if repo_dir.exists():
-        run_git(["pull", "--ff-only"], cwd=repo_dir)
+        try:
+            run_git(["pull", "--ff-only"], cwd=repo_dir)
+        except Exception:
+            temp_repo_dir = cache_dir / f"{repo_id}__fresh_{uuid.uuid4().hex[:8]}"
+            if temp_repo_dir.exists():
+                shutil.rmtree(temp_repo_dir, ignore_errors=True)
+            run_git(["clone", "--depth", "1", f"{KANRIPO_ORG}/{repo_id}.git", str(temp_repo_dir)])
+            try:
+                shutil.rmtree(repo_dir, ignore_errors=True)
+                temp_repo_dir.replace(repo_dir)
+                return repo_dir
+            except PermissionError:
+                return temp_repo_dir
         return repo_dir
 
     run_git(["clone", "--depth", "1", f"{KANRIPO_ORG}/{repo_id}.git", str(repo_dir)])

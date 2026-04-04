@@ -17,6 +17,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from agents.ocr import OCRAgent
+from agents.sentence_explainer import SentenceExplainerAgent
 from agents.translator import TranslatorAgent
 from agents.word_explainer import WordExplainerAgent
 from core import pg_database
@@ -70,7 +71,12 @@ def _create_entity_extractor() -> EntityExtractor:
     return EntityExtractor()
 
 
+def _create_sentence_explainer() -> SentenceExplainerAgent:
+    return SentenceExplainerAgent()
+
+
 ocr_agent = LazyProxy(_create_ocr_agent)
+sentence_explainer = LazyProxy(_create_sentence_explainer)
 translator_agent = LazyProxy(_create_translator_agent)
 word_explainer = LazyProxy(_create_word_explainer)
 entity_extractor = LazyProxy(_create_entity_extractor)
@@ -134,6 +140,12 @@ class StudyProgressUpdateRequest(BaseModel):
 class TranslationCacheRequest(BaseModel):
     strategy: str = Field(default="recommended", pattern="^(recommended|next|full)$")
     max_segments: int = Field(default=6, ge=1, le=60)
+
+
+class SentenceExplainRequest(BaseModel):
+    sentence: str = Field(..., min_length=1, max_length=300)
+    context: str = Field(default="", max_length=1200)
+    chapter_title: str = Field(default="", max_length=120)
 
 
 def _split_learning_sentences(text: str) -> list[str]:
@@ -1321,13 +1333,13 @@ async def stream_process(document_id: str):
         # Step 2: Normalize variant characters
         yield _sse_event("progress", {"status": "归一化异体字..."})
 
-        # Step 3: Extract entities and link to knowledge graph
+        # Step 3: Extract reading cues for downstream study/recommendation features
         entity_ids = []
         combined_text = f"{original_text} {result['punctuated']} {result['translated']}"
         if combined_text and len(combined_text.strip()) > 10:
             try:
                 yield sse_reasoning("entity_extraction", "实体抽取", "running", model="GLM-4-Flash")
-                yield _sse_event("progress", {"status": "关联知识图谱实体..."})
+                yield _sse_event("progress", {"status": "提取阅读线索..."})
                 t0 = time.time()
                 entity_ids = entity_extractor.extract_entities(combined_text)
                 yield sse_reasoning("entity_extraction", "实体抽取", "complete", time.time() - t0, model="GLM-4-Flash")
@@ -1360,12 +1372,97 @@ def _sse_event(event_type: str, data: dict) -> str:
     return f'event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n'
 
 
+async def stream_sentence_explanation(document: dict[str, Any], body: SentenceExplainRequest):
+    """SSE generator for AI sentence explanation."""
+    try:
+        sentence = body.sentence.strip()
+        context = body.context.strip()
+        chapter_title = body.chapter_title.strip()
+
+        if not sentence:
+            yield _sse_event("error", {"message": "句子不能为空"})
+            return
+
+        yield _sse_event(
+            "meta",
+            {
+                "sentence": sentence,
+                "chapter_title": chapter_title,
+                "document_title": document.get("title", ""),
+            },
+        )
+
+        # Step 1: gloss
+        yield sse_reasoning("gloss", "逐字解析", "running", model="GLM-4-Flash")
+        t0 = time.time()
+        gloss_payload = await sentence_explainer.generate_gloss(
+            document_title=document.get("title", ""),
+            sentence=sentence,
+            context=context,
+            chapter_title=chapter_title,
+        )
+        yield sse_reasoning("gloss", "逐字解析", "complete", time.time() - t0, model="GLM-4-Flash")
+        yield _sse_event("section", {"section": "gloss", "data": gloss_payload.get("gloss", [])})
+
+        # Step 2: translation
+        yield sse_reasoning("translation", "白话翻译", "running", model="Kimi-8k")
+        t0 = time.time()
+        translation = await sentence_explainer.translate_sentence(sentence)
+        translation_duration = time.time() - t0
+        yield sse_reasoning("translation", "白话翻译", "complete", translation_duration, model="Kimi-8k")
+        yield _sse_event("section", {"section": "translation", "data": translation})
+
+        # Step 3: references
+        yield sse_reasoning("reference", "出处参考", "running", model="FAISS + Kimi")
+        t0 = time.time()
+        references = await sentence_explainer.retrieve_references(
+            document_title=document.get("title", ""),
+            sentence=sentence,
+            context=context,
+        )
+        yield sse_reasoning("reference", "出处参考", "complete", time.time() - t0, model="FAISS + Kimi")
+        yield _sse_event("section", {"section": "references", "data": references})
+
+        # Step 4: rhetoric and follow-up
+        yield sse_reasoning("follow_up", "修辞与追问", "running", model="GLM-4-Flash")
+        await asyncio.sleep(0.05)
+        yield sse_reasoning("follow_up", "修辞与追问", "complete", 0.05, model="GLM-4-Flash")
+        yield _sse_event("section", {"section": "rhetoric", "data": gloss_payload.get("rhetoric", "")})
+        yield _sse_event("section", {"section": "follow_up", "data": gloss_payload.get("follow_up", "")})
+
+        yield _sse_event("done", {})
+    except Exception as exc:
+        logger.exception("Sentence explanation failed: %s", exc)
+        yield _sse_event("error", {"message": "逐句精讲暂时不可用，请稍后再试"})
+
+
 @router.post("/explain")
 @limiter.limit("30/minute")
 async def explain_word_endpoint(request: Request, word: str, context: str = "", _user: dict = Depends(require_auth)):
     """Explain an ancient Chinese word/term with meaning, allusion, and citations."""
     result = await word_explainer.explain_word(word, context)
     return result
+
+
+@router.post("/{document_id}/sentence-explain")
+@limiter.limit("20/minute")
+async def explain_sentence_endpoint(
+    request: Request,
+    document_id: str,
+    body: SentenceExplainRequest,
+    _user: dict = Depends(require_auth),
+):
+    """Stream AI sentence explanation in ordered sections."""
+    document = _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
+    return StreamingResponse(
+        stream_sentence_explanation(document, body),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/export/{document_id}")

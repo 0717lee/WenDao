@@ -111,6 +111,17 @@ export function ChatInterface() {
                             readingTip: data.reading_tip ?? undefined,
                             recommendedChapters: data.recommended_chapters ?? undefined,
                             segmentGuides: data.segment_guides ?? undefined,
+                            segments: Array.isArray(data.segments)
+                                ? data.segments.map((segment: any) => ({
+                                      index: segment.index ?? 0,
+                                      title: segment.title ?? '',
+                                      text: segment.text ?? '',
+                                      excerpt: segment.excerpt ?? undefined,
+                                      summary: segment.summary ?? undefined,
+                                      charCount: segment.char_count ?? segment.charCount ?? undefined,
+                                      lineCount: segment.line_count ?? segment.lineCount ?? undefined,
+                                  }))
+                                : undefined,
                             translationCache: data.translation_cache ?? undefined,
                             translationStatus: data.translation_status ?? undefined,
                             originalText: data.original_text,
@@ -172,6 +183,17 @@ export function ChatInterface() {
                     readingTip: data.reading_tip ?? undefined,
                     recommendedChapters: data.recommended_chapters ?? undefined,
                     segmentGuides: data.segment_guides ?? undefined,
+                    segments: Array.isArray(data.segments)
+                        ? data.segments.map((segment: any) => ({
+                              index: segment.index ?? 0,
+                              title: segment.title ?? '',
+                              text: segment.text ?? '',
+                              excerpt: segment.excerpt ?? undefined,
+                              summary: segment.summary ?? undefined,
+                              charCount: segment.char_count ?? segment.charCount ?? undefined,
+                              lineCount: segment.line_count ?? segment.lineCount ?? undefined,
+                          }))
+                        : undefined,
                     translationCache: data.translation_cache ?? undefined,
                     translationStatus: data.translation_status ?? undefined,
                     originalText: data.original_text,
@@ -296,7 +318,7 @@ export function ChatInterface() {
 
             const data = await response.json()
             const analysis = data.analysis || {}
-            const matchedNodes = data.matched_graph_nodes || []
+            const matchedNodes = data.matched_reading_entities || data.matched_graph_nodes || []
 
             // Update assistant message with vision result (immutable)
             useStore.setState((state) => {

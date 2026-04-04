@@ -3,7 +3,9 @@
 全文搜索和混合检索API
 支持三种搜索模式：FULLTEXT（FTS5）、VECTOR（FAISS）、HYBRID（混合）
 """
+import json
 import os
+import re
 import jieba
 import logging
 from enum import Enum
@@ -25,6 +27,7 @@ if os.path.exists(DICT_PATH):
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 logger = logging.getLogger(__name__)
+SEARCH_NORMALIZE_PATTERN = re.compile(r"[\s，。！？；：、“”‘’「」『』（）()《》〈〉【】〔〕—…·,.!?:;\"'\-]+")
 
 
 def get_connection():
@@ -67,6 +70,7 @@ class SearchResult(BaseModel):
     content: str
     source: str
     score: float
+    anchor_text: str | None = None
 
 
 class SearchResponse(BaseModel):
@@ -99,18 +103,112 @@ def _normalize_candidate_row(row: Any) -> dict:
                 "id": str(row[0]),
                 "title": row[1] or "",
                 "source_name": row[3] or "",
+                "author": "",
+                "dynasty": "",
+                "category": "",
                 "original_text": preview,
                 "punctuated_text": preview,
                 "translated_text": preview,
+                "segments": [],
             }
         return {
             "id": "",
             "title": "",
             "source_name": "",
+            "author": "",
+            "dynasty": "",
+            "category": "",
             "original_text": "",
             "punctuated_text": "",
             "translated_text": "",
+            "segments": [],
         }
+
+
+def _normalize_search_text(value: str) -> str:
+    return SEARCH_NORMALIZE_PATTERN.sub("", value or "").lower()
+
+
+def _looks_like_exact_quote(query: str) -> bool:
+    query = query.strip()
+    if not query:
+        return False
+    if any(marker in query for marker in ["什么", "为何", "为什么", "如何", "怎么", "怎样", "？", "?"]):
+        return False
+    normalized = _normalize_search_text(query)
+    return len(re.findall(r"[\u4e00-\u9fff]", normalized)) >= 3
+
+
+def _excerpt_around_match(text: str, query: str, radius: int = 28) -> str:
+    if not text:
+        return ""
+    raw_index = text.find(query)
+    if raw_index >= 0:
+        start = max(0, raw_index - radius)
+        end = min(len(text), raw_index + len(query) + radius)
+        return text[start:end].strip()
+    return text[: min(len(text), 120)].strip()
+
+
+def _default_source_label(row: dict[str, Any]) -> str:
+    source_type = row.get("source_type") or ""
+    if source_type == "corpus":
+        return "古籍库"
+    if source_type == "sample":
+        return "精选导读"
+    return "我的文档"
+
+
+def _iter_segment_candidates(row: dict[str, Any]) -> list[dict[str, Any]]:
+    segments = row.get("segments") or []
+    if isinstance(segments, str):
+        try:
+            segments = json.loads(segments)
+        except json.JSONDecodeError:
+            segments = []
+    return [segment for segment in segments if isinstance(segment, dict)]
+
+
+def _match_segment_location(row: dict[str, Any], query: str) -> dict[str, Any] | None:
+    normalized_query = _normalize_search_text(query)
+    if not normalized_query:
+        return None
+
+    for segment in _iter_segment_candidates(row):
+        segment_title = str(segment.get("title") or "").strip()
+        segment_text = str(segment.get("text") or "").strip()
+        segment_excerpt = str(segment.get("excerpt") or "").strip()
+        segment_summary = str(segment.get("summary") or "").strip()
+        haystack = "\n".join([segment_title, segment_text, segment_excerpt, segment_summary])
+        if not haystack:
+            continue
+        if query in haystack or normalized_query in _normalize_search_text(haystack):
+            return {
+                "source": f"{_default_source_label(row)} · {segment_title}" if segment_title else _default_source_label(row),
+                "content": segment_excerpt or _excerpt_around_match(segment_text, query),
+                "anchor_text": segment_excerpt or query,
+                "score_boost": 24.0 if query in haystack else 18.0,
+            }
+    return None
+
+
+def _match_document_location(row: dict[str, Any], query: str) -> dict[str, Any] | None:
+    normalized_query = _normalize_search_text(query)
+    if not normalized_query:
+        return None
+
+    for text_key in ("punctuated_text", "original_text", "translated_text"):
+        text = str(row.get(text_key) or "").strip()
+        if not text:
+            continue
+        if query in text or normalized_query in _normalize_search_text(text):
+            return {
+                "source": _default_source_label(row),
+                "content": _excerpt_around_match(text, query),
+                "anchor_text": query,
+                "score_boost": 14.0 if query in text else 10.0,
+            }
+    return None
 
 
 async def _load_document_candidates(limit: int = 200, user_id: str | None = None) -> list[dict]:
@@ -118,7 +216,7 @@ async def _load_document_candidates(limit: int = 200, user_id: str | None = None
         async with get_connection() as conn:
             rows = await conn.fetch(
                 """
-                SELECT id::text AS id, title, source_name, original_text, punctuated_text, translated_text, source_type, owner_user_id::text AS owner_user_id
+                SELECT id::text AS id, title, source_name, author, dynasty, category, original_text, punctuated_text, translated_text, segments, source_type, owner_user_id::text AS owner_user_id
                 FROM documents
                 WHERE source_type IN ('corpus', 'sample') OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
                 ORDER BY COALESCE(updated_at, created_at) DESC
@@ -132,7 +230,7 @@ async def _load_document_candidates(limit: int = 200, user_id: str | None = None
         async with get_db() as db:
             cursor = await db.execute(
                 """
-                SELECT id, title, source_name, original_text, punctuated_text, translated_text, source_type, owner_user_id
+                SELECT id, title, source_name, author, dynasty, category, original_text, punctuated_text, translated_text, segments, source_type, owner_user_id
                 FROM documents
                 WHERE source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND owner_user_id = ?)
                 ORDER BY COALESCE(updated_at, created_at) DESC
@@ -202,6 +300,7 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
     """全文搜索（优先兼容当前 documents 表结构）。"""
     tokens = [token.strip() for token in jieba.cut(query) if token.strip()]
     search_terms = tokens or [query.strip()]
+    exact_quote_mode = _looks_like_exact_quote(query)
     rows = await _load_document_candidates(limit=400, user_id=user_id)
 
     results: List[SearchResult] = []
@@ -215,6 +314,7 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
             preview = row[2] or ""
             source = row[3] or ""
             match_score = float(row[4] or 0)
+            anchor_text = query.strip() or None
         else:
             title = row.get("title") or ""
             author = row.get("author", "")
@@ -225,6 +325,8 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
             translated_text = row.get("translated_text") or ""
             source_type = row.get("source_type") or ""
             searchable_text = "\n".join([title, author or "", dynasty or "", category or "", original_text, punctuated_text, translated_text])
+            segment_match = _match_segment_location(row, query) if exact_quote_mode else None
+            document_match = _match_document_location(row, query)
 
             match_score = 0.0
             for term in search_terms:
@@ -238,16 +340,31 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
                 if occurrences:
                     match_score += min(occurrences, 6) * 1.2
 
+            if segment_match:
+                match_score += float(segment_match["score_boost"])
+            elif document_match:
+                match_score += float(document_match["score_boost"])
+
             if match_score <= 0:
                 continue
 
-            preview = translated_text or punctuated_text or original_text
-            if source_type == "corpus":
-                source = "古籍库"
-            elif source_type == "sample":
-                source = "精选导读"
-            else:
-                source = "我的文档"
+            preview = (
+                (segment_match or document_match or {}).get("content")
+                or translated_text
+                or punctuated_text
+                or original_text
+            )
+            source = (
+                (segment_match or document_match or {}).get("source")
+                or _default_source_label(row)
+            )
+            if source_type == "corpus" and exact_quote_mode and not segment_match and row.get("source_name"):
+                source = f"古籍库 · {row.get('source_name')}"
+            anchor_text = (
+                (segment_match or document_match or {}).get("anchor_text")
+                or query.strip()
+                or None
+            )
 
         results.append(SearchResult(
             id=str(row["id"]),
@@ -256,6 +373,7 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
             content=preview,
             source=source,
             score=match_score,
+            anchor_text=anchor_text,
         ))
 
     results.sort(key=lambda item: item.score, reverse=True)
@@ -295,7 +413,8 @@ async def vector_search(query: str, limit: int = 10, user_id: str | None = None)
             title=title,
             content=doc.page_content,
             source=source,
-            score=float(score)
+            score=float(score),
+            anchor_text=doc.page_content[:60] if doc.page_content else None,
         ))
 
     return results

@@ -25,12 +25,8 @@ export default defineConfig(({ mode }) => {
             rollupOptions: {
                 output: {
                     manualChunks(id) {
-                        if (id.includes('react-graph-vis') || id.includes('vis-network')) {
-                            return 'graph-core'
-                        }
-
                         if (id.includes('html-to-image') || id.includes('file-saver')) {
-                            return 'graph-export'
+                            return 'share-tools'
                         }
 
                         return undefined

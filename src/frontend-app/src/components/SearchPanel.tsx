@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Loader2, RefreshCcw, X } from 'lucide-react';
 import { API_BASE } from '../lib/api';
+import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
 import { authFetchOptions } from '../store/useAuthStore';
@@ -14,6 +15,7 @@ interface SearchResult {
   content: string;
   source: string;
   score: number;
+  anchor_text?: string | null;
 }
 
 interface SearchResponse {
@@ -75,6 +77,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const consumeSearchQuery = useGraphStore((state) => state.consumeSearchQuery);
   const setActiveTab = useGraphStore((state) => state.setActiveTab);
+  const setPendingAnchorText = useDocumentStore((state) => state.setPendingAnchorText);
   const setDraftMessage = useStore((state) => state.setDraftMessage);
   const [suggestedQueries, setSuggestedQueries] = useState(() => pickSuggestedQueries());
 
@@ -163,6 +166,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
   const openResultDocument = (result: SearchResult) => {
     if (!result.document_id) return;
+    if (result.anchor_text) {
+      setPendingAnchorText(result.anchor_text);
+    }
     setSelectedResult(null);
     onOpenDocument?.(String(result.document_id));
   };
@@ -241,9 +247,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         {/* Search Mode Selection */}
         <div className="flex gap-4 flex-wrap">
           {[
-            { value: 'FULLTEXT' as SearchMode, label: '字面检索', desc: '适合原句、人名等精确匹配' },
-            { value: 'VECTOR' as SearchMode, label: '语义检索', desc: '适合仅记得大意的情形' },
-            { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '兼顾字面与语义，默认推荐' },
+            { value: 'FULLTEXT' as SearchMode, label: '精确原文', desc: '适合原句、人名和章节定位' },
+            { value: 'VECTOR' as SearchMode, label: '语义检索', desc: '适合只记得大意时提问' },
+            { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '兼顾原句与语义，默认推荐' },
           ].map(opt => (
             <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer group rounded-2xl px-2.5 py-2" style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.58)' }}>
               <input

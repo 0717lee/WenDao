@@ -1,15 +1,19 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, GraduationCap, Loader2, NotebookText } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Loader2, Menu, NotebookText } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
+import { Drawer } from './Drawer';
+import { ReaderExplainPanel } from './ReaderExplainPanel';
 import { ReaderNotesPanel } from './ReaderNotesPanel';
+import { ReaderTocPanel } from './ReaderTocPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
+import { buildReaderParagraphs, type ReaderSentence } from '../utils/readerSentences';
 
 const columnContainerVariants = {
   hidden: { opacity: 0 },
@@ -34,7 +38,10 @@ export function ThreeColumnReader() {
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeReaderTab, setActiveReaderTab] = useState<'original' | 'punctuated' | 'translated'>('original');
-  const [sidePanel, setSidePanel] = useState<'notes' | 'study' | null>(null);
+  const [sidePanel, setSidePanel] = useState<'notes' | 'study' | 'explain' | null>(null);
+  const [selectedSentence, setSelectedSentence] = useState<ReaderSentence | null>(null);
+  const [selectedChapterTitle, setSelectedChapterTitle] = useState<string | null>(null);
+  const [tocOpen, setTocOpen] = useState(false);
   const [anchorText, setAnchorText] = useState('');
   const [progressSyncError, setProgressSyncError] = useState(false);
   const [translationGenerating, setTranslationGenerating] = useState(false);
@@ -55,15 +62,32 @@ export function ThreeColumnReader() {
 
   useEffect(() => {
     if (!currentDocument) return;
+    setSelectedSentence(null);
+    setSelectedChapterTitle(null);
+    setSidePanel(null);
+
     const nextAnchor = consumePendingAnchorText();
     if (nextAnchor) {
       setAnchorText(nextAnchor);
+    } else {
+      setAnchorText('');
     }
+
     const nextPanel = consumePendingReaderPanel();
     if (nextPanel) {
       setSidePanel(nextPanel);
     }
   }, [currentDocument?.id, consumePendingAnchorText, consumePendingReaderPanel]);
+
+  const readerParagraphs = useMemo(() => {
+    if (!currentDocument) return [];
+    return buildReaderParagraphs(currentDocument);
+  }, [
+    currentDocument?.id,
+    currentDocument?.originalText,
+    currentDocument?.punctuatedText,
+    currentDocument?.translatedText,
+  ]);
 
   useEffect(() => {
     if (anchorText && anchorRef.current) {
@@ -84,14 +108,13 @@ export function ThreeColumnReader() {
   const recommendedChapters = currentDocument.recommendedChapters?.slice(0, 4) ?? []
   const segmentGuides = currentDocument.segmentGuides?.slice(0, 6) ?? []
   const translationCache = currentDocument.translationCache ?? []
+  const tocEntries = currentDocument.segments?.map((segment) => ({
+    title: segment.title,
+    excerpt: segment.excerpt,
+    summary: segment.summary,
+  })) ?? chapterPreview.map((title) => ({ title }))
 
-  const totalParagraphs = Math.max(
-    1,
-    (currentDocument.punctuatedText || currentDocument.originalText)
-      .split(/\n+/)
-      .map((item) => item.trim())
-      .filter(Boolean).length,
-  );
+  const totalParagraphs = Math.max(1, readerParagraphs.length);
 
   const handleWordClick = (word: string, event: React.MouseEvent) => {
     setSelectedWord(word);
@@ -100,6 +123,23 @@ export function ThreeColumnReader() {
 
   const handleBack = () => {
     setAppTab(readerReturnTab || 'home');
+  };
+
+  const handleSentenceSelect = (sentence: ReaderSentence) => {
+    setSelectedSentence(sentence);
+    setSelectedChapterTitle(
+      currentDocument.segments?.[sentence.paragraphIndex]?.title ??
+      currentDocument.chapterTitles?.[sentence.paragraphIndex] ??
+      null,
+    );
+    setSidePanel('explain');
+  };
+
+  const handleTocSelect = (entry: { title: string; excerpt?: string; summary?: string }) => {
+    setSelectedChapterTitle(entry.title);
+    setAnchorText(entry.excerpt || entry.title);
+    setActiveReaderTab('punctuated');
+    setTocOpen(false);
   };
 
   const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
@@ -134,41 +174,82 @@ export function ThreeColumnReader() {
     }, 200);
   };
 
-  const renderTextBlocks = (text: string, label: string) => {
-    if (!text) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这一栏暂时还没有内容</p>
+  const renderInteractiveParagraphs = (column: 'original' | 'punctuated') => {
+    if (readerParagraphs.length === 0) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这一栏暂时还没有内容</p>
     return (
       <>
-        {text
-          .split(/\n+/)
-          .filter((block) => block.length > 0)
-          .map((block, blockIndex) => {
-            const isAnchorBlock = Boolean(anchorText) && block.includes(anchorText);
-            return (
-              <p
-                key={`${label}-${blockIndex}`}
-                className="rounded-lg px-2 py-1"
-                style={{ backgroundColor: isAnchorBlock ? 'rgba(201,160,99,0.14)' : 'transparent' }}
-              >
-                {block.split('').map((char, idx) => (
-                  <motion.span
-                    key={`${label}-${blockIndex}-${idx}`}
-                    ref={isAnchorBlock && idx === 0 ? anchorRef : undefined}
-                    onClick={(e) => handleWordClick(char, e)}
-                    className="inline-block cursor-pointer transition-colors"
-                    style={{ borderRadius: '4px' }}
-                    initial={{ backgroundColor: 'transparent' }}
-                    whileHover={{ scale: 1.15, backgroundColor: 'rgba(201,160,99,0.22)', color: 'var(--gf-gugong-red)' }}
-                    whileTap={{ scale: 0.85 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                  >
-                    {char}
-                  </motion.span>
-                ))}
-              </p>
-            );
-          })}
+        {readerParagraphs.map((paragraph) => (
+          <div key={`${column}-${paragraph.id}`} className="space-y-2">
+            {paragraph.sentences.map((sentence) => {
+              const displayText = column === 'original' ? sentence.original : sentence.punctuated;
+              if (!displayText) return null;
+
+              const isAnchorSentence =
+                Boolean(anchorText) &&
+                (sentence.punctuated.includes(anchorText) || sentence.original.includes(anchorText));
+              const isSelectedSentence = selectedSentence?.id === sentence.id;
+
+              return (
+                <button
+                  key={`${column}-${sentence.id}`}
+                  type="button"
+                  onClick={() => handleSentenceSelect(sentence)}
+                  className="block w-full rounded-lg px-2 py-1 text-left transition-colors"
+                  style={{
+                    backgroundColor: isSelectedSentence
+                      ? 'rgba(140,26,17,0.10)'
+                      : isAnchorSentence
+                        ? 'rgba(201,160,99,0.14)'
+                        : 'transparent',
+                  }}
+                >
+                  {displayText.split('').map((char, idx) => (
+                    <motion.span
+                      key={`${column}-${sentence.id}-${idx}`}
+                      ref={isAnchorSentence && idx === 0 ? anchorRef : undefined}
+                      onClick={(e) => handleWordClick(char, e)}
+                      className="inline-block cursor-pointer transition-colors"
+                      style={{ borderRadius: '4px' }}
+                      initial={{ backgroundColor: 'transparent' }}
+                      whileHover={{ scale: 1.15, backgroundColor: 'rgba(201,160,99,0.22)', color: 'var(--gf-gugong-red)' }}
+                      whileTap={{ scale: 0.85 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    >
+                      {char}
+                    </motion.span>
+                  ))}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </>
     )
+  };
+
+  const renderTranslatedParagraphs = () => {
+    if (!currentDocument.translatedText) {
+      return renderTranslatedFallback();
+    }
+
+    return (
+      <>
+        {readerParagraphs.map((paragraph) => {
+          const translatedBlock = paragraph.translated;
+          const isActiveParagraph = selectedSentence?.paragraphIndex === paragraph.paragraphIndex;
+          if (!translatedBlock) return null;
+          return (
+            <p
+              key={`translated-${paragraph.id}`}
+              className="rounded-lg px-2 py-1"
+              style={{ backgroundColor: isActiveParagraph ? 'rgba(140,26,17,0.08)' : 'transparent' }}
+            >
+              {translatedBlock}
+            </p>
+          );
+        })}
+      </>
+    );
   };
 
   const renderColumn = (label: string, content: ReactNode) => {
@@ -299,6 +380,14 @@ export function ThreeColumnReader() {
             </span>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setTocOpen(true)}
+              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs"
+              style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.62)' }}
+            >
+              <Menu className="w-3.5 h-3.5" />
+              目录
+            </button>
             <button
               onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
               className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs"
@@ -438,9 +527,9 @@ export function ThreeColumnReader() {
               ))}
             </div>
           )}
-          {activeReaderTab === 'original' && renderColumn('原文', renderTextBlocks(currentDocument.originalText, '原文'))}
-          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderTextBlocks(currentDocument.punctuatedText, '标点文') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>)}
-          {activeReaderTab === 'translated' && renderColumn('白话疏解', currentDocument.translatedText ? renderTextBlocks(currentDocument.translatedText, '白话疏解') : renderTranslatedFallback())}
+          {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original'))}
+          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>)}
+          {activeReaderTab === 'translated' && renderColumn('白话疏解', renderTranslatedParagraphs())}
         </div>
 
         {sidePanel === 'notes' && (
@@ -451,6 +540,17 @@ export function ThreeColumnReader() {
         {sidePanel === 'study' && (
           <div className="border-t p-4" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
             <StudyCardsPanel documentId={currentDocument.id} />
+          </div>
+        )}
+        {sidePanel === 'explain' && selectedSentence && (
+          <div className="border-t p-4" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
+            <ReaderExplainPanel
+              documentId={currentDocument.id}
+              documentTitle={currentDocument.title}
+              sentence={selectedSentence.punctuated || selectedSentence.original}
+              context={readerParagraphs[selectedSentence.paragraphIndex]?.punctuated ?? ''}
+              chapterTitle={selectedChapterTitle ?? undefined}
+            />
           </div>
         )}
 
@@ -488,6 +588,14 @@ export function ThreeColumnReader() {
             </div>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setTocOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs"
+              style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.62)' }}
+            >
+              <Menu className="w-3.5 h-3.5" />
+              目录
+            </button>
             <button
               onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
               className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs"
@@ -597,7 +705,7 @@ export function ThreeColumnReader() {
             >
               <div className="bg-xuan-paper rounded-[20px]"></div>
               <div className="ink-wash-blob w-32 h-32 -top-10 -left-10 bg-[var(--gf-gold)] opacity-10"></div>
-              {renderColumn('原文', renderTextBlocks(currentDocument.originalText, '原文'))}
+              {renderColumn('原文', renderInteractiveParagraphs('original'))}
             </motion.div>
           </ScrollSyncPane>
 
@@ -608,7 +716,7 @@ export function ThreeColumnReader() {
               {renderColumn(
                 '标点文',
                 currentDocument.punctuatedText
-                  ? renderTextBlocks(currentDocument.punctuatedText, '标点文')
+                  ? renderInteractiveParagraphs('punctuated')
                   : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>
               )}
             </motion.div>
@@ -619,9 +727,7 @@ export function ThreeColumnReader() {
               <div className="bg-xuan-paper rounded-[20px]"></div>
               {renderColumn(
                 '白话疏解',
-                currentDocument.translatedText
-                  ? renderTextBlocks(currentDocument.translatedText, '白话疏解')
-                  : renderTranslatedFallback()
+                renderTranslatedParagraphs()
               )}
             </motion.div>
           </ScrollSyncPane>
@@ -639,6 +745,14 @@ export function ThreeColumnReader() {
               >
                 {sidePanel === 'notes' ? (
                   <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
+                ) : sidePanel === 'explain' && selectedSentence ? (
+                  <ReaderExplainPanel
+                    documentId={currentDocument.id}
+                    documentTitle={currentDocument.title}
+                    sentence={selectedSentence.punctuated || selectedSentence.original}
+                    context={readerParagraphs[selectedSentence.paragraphIndex]?.punctuated ?? ''}
+                    chapterTitle={selectedChapterTitle ?? undefined}
+                  />
                 ) : (
                   <StudyCardsPanel documentId={currentDocument.id} />
                 )}
@@ -647,6 +761,16 @@ export function ThreeColumnReader() {
           </AnimatePresence>
         </motion.div>
       </ScrollSync>
+
+      <Drawer
+        side="left"
+        open={tocOpen}
+        onClose={() => setTocOpen(false)}
+        title="章节目录"
+        icon={<Menu className="w-5 h-5" />}
+      >
+        <ReaderTocPanel entries={tocEntries} selectedTitle={selectedChapterTitle} onSelect={handleTocSelect} />
+      </Drawer>
 
       {selectedWord && popoverPosition && (
         <WordPopover

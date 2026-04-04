@@ -1,5 +1,15 @@
 import { create } from 'zustand';
 
+export interface DocumentSegment {
+  index: number;
+  title: string;
+  text: string;
+  excerpt?: string;
+  summary?: string;
+  charCount?: number;
+  lineCount?: number;
+}
+
 export interface Document {
   id: string;
   title: string;
@@ -16,6 +26,7 @@ export interface Document {
   readingTip?: string;
   recommendedChapters?: string[];
   segmentGuides?: Array<{ title: string; excerpt: string; summary: string }>;
+  segments?: DocumentSegment[];
   translationCache?: Array<{ title: string; punctuated: string; translated: string }>;
   translationStatus?: string;
   originalText: string;
@@ -30,7 +41,7 @@ interface DocumentStore {
   currentDocument: Document | null;
   comparisonDocuments: Document[];
   pendingAnchorText: string;
-  pendingReaderPanel: 'notes' | 'study' | null;
+  pendingReaderPanel: 'notes' | 'study' | 'explain' | null;
   uploadStatus: 'idle' | 'uploading' | 'processing' | 'done' | 'error';
   processProgress: string;
   setDocument: (doc: Document) => void;
@@ -38,8 +49,8 @@ interface DocumentStore {
   clearCurrentDocument: () => void;
   setPendingAnchorText: (anchor: string) => void;
   consumePendingAnchorText: () => string;
-  setPendingReaderPanel: (panel: 'notes' | 'study' | null) => void;
-  consumePendingReaderPanel: () => 'notes' | 'study' | null;
+  setPendingReaderPanel: (panel: 'notes' | 'study' | 'explain' | null) => void;
+  consumePendingReaderPanel: () => 'notes' | 'study' | 'explain' | null;
   toggleComparisonDocument: (doc: Document) => void;
   removeComparisonDocument: (documentId: string) => void;
   clearComparisonDocuments: () => void;
@@ -71,7 +82,7 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
   },
   setPendingReaderPanel: (pendingReaderPanel) => set({ pendingReaderPanel }),
   consumePendingReaderPanel: () => {
-    let panel: 'notes' | 'study' | null = null
+    let panel: 'notes' | 'study' | 'explain' | null = null
     set((state) => {
       panel = state.pendingReaderPanel
       return { pendingReaderPanel: null }

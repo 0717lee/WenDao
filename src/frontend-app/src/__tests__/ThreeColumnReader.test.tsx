@@ -71,7 +71,7 @@ describe('ThreeColumnReader', () => {
     // Verify three-column layout exists
     expect(screen.getByText('原文')).toBeTruthy()
     expect(screen.getByText('标点文')).toBeTruthy()
-    expect(screen.getByText('白话译')).toBeTruthy()
+    expect(screen.getByText('白话疏解')).toBeTruthy()
     expect(screen.getAllByText('返回').length).toBeGreaterThan(0)
   })
 
@@ -103,7 +103,7 @@ describe('ThreeColumnReader', () => {
     const tabTexts = tabButtons.map(b => b.textContent)
     expect(tabTexts).toContain('原文')
     expect(tabTexts).toContain('标点文')
-    expect(tabTexts).toContain('白话译')
+    expect(tabTexts).toContain('白话疏解')
   })
 
   it('renders empty container when document has empty text fields', async () => {
@@ -120,8 +120,8 @@ describe('ThreeColumnReader', () => {
 
     // Should render the layout with placeholder text for empty columns
     expect(screen.getByText('原文')).toBeTruthy()
-    expect(screen.getByText('暂无标点文')).toBeTruthy()
-    expect(screen.getByText('暂无白话译')).toBeTruthy()
+    expect(screen.getByText('这篇内容暂时还没有标点文')).toBeTruthy()
+    expect(screen.getByText('此处尚无白话疏解')).toBeTruthy()
   })
 
   it('switches tabs on mobile viewport', async () => {
@@ -165,12 +165,6 @@ describe('WordPopover', () => {
   it('fetches and displays word explanation', async () => {
     vi.mocked(global.fetch).mockImplementation((input: any) => {
       const url = typeof input === 'string' ? input : input.url
-      if (url.includes('/knowledge-graph/search')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ nodes: [] }),
-        } as Response)
-      }
       return Promise.resolve({
         ok: true,
         json: async () => ({
@@ -200,18 +194,12 @@ describe('WordPopover', () => {
     const { WordPopover } = await import('../components/WordPopover')
     render(<WordPopover word="test" onClose={() => {}} position={{ x: 100, y: 200 }} />)
 
-    expect(screen.getByText('加载中...')).toBeTruthy()
+    expect(screen.getByText('正在查找释义...')).toBeTruthy()
   })
 
   it('calls onClose when close button is clicked', async () => {
     vi.mocked(global.fetch).mockImplementation((input: any) => {
       const url = typeof input === 'string' ? input : input.url
-      if (url.includes('/knowledge-graph/search')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ nodes: [] }),
-        } as Response)
-      }
       return Promise.resolve({
         ok: true,
         json: async () => ({
