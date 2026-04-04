@@ -215,6 +215,11 @@ export default function DashboardHome({
 
   const firstCorpus = corpusDocuments[0]
   const firstSample = sampleDocuments[0]
+  const latestHistoryDocumentId = history[0]?.id ?? null
+  const continueReadingAction = () => {
+    if (latestHistoryDocumentId) return onOpenDocument(latestHistoryDocumentId)
+    return onOpenReaderHub()
+  }
   const primaryAction = () => {
     if (firstCorpus) return onOpenDocument(firstCorpus.id)
     if (firstSample) return onOpenDocument(firstSample.id)
@@ -258,7 +263,7 @@ export default function DashboardHome({
       accent: '#5b8aab',
       hint: '回到上次停下的地方，接着往后读。',
       surface: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(237,244,247,0.96) 100%)',
-      action: onOpenReaderHub,
+      action: continueReadingAction,
     },
     {
       label: '古籍库',

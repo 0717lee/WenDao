@@ -710,7 +710,7 @@ export function ThreeColumnReader() {
           </ScrollSyncPane>
 
           <ScrollSyncPane>
-            <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
+            <motion.div layout variants={columnItemVariants} className="overflow-y-auto scrollbar-hide h-full rounded-[20px] p-5 glass-card relative">
               <div className="bg-xuan-paper rounded-[20px]"></div>
               <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
               {renderColumn(
