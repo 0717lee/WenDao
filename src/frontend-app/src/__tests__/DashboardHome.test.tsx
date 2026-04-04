@@ -105,7 +105,7 @@ describe('DashboardHome', () => {
     render(<DashboardHome {...props} />)
 
     fireEvent.click(await screen.findByRole('button', { name: /先读一篇导读/ }))
-    expect(props.onOpenDocument).toHaveBeenCalledWith('sample-1')
+    expect(props.onOpenReaderHub).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: /先从一句话找起/ }))
     expect(props.onSearch).toHaveBeenCalledWith('孔子怎样谈“仁”')

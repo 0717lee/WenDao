@@ -15,7 +15,7 @@ import { getDemoBookshelfDocuments } from '../data/demoDocuments'
 import { authFetchOptions } from '../store/useAuthStore'
 
 interface DashboardHomeProps {
-  onOpenDocument: (documentId: string) => void
+  onOpenDocument: (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => void
   onAsk: (prompt: string) => void
   onSearch: (query: string) => void
   onOpenReaderHub: () => void
@@ -217,13 +217,11 @@ export default function DashboardHome({
   const firstSample = sampleDocuments[0]
   const latestHistoryDocumentId = history[0]?.id ?? null
   const continueReadingAction = () => {
-    if (latestHistoryDocumentId) return onOpenDocument(latestHistoryDocumentId)
+    if (latestHistoryDocumentId) return onOpenDocument(latestHistoryDocumentId, { readerPanel: 'notes' })
     return onOpenReaderHub()
   }
   const primaryAction = () => {
-    if (firstCorpus) return onOpenDocument(firstCorpus.id)
-    if (firstSample) return onOpenDocument(firstSample.id)
-    return onAsk(QUICK_QUESTION_PROMPTS[0])
+    return onOpenReaderHub()
   }
   const heroEntryWays = [
     {
