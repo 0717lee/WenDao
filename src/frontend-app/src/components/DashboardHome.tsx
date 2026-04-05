@@ -124,6 +124,9 @@ export default function DashboardHome({
   onContinueStudy,
 }: DashboardHomeProps) {
   const [loading, setLoading] = useState(true)
+  const [corpusTotal, setCorpusTotal] = useState(0)
+  const [documentsTotal, setDocumentsTotal] = useState(0)
+
   const [corpusDocuments, setCorpusDocuments] = useState<BookshelfItem[]>([])
   const [documents, setDocuments] = useState<BookshelfItem[]>([])
   const [sampleDocuments, setSampleDocuments] = useState<BookshelfItem[]>([])
@@ -151,9 +154,9 @@ export default function DashboardHome({
 
       try {
         const [docsData, corpusData, sampleData, historyData, wordbookData, recommendationData, studyData, focusData] = await Promise.all([
-          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [] }),
-          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=8&source_type=corpus`, { documents: [] }),
-          loadJson<{ documents: BookshelfItem[] }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [] }),
+          loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [], total: 0 }),
+          loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=corpus`, { documents: [], total: 0 }),
+          loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [], total: 0 }),
           loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
           loadJson<{ entries: WordbookItem[] }>(`${API_BASE}/api/v1/reader/wordbook?limit=6`, { entries: [] }),
           loadJson<{ documents: RecommendationItem[] }>(`${API_BASE}/api/v1/documents/recommendations?limit=4`, { documents: [] }),
@@ -170,7 +173,9 @@ export default function DashboardHome({
         const resolvedSamples = builtInSamples.length > 0 ? builtInSamples : demoSamples
 
         setCorpusDocuments(corpusList)
+        setCorpusTotal(corpusData.total || corpusList.length)
         setDocuments(allDocuments.filter((item: BookshelfItem) => item.source_type !== 'sample'))
+        setDocumentsTotal(docsData.total || allDocuments.length)
         setSampleDocuments(resolvedSamples)
         setUsingDemoSamples(builtInSamples.length === 0)
         setHistory(Array.isArray(historyData) ? historyData : [])
@@ -265,7 +270,7 @@ export default function DashboardHome({
     },
     {
       label: '古籍库',
-      value: corpusDocuments.length,
+      value: corpusTotal,
       icon: LibraryBig,
       accent: 'var(--gf-gugong-red)',
       hint: '从这些可以直接翻开的古籍开始。',
@@ -283,7 +288,7 @@ export default function DashboardHome({
     },
     {
       label: '可读篇目',
-      value: documents.length + corpusDocuments.length + sampleDocuments.length,
+      value: documentsTotal,
       icon: ScrollText,
       accent: 'var(--gf-gold)',
       hint: '样例、古籍和你上传的文档，汇总在这里。',

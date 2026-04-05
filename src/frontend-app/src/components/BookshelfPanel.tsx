@@ -79,6 +79,8 @@ export default function BookshelfPanel({
   const [selectedCorpusCategory, setSelectedCorpusCategory] = useState('全部')
   const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([])
   const [catalogTotal, setCatalogTotal] = useState(0)
+  const [corpusTotal, setCorpusTotal] = useState(0)
+  const [userTotal, setUserTotal] = useState(0)
   const [catalogQuery, setCatalogQuery] = useState('')
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogImportingId, setCatalogImportingId] = useState<string | null>(null)
@@ -113,7 +115,17 @@ export default function BookshelfPanel({
           : getDemoBookshelfDocuments()
 
         setCorpusDocuments(corpusList)
-        setUserDocuments(allDocuments.filter((item: BookshelfItem) => item.source_type === 'user'))
+        setCorpusTotal(corpusData.total || corpusList.length)
+        
+        const userDocs = allDocuments.filter((item: BookshelfItem) => item.source_type === 'user')
+        setUserDocuments(userDocs)
+        
+        const allTotal = documentsData.total || allDocuments.length
+        const totalCorpus = corpusData.total || corpusList.length
+        const totalSample = sampleData.total || sampleList.length
+        // The total number of ALL documents minus samples and corpus equals user documents.
+        setUserTotal(Math.max(0, allTotal - totalCorpus - totalSample))
+
         setSampleDocuments(sampleList)
         setUsingDemoSamples(!Array.isArray(sampleData.documents) || sampleData.documents.length === 0)
         setHistory(Array.isArray(historyData) ? historyData : [])
@@ -329,8 +341,8 @@ export default function BookshelfPanel({
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {[
               { label: '继续阅读', value: continueReadingItems.length, hint: '直接回到上次停下的地方', icon: Clock3, accent: '#5b8aab' },
-              { label: '古籍库', value: corpusDocuments.length, hint: '优先陈列可直接翻开的古籍', icon: LibraryBig, accent: 'var(--gf-gugong-red)' },
-              { label: '我的典籍', value: userDocuments.length, hint: '自上传文档，皆汇于此', icon: BookMarked, accent: 'var(--gf-gold)' },
+              { label: '古籍库', value: corpusTotal, hint: '优先陈列可直接翻开的古籍', icon: LibraryBig, accent: 'var(--gf-gugong-red)' },
+              { label: '我的典籍', value: userTotal, hint: '自上传文档，皆汇于此', icon: BookMarked, accent: 'var(--gf-gold)' },
               { label: '加入对照', value: comparedDocumentIds.length, hint: '想并排看时再放进对照', icon: ScanText, accent: '#7b5b44' },
             ].map((item) => (
               <div
@@ -609,7 +621,7 @@ export default function BookshelfPanel({
                 </p>
               </div>
               <span className="text-sm" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                {loading ? '整理中...' : `${userDocuments.length} 份文档`}
+                {loading ? '整理中...' : `${userTotal} 份文档`}
               </span>
             </div>
 
