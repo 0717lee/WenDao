@@ -53,6 +53,23 @@ def get_jwt_secret() -> str:
     raise RuntimeError("JWT_SECRET 未配置，拒绝以默认密钥启动")
 
 
+def _is_cross_site(request: Request | None = None) -> bool:
+    """Detect cross-site deployment (frontend and backend on different domains)."""
+    if request is None:
+        return False
+    origin = request.headers.get("origin", "")
+    if not origin:
+        return False
+    # If the Origin header's host differs from the request host, it's cross-site.
+    try:
+        from urllib.parse import urlparse
+        origin_host = urlparse(origin).hostname or ""
+        request_host = request.url.hostname or ""
+        return origin_host != request_host
+    except Exception:
+        return False
+
+
 def _cookie_secure(request: Request | None = None) -> bool:
     explicit = os.getenv("AUTH_COOKIE_SECURE", "").strip().lower()
     if explicit in {"1", "true", "yes", "on"}:
@@ -69,24 +86,44 @@ def _cookie_secure(request: Request | None = None) -> bool:
     return True
 
 
+def _cookie_samesite(request: Request | None = None) -> str:
+    """Return 'none' for cross-site deployments (e.g. pages.dev → railway.app),
+    otherwise 'lax' for same-site / local development."""
+    explicit = os.getenv("AUTH_COOKIE_SAMESITE", "").strip().lower()
+    if explicit in {"none", "lax", "strict"}:
+        return explicit
+    if _is_cross_site(request):
+        return "none"
+    return "lax"
+
+
 def set_auth_cookie(response: Response, token: str, request: Request | None = None) -> None:
+    samesite = _cookie_samesite(request)
+    secure = _cookie_secure(request)
+    # SameSite=None requires Secure=True
+    if samesite == "none":
+        secure = True
     response.set_cookie(
         AUTH_COOKIE_NAME,
         token,
         httponly=True,
-        samesite="lax",
-        secure=_cookie_secure(request),
+        samesite=samesite,
+        secure=secure,
         max_age=JWT_EXPIRE_HOURS * 3600,
         path="/",
     )
 
 
 def clear_auth_cookie(response: Response, request: Request | None = None) -> None:
+    samesite = _cookie_samesite(request)
+    secure = _cookie_secure(request)
+    if samesite == "none":
+        secure = True
     response.delete_cookie(
         AUTH_COOKIE_NAME,
         httponly=True,
-        samesite="lax",
-        secure=_cookie_secure(request),
+        samesite=samesite,
+        secure=secure,
         path="/",
     )
 

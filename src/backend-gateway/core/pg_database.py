@@ -534,7 +534,8 @@ async def init_pg_database() -> None:
 
         corpus_documents = load_corpus_documents()
         if corpus_documents:
-            await conn.executemany(
+            try:
+                await conn.executemany(
                 """
                 INSERT INTO documents (
                     id, title, author, dynasty, category, source_name, source_url,
@@ -608,7 +609,12 @@ async def init_pg_database() -> None:
                     )
                     for item in corpus_documents
                 ],
-            )
+                )
+                logger.info("[PG] Seeded %d corpus documents", len(corpus_documents))
+            except Exception as exc:
+                logger.error("[PG] Failed to seed corpus documents: %s", exc)
+        else:
+            logger.warning("[PG] No corpus documents to seed (load_corpus_documents returned empty)")
 
         await _maybe_backfill_user_scoped_tables_pg(conn)
 
