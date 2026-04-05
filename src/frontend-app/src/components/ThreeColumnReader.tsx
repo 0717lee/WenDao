@@ -204,19 +204,15 @@ export function ThreeColumnReader() {
                   }}
                 >
                   {displayText.split('').map((char, idx) => (
-                    <motion.span
+                    <span
                       key={`${column}-${sentence.id}-${idx}`}
                       ref={isAnchorSentence && idx === 0 ? anchorRef : undefined}
                       onClick={(e) => handleWordClick(char, e)}
-                      className="inline-block cursor-pointer transition-colors"
+                      className="reader-char inline-block cursor-pointer transition-colors duration-200"
                       style={{ borderRadius: '4px' }}
-                      initial={{ backgroundColor: 'transparent' }}
-                      whileHover={{ scale: 1.15, backgroundColor: 'rgba(201,160,99,0.22)', color: 'var(--gf-gugong-red)' }}
-                      whileTap={{ scale: 0.85 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
                     >
                       {char}
-                    </motion.span>
+                    </span>
                   ))}
                 </button>
               );

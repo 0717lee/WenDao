@@ -11,6 +11,9 @@ echo "====================================="
 
 # Use PORT from environment, fallback to 8000
 ACTUAL_PORT=${PORT:-8000}
-echo "Starting uvicorn on port $ACTUAL_PORT..."
+# 🚀 第一次部署或更新后，自动刷新云端古籍数据（一劳永逸解决本地公网写入超时的痛点）
+echo "Running cloud-side corpus re-import..."
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+python scripts/reimport_corpus.py || echo "Warning: Re-import script failed, continuing anyway..."
 
 exec uvicorn main:app --host 0.0.0.0 --port $ACTUAL_PORT --log-level info

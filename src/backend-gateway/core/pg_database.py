@@ -6,6 +6,7 @@ Provides connection pool management and schema initialization for Phase 2 featur
 import os
 import json
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
 
@@ -123,9 +124,9 @@ async def pg_lifespan():
     try:
         pool = await asyncpg.create_pool(
             database_url,
-            min_size=5,
-            max_size=20,
-            command_timeout=60,
+            min_size=2,
+            max_size=10,
+            command_timeout=300,
         )
         logger.info("PostgreSQL connection pool created")
         yield
@@ -162,6 +163,16 @@ async def init_pg_database() -> None:
         return
 
     async with pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE,
+                hashed_password TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        """)
+
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS documents (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -203,16 +214,6 @@ async def init_pg_database() -> None:
                 current_paragraph INT DEFAULT 0,
                 total_paragraphs INT DEFAULT 0,
                 last_read_at TIMESTAMPTZ DEFAULT NOW()
-            )
-        """)
-
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                username TEXT UNIQUE NOT NULL,
-                email TEXT UNIQUE,
-                hashed_password TEXT NOT NULL,
-                created_at TIMESTAMPTZ DEFAULT NOW()
             )
         """)
 
@@ -534,88 +535,91 @@ async def init_pg_database() -> None:
 
         corpus_documents = load_corpus_documents()
         if corpus_documents:
-            try:
-                await conn.executemany(
-                """
-                INSERT INTO documents (
-                    id, title, author, dynasty, category, source_name, source_url,
-                    repo_id,
-                    chapter_titles, chapter_count, featured_excerpt,
-                    difficulty, guide_summary, reading_tip, recommended_chapters,
-                    segment_guides, segments, translation_cache, translation_status,
-                    original_text, punctuated_text, translated_text,
-                    ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
-                ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27, $28::uuid)
-                ON CONFLICT (id) DO UPDATE SET
-                    title = EXCLUDED.title,
-                    repo_id = EXCLUDED.repo_id,
-                    author = EXCLUDED.author,
-                    dynasty = EXCLUDED.dynasty,
-                    category = EXCLUDED.category,
-                    source_name = EXCLUDED.source_name,
-                    source_url = EXCLUDED.source_url,
-                    chapter_titles = EXCLUDED.chapter_titles,
-                    chapter_count = EXCLUDED.chapter_count,
-                    featured_excerpt = EXCLUDED.featured_excerpt,
-                    difficulty = EXCLUDED.difficulty,
-                    guide_summary = EXCLUDED.guide_summary,
-                    reading_tip = EXCLUDED.reading_tip,
-                    recommended_chapters = EXCLUDED.recommended_chapters,
-                    segment_guides = EXCLUDED.segment_guides,
-                    segments = EXCLUDED.segments,
-                    translation_cache = EXCLUDED.translation_cache,
-                    translation_status = EXCLUDED.translation_status,
-                    original_text = EXCLUDED.original_text,
-                    punctuated_text = EXCLUDED.punctuated_text,
-                    translated_text = EXCLUDED.translated_text,
-                    ocr_confidence = EXCLUDED.ocr_confidence,
-                    image_data = EXCLUDED.image_data,
-                    status = EXCLUDED.status,
-                    entity_ids = EXCLUDED.entity_ids,
-                    source_type = EXCLUDED.source_type,
-                    owner_user_id = EXCLUDED.owner_user_id,
-                    updated_at = NOW()
-                """,
-                [
-                    (
-                        item["id"],
-                        item["title"],
-                        item.get("author"),
-                        item.get("dynasty"),
-                        item.get("category"),
-                        item.get("source_name"),
-                        item.get("source_url"),
-                        item.get("repo_id"),
-                        json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
-                        int(item.get("chapter_count", 0)),
-                        item.get("featured_excerpt"),
-                        item.get("difficulty"),
-                        item.get("guide_summary"),
-                        item.get("reading_tip"),
-                        json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
-                        json.dumps(item.get("segment_guides", []), ensure_ascii=False),
-                        json.dumps(item.get("segments", []), ensure_ascii=False),
-                        json.dumps(item.get("translation_cache", []), ensure_ascii=False),
-                        item.get("translation_status", "none"),
-                        item["original_text"],
-                        item["punctuated_text"],
-                        item.get("translated_text", ""),
-                        1.0,
-                        None,
-                        "done",
-                        json.dumps(item.get("entity_ids", []), ensure_ascii=False),
-                        item["source_type"],
-                        None,
-                    )
-                    for item in corpus_documents
-                ],
-                )
-                logger.info("[PG] Seeded %d corpus documents", len(corpus_documents))
-            except Exception as exc:
-                logger.error("[PG] Failed to seed corpus documents: %s", exc)
+            batch_size = 2
+            logger.info("[PG] Seeding %d corpus documents in ultra-resilient mode (batch_size=%d)...", len(corpus_documents), batch_size)
+            
+            for i in range(0, len(corpus_documents), batch_size):
+                batch = corpus_documents[i:i + batch_size]
+                try:
+                    # 每次批次重新从连接池获取连接，确保断线后能自动恢复
+                    async with pool.acquire() as sub_conn:
+                        await sub_conn.executemany(
+                            """
+                            INSERT INTO documents (
+                                id, title, author, dynasty, category, source_name, source_url,
+                                repo_id,
+                                chapter_titles, chapter_count, featured_excerpt,
+                                difficulty, guide_summary, reading_tip, recommended_chapters,
+                                segment_guides, segments, translation_cache, translation_status,
+                                original_text, punctuated_text, translated_text,
+                                ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
+                            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27, $28::uuid)
+                            ON CONFLICT (id) DO UPDATE SET
+                                title = EXCLUDED.title,
+                                repo_id = EXCLUDED.repo_id,
+                                author = EXCLUDED.author,
+                                dynasty = EXCLUDED.dynasty,
+                                category = EXCLUDED.category,
+                                source_name = EXCLUDED.source_name,
+                                source_url = EXCLUDED.source_url,
+                                chapter_titles = EXCLUDED.chapter_titles,
+                                chapter_count = EXCLUDED.chapter_count,
+                                featured_excerpt = EXCLUDED.featured_excerpt,
+                                difficulty = EXCLUDED.difficulty,
+                                guide_summary = EXCLUDED.guide_summary,
+                                reading_tip = EXCLUDED.reading_tip,
+                                recommended_chapters = EXCLUDED.recommended_chapters,
+                                segment_guides = EXCLUDED.segment_guides,
+                                segments = EXCLUDED.segments,
+                                original_text = EXCLUDED.original_text,
+                                punctuated_text = EXCLUDED.punctuated_text,
+                                updated_at = NOW()
+                            """,
+                            [
+                                (
+                                    item["id"],
+                                    item["title"],
+                                    item.get("author"),
+                                    item.get("dynasty"),
+                                    item.get("category"),
+                                    item.get("source_name"),
+                                    item.get("source_url"),
+                                    item.get("repo_id"),
+                                    json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
+                                    int(item.get("chapter_count", 0)),
+                                    item.get("featured_excerpt"),
+                                    item.get("difficulty"),
+                                    item.get("guide_summary"),
+                                    item.get("reading_tip"),
+                                    json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
+                                    json.dumps(item.get("segment_guides", []), ensure_ascii=False),
+                                    json.dumps(item.get("segments", []), ensure_ascii=False),
+                                    json.dumps(item.get("translation_cache", []), ensure_ascii=False),
+                                    item.get("translation_status", "none"),
+                                    item["original_text"],
+                                    item["punctuated_text"],
+                                    item.get("translated_text", ""),
+                                    1.0,
+                                    None,
+                                    "done",
+                                    json.dumps(item.get("entity_ids", []), ensure_ascii=False),
+                                    item["source_type"],
+                                    None,
+                                )
+                                for item in batch
+                            ]
+                        )
+                    logger.info("[PG] Seeded batch %d-%d", i, min(i+batch_size, len(corpus_documents)))
+                    # 在批次间增加微小延时，保护不稳定的公网代理
+                    await asyncio.sleep(0.5)
+                except Exception as exc:
+                    logger.error("[PG] Failed to seed batch %d-%d (Will retry next batch): %s", i, min(i+batch_size, len(corpus_documents)), exc)
+                    await asyncio.sleep(2) # 发生错误时进入冷却
         else:
             logger.warning("[PG] No corpus documents to seed (load_corpus_documents returned empty)")
 
-        await _maybe_backfill_user_scoped_tables_pg(conn)
+        # 最后的回填操作也应该重新获取连接，避免前面的副作用导致连接不可用
+        async with pool.acquire() as final_conn:
+            await _maybe_backfill_user_scoped_tables_pg(final_conn)
 
     logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes, study_sessions, sample docs, corpus docs)")

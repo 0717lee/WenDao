@@ -147,6 +147,28 @@ def iter_text_files(repo_dir: Path, repo_id: str) -> Iterable[Path]:
         (path for path in repo_dir.glob(f"{repo_id}_*.txt") if path.is_file()),
         key=lambda path: path.name,
     )
+def safe_convert(converter, text: str) -> str:
+    if not converter:
+        return text
+    try:
+        result = converter.convert(text)
+        if '\ufffd' not in result and '' not in result:
+            return result
+    except Exception:
+        pass
+    
+    # Fallback to character-by-character conversion
+    output = []
+    for char in text:
+        try:
+            converted = converter.convert(char)
+            if '\ufffd' in converted or '' in converted:
+                output.append(char)
+            else:
+                output.append(converted)
+        except Exception:
+            output.append(char)
+    return "".join(output)
 
 
 def normalize_line(line: str, converter) -> str:
@@ -170,8 +192,7 @@ def normalize_line(line: str, converter) -> str:
             cleaned = TITLE_PATTERN.sub("", cleaned)
         cleaned = INLINE_NUMBER_PATTERN.sub(lambda m: f"{m.group(1)} ", cleaned)
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
-        if converter:
-            cleaned = converter.convert(cleaned)
+        cleaned = safe_convert(converter, cleaned)
         parts.append(cleaned)
     return "\n".join(parts).strip()
 
@@ -185,8 +206,7 @@ def extract_segment_title(raw_text: str, path: Path, converter) -> str:
             title = TITLE_PATTERN.sub("", cleaned)
             title = INLINE_NUMBER_PATTERN.sub(lambda m: f"{m.group(1)} ", title)
             title = SEGMENT_NUMBER_PATTERN.sub("", title).strip()
-            if converter:
-                title = converter.convert(title)
+            title = safe_convert(converter, title)
             return title or path.stem
     return path.stem
 

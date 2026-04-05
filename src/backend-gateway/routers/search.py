@@ -329,12 +329,20 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
             document_match = _match_document_location(row, query)
 
             match_score = 0.0
+            query_lower = query.strip().lower()
+            if query_lower == title.lower():
+                match_score += 50.0  # Exact title match gets massive boost
+            elif query_lower in title.lower():
+                match_score += 20.0  # Substring title match
+            if author and query_lower in author.lower():
+                match_score += 15.0
+
             for term in search_terms:
                 term_lower = term.lower()
                 combined_lower = searchable_text.lower()
-                title_lower = title.lower()
-
-                if term_lower in title_lower:
+                
+                # Check segments for title matches too
+                if term_lower in title.lower():
                     match_score += 4.0
                 occurrences = combined_lower.count(term_lower)
                 if occurrences:
