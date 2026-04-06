@@ -8,9 +8,10 @@ import { PoemScrollCard } from './PoemScrollCard'
 interface MessageListProps {
     messages: Message[]
     onCitationClick?: (citation: { title: string; source: string; excerpt?: string }) => void
+    loadingLabel?: string
 }
 
-export function MessageList({ messages, onCitationClick }: MessageListProps) {
+export function MessageList({ messages, onCitationClick, loadingLabel }: MessageListProps) {
     const endRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -56,6 +57,21 @@ export function MessageList({ messages, onCitationClick }: MessageListProps) {
                         {/* Poem scroll card (replaces plain text for poetry messages) */}
                         {message.role === 'assistant' && message.poemResult ? (
                             <PoemScrollCard result={message.poemResult} />
+                        ) : message.role === 'assistant' && !message.content && !message.visionResult ? (
+                            <div className="min-w-[18rem] space-y-3">
+                                <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(26,30,35,0.54)' }}>
+                                    <span
+                                        className="inline-flex h-2.5 w-2.5 rounded-full animate-pulse"
+                                        style={{ backgroundColor: 'var(--gf-gugong-red)' }}
+                                    />
+                                    {loadingLabel || '正在整理回答...'}
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="h-3 rounded-full skeleton-shimmer" />
+                                    <div className="h-3 w-5/6 rounded-full skeleton-shimmer" />
+                                    <div className="h-3 w-2/3 rounded-full skeleton-shimmer" />
+                                </div>
+                            </div>
                         ) : (
                             <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
                         )}

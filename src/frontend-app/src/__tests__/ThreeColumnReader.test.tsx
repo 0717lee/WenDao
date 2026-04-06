@@ -155,6 +155,31 @@ describe('ThreeColumnReader', () => {
     // After clicking tab, the punctuated content should be visible
     expect(container.textContent).toContain('punctuated tab content')
   })
+
+  it('returns to reader hub when opened from the reader tab', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    mockGraphStoreState.readerReturnTab = 'reader'
+    useDocumentStore.getState().setDocument({
+      id: 'doc-return',
+      title: 'return test',
+      originalText: '原文内容',
+      punctuatedText: '原文内容。',
+      translatedText: '解释内容',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    fireEvent.click(screen.getAllByText('返回')[0])
+
+    expect(mockGraphStoreState.setActiveTab).toHaveBeenCalledWith('reader')
+    expect(useDocumentStore.getState().currentDocument).toBeNull()
+  })
 })
 
 describe('WordPopover', () => {

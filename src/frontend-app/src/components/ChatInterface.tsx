@@ -1,5 +1,5 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useStore, type AnswerContextAction } from '../store/useStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
@@ -419,7 +419,7 @@ export function ChatInterface() {
         addMessage(userMessage)
         setInputValue('')
         setLoading(true)
-        setProgress('正在检索古籍...')
+        setProgress('正在整理问题...')
 
         // Add assistant message placeholder
         const assistantMessageId = (Date.now() + 1).toString()
@@ -646,15 +646,7 @@ export function ChatInterface() {
             )}
 
             {/* Messages */}
-            <MessageList messages={messages} onCitationClick={handleCitationClick} />
-
-            {/* Loading indicator */}
-            {isLoading && currentProgress && (
-                <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{currentProgress}</span>
-                </div>
-            )}
+            <MessageList messages={messages} onCitationClick={handleCitationClick} loadingLabel={currentProgress} />
 
             {/* Voice recognition error message */}
             {voiceError && (

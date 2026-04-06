@@ -71,10 +71,9 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                                 placeholder="请输入用户名"
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                autoComplete="username"
+                                className="gf-input w-full px-4 py-3 rounded-lg text-sm"
                                 style={{
-                                    borderColor: 'rgba(26,30,35,0.12)',
-                                    backgroundColor: '#fff',
                                     fontFamily: '"Noto Serif SC", serif',
                                 }}
                                 required
@@ -92,10 +91,9 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                                     placeholder="请输入密码"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3 pr-12 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                    autoComplete="current-password"
+                                    className="gf-input w-full px-4 py-3 pr-12 rounded-lg text-sm"
                                     style={{
-                                        borderColor: 'rgba(26,30,35,0.12)',
-                                        backgroundColor: '#fff',
                                         fontFamily: '"Noto Serif SC", serif',
                                     }}
                                     required

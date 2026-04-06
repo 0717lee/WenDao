@@ -51,13 +51,10 @@ export function MessageInput({
                 onKeyDown={handleKeyDown}
                 placeholder="输入人物、典故、概念或一句原文，继续往下问"
                 disabled={disabled}
-                className="flex-1 resize-none rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 disabled:opacity-50 transition-shadow"
+                className="gf-input flex-1 resize-none rounded-xl px-4 py-2.5 disabled:opacity-50"
                 style={{
-                    border: '1px solid rgba(26,30,35,0.1)',
-                    backgroundColor: 'rgba(255,255,255,0.7)',
                     color: 'var(--gf-text)',
-                    /* @ts-ignore */
-                    '--tw-ring-color': 'rgba(140,26,17,0.2)',
+                    backgroundColor: 'rgba(255,255,255,0.7)',
                 } as React.CSSProperties}
                 rows={1}
             />

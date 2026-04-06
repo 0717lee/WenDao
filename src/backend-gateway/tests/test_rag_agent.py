@@ -68,7 +68,7 @@ class TestRAGAgentCitations:
         mock_response.choices[0].message.content = "测试回答"
         mock_openai.return_value.chat.completions.create.return_value = mock_response
 
-        result = agent.query_ancient_text("测试问题")
+        result = agent.query_ancient_text("斗拱是什么")
 
         assert len(result["citations"]) > 0
         citation = result["citations"][0]
@@ -111,6 +111,30 @@ class TestRAGAgentSystemPrompt:
         assert "古籍智解" in SYSTEM_PROMPT
         assert "通俗易懂" in SYSTEM_PROMPT
         assert "150" in SYSTEM_PROMPT and "字" in SYSTEM_PROMPT
+
+
+class TestRAGAgentGrounding:
+    @patch.dict(os.environ, {"MOONSHOT_API_KEY": "test_key"})
+    @patch("agents.rag.RAGAgent._init_vectorstore")
+    @patch("agents.rag.OpenAI")
+    def test_query_drops_irrelevant_retrieval_context(self, mock_openai, mock_init_vs):
+        mock_doc = Mock()
+        mock_doc.page_content = "雀替装修做法与斗口制度。"
+        mock_doc.metadata = {"title": "清式营造则例·装修", "source": "建筑资料"}
+
+        agent = RAGAgent()
+        agent.vectorstore = Mock()
+        agent.vectorstore.similarity_search.return_value = [mock_doc]
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "你好，我可以帮你读懂古文。"
+        mock_openai.return_value.chat.completions.create.return_value = mock_response
+
+        result = agent.query_ancient_text("你好")
+
+        assert result["answer"] == "你好，我可以帮你读懂古文。"
+        assert result["citations"] == []
 
 
 class TestRAGAgentErrorHandling:

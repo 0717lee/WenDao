@@ -214,12 +214,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="输入人物、典故、概念或一句原文..."
-              className="w-full px-4 py-3 pl-10 rounded-[22px] text-sm focus:outline-none focus:ring-2 transition-shadow"
+              className="gf-input w-full px-4 py-3 pl-10 rounded-[22px] text-sm"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.78)',
-                border: '1px solid rgba(26,30,35,0.08)',
                 color: 'var(--gf-text)',
-                '--tw-ring-color': 'rgba(140,26,17,0.2)',
               } as React.CSSProperties}
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(26,30,35,0.3)' }} />
@@ -385,9 +382,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
             >
               <div className="flex justify-between items-start mb-2">
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>{result.title}</h3>
-                <span className="text-xs font-mono px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(201,160,99,0.14)', color: 'var(--gf-gold)' }}>
-                  {(result.score * 100).toFixed(1)}%
-                </span>
               </div>
               <p className="text-sm mb-2 line-clamp-2" style={{ color: 'rgba(26,30,35,0.6)' }}>
                 {result.content.substring(0, 100)}...

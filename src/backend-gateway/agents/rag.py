@@ -7,16 +7,21 @@ Kimi 生成通俗化的古籍知识解读。
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Dict, Any
 from openai import OpenAI
+import jieba
 
 logger = logging.getLogger(__name__)
 INDEX_METADATA_FILE = "index.meta.json"
+RAG_NORMALIZE_PATTERN = re.compile(r"[\s，。！？；：、“”‘’「」『』（）()《》〈〉【】〔〕—…·,.!?:;\"'\-]+")
+RAG_NOISE_TERMS = {"什么", "为何", "为什么", "如何", "怎么", "怎样", "到底", "请", "请问", "一下", "有关", "相关", "解释", "说明"}
 
 SYSTEM_PROMPT = """你是"古籍智解"系统的知识讲解员。
 你的任务是根据提供的古籍原文片段，用通俗易懂的现代中文为用户讲解古籍内容的含义、背景与历史。
 回答应控制在 150 字以内，语言生动，适合阅读理解。
+如果检索片段和用户问题明显不相关，请忽略无关片段，优先直接回答用户真正的问题，不要硬套上下文。
 如果相关文档片段为空，请基于你自身的古籍知识回答。"""
 
 
@@ -29,6 +34,35 @@ def _load_index_metadata(db_path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("[RAGAgent] 索引元数据读取失败: %s", exc)
         return None
+
+
+def _normalize_rag_text(value: str) -> str:
+    return RAG_NORMALIZE_PATTERN.sub("", value or "").lower()
+
+
+def _extract_query_terms(query: str) -> list[str]:
+    terms: list[str] = []
+    for token in jieba.cut(query):
+        cleaned = _normalize_rag_text(token)
+        if not cleaned or cleaned in RAG_NOISE_TERMS:
+            continue
+        if token.strip() not in terms:
+            terms.append(token.strip())
+    return terms or [query.strip()]
+
+
+def _doc_matches_query(doc: Any, query_terms: list[str]) -> bool:
+    text = getattr(doc, "page_content", "") or ""
+    metadata = getattr(doc, "metadata", {}) or {}
+    haystack = "\n".join([text, str(metadata.get("title") or ""), str(metadata.get("source") or "")])
+    normalized_haystack = _normalize_rag_text(haystack)
+    for term in query_terms:
+        normalized_term = _normalize_rag_text(term)
+        if not normalized_term:
+            continue
+        if term in haystack or normalized_term in normalized_haystack:
+            return True
+    return False
 
 
 def inspect_faiss_index_compatibility() -> dict[str, Any]:
@@ -121,6 +155,13 @@ class RAGAgent:
             if getattr(self, "vectorstore", None) is not None:
                 try:
                     docs = self.vectorstore.similarity_search(user_query, k=3)
+                    query_terms = _extract_query_terms(user_query)
+                    grounded_docs = [doc for doc in docs if _doc_matches_query(doc, query_terms)]
+                    if grounded_docs:
+                        docs = grounded_docs
+                    elif query_terms:
+                        logger.info("[RAGAgent] 检索结果与问题词面关联较弱，改为直接回答: %s", user_query)
+                        docs = []
                 except Exception as e:
                     logger.warning("[RAGAgent] 检索失败: %s", e)
 

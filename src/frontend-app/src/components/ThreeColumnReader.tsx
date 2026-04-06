@@ -29,7 +29,7 @@ const columnItemVariants = {
 };
 
 export function ThreeColumnReader() {
-  const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel, updateDocument } = useDocumentStore();
+  const { currentDocument, consumePendingAnchorText, consumePendingReaderPanel, updateDocument, clearCurrentDocument } = useDocumentStore();
   const readerReturnTab = useGraphStore((state) => state.readerReturnTab);
   const setAppTab = useGraphStore((state) => state.setActiveTab);
   const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery);
@@ -110,9 +110,6 @@ export function ThreeColumnReader() {
     currentDocument.category,
     currentDocument.chapterCount ? `${currentDocument.chapterCount}篇` : null,
   ].filter(Boolean).join(' · ')
-  const chapterPreview = (currentDocument.chapterTitles ?? [])
-    .slice(0, 5)
-    .map((title, index) => formatSectionTitle(title, index))
   const recommendedChapters = currentDocument.recommendedChapters?.slice(0, 4) ?? []
   const segmentGuides = (currentDocument.segmentGuides ?? [])
     .slice(0, 6)
@@ -126,11 +123,21 @@ export function ThreeColumnReader() {
     displayTitle: formatSectionTitle(segment.title, index),
     excerpt: segment.excerpt,
     summary: segment.summary,
-  })) ?? chapterPreview.map((title) => ({ title, displayTitle: title }))
+  })) ?? (currentDocument.chapterTitles ?? [])
+    .slice(0, 5)
+    .map((title, index) => {
+      const displayTitle = formatSectionTitle(title, index)
+      return { title: title ?? displayTitle, displayTitle }
+    })
 
   const totalParagraphs = Math.max(1, readerParagraphs.length);
 
   const handleBack = () => {
+    clearCurrentDocument();
+    if (readerReturnTab === 'reader') {
+      setAppTab('reader');
+      return;
+    }
     setAppTab(readerReturnTab || 'home');
   };
 
@@ -255,8 +262,8 @@ export function ThreeColumnReader() {
     return (
       <div className="space-y-2 relative z-10">
         <h3
-          className="text-base font-medium sticky top-0 py-2 border-b z-20"
-          style={{ color: 'var(--gf-text)', backgroundColor: 'rgba(247,246,243,0.85)', borderColor: 'rgba(26,30,35,0.06)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+          className="pb-2 text-base font-medium border-b"
+          style={{ color: 'var(--gf-text)', borderColor: 'rgba(26,30,35,0.06)' }}
         >
           {label}
         </h3>
@@ -513,19 +520,6 @@ export function ThreeColumnReader() {
               )}
             </div>
           )}
-          {chapterPreview.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {chapterPreview.map((title) => (
-                <span
-                  key={title}
-                  className="rounded-full px-3 py-1 text-[11px]"
-                  style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.6)' }}
-                >
-                  {title}
-                </span>
-              ))}
-            </div>
-          )}
           {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original'))}
           {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>)}
           {activeReaderTab === 'translated' && renderColumn('白话疏解', renderTranslatedParagraphs())}
@@ -559,7 +553,7 @@ export function ThreeColumnReader() {
 
   // Desktop: Three columns side-by-side with scroll sync
   return (
-    <div className="h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
+    <div className="flex h-full min-h-0 flex-col" style={{ backgroundColor: 'var(--gf-bg)' }}>
         <div className="flex items-center justify-between px-4 pt-4">
           <div className="flex items-center gap-3">
             <button
@@ -606,19 +600,6 @@ export function ThreeColumnReader() {
             </button>
           </div>
         </div>
-      {chapterPreview.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-4 pt-3">
-          {chapterPreview.map((title) => (
-            <span
-              key={title}
-              className="rounded-full px-3 py-1 text-[11px]"
-              style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.6)' }}
-            >
-              {title}
-            </span>
-          ))}
-        </div>
-      )}
       {(currentDocument.guideSummary || currentDocument.readingTip || currentDocument.difficulty) && (
         <div className="px-4 pt-3">
           <div
@@ -682,12 +663,12 @@ export function ThreeColumnReader() {
         initial="hidden"
         animate="show"
         transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
-        className={`grid h-full gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}
+        className={`grid min-h-0 flex-1 gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}
       >
         <motion.div
           layout
           variants={columnItemVariants}
-          className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative"
+          className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
           onScroll={(e) => {
             const target = e.currentTarget;
             reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
@@ -698,7 +679,7 @@ export function ThreeColumnReader() {
           {renderColumn('原文', renderInteractiveParagraphs('original'))}
         </motion.div>
 
-        <motion.div layout variants={columnItemVariants} className="overflow-y-auto scrollbar-hide h-full rounded-[20px] p-5 glass-card relative">
+        <motion.div layout variants={columnItemVariants} className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide rounded-[20px] p-5 glass-card">
           <div className="bg-xuan-paper rounded-[20px]"></div>
           <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
           {renderColumn(
@@ -709,7 +690,7 @@ export function ThreeColumnReader() {
           )}
         </motion.div>
 
-        <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
+        <motion.div layout variants={columnItemVariants} className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card">
           <div className="bg-xuan-paper rounded-[20px]"></div>
           {renderColumn(
             '白话疏解',
@@ -726,7 +707,7 @@ export function ThreeColumnReader() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 20, scale: 0.98 }}
               transition={{ type: 'spring', stiffness: 220, damping: 25 }}
-              className="overflow-y-auto h-full rounded-[20px] glass-card"
+              className="h-full min-h-0 overflow-y-auto rounded-[20px] glass-card"
             >
               {sidePanel === 'notes' ? (
                 <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />

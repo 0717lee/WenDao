@@ -10,6 +10,9 @@ from core.database import get_db
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+SMALL_TALK_TRIGGERS = {
+    "你好", "您好", "嗨", "哈喽", "hello", "hi", "在吗", "在嘛", "有人吗", "谢谢", "多谢", "再见", "拜拜",
+}
 
 def _create_rag_agent() -> RAGAgent:
     return RAGAgent()
@@ -87,6 +90,20 @@ def _build_answer_context(query: str, citations: list[dict], related_entities: l
     }
 
 
+def _small_talk_response(query: str) -> str | None:
+    normalized = query.strip().lower()
+    if not normalized:
+        return None
+
+    if normalized in {"你好", "您好", "嗨", "hello", "hi", "哈喽", "在吗", "在嘛", "有人吗"}:
+        return "你好，我在这里。你可以直接发一句原文、一个人物、一个典故，或者问我某篇古文到底在讲什么。"
+    if normalized in {"谢谢", "多谢"}:
+        return "不客气。你如果愿意，可以继续发一句原文或一个典故，我会接着帮你讲明白。"
+    if normalized in {"再见", "拜拜"}:
+        return "好，回头你想继续读古文时，随时来找我。"
+    return None
+
+
 async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerator[str, None]:
     """
     Generate SSE streaming response with reasoning events.
@@ -96,9 +113,19 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
     knowledge linking -> generation).
     """
     try:
+        small_talk_answer = _small_talk_response(query)
+        if small_talk_answer:
+            yield f'event: progress\ndata: {json.dumps({"status": "正在回应..."}, ensure_ascii=False)}\n\n'
+            for i, char in enumerate(small_talk_answer):
+                yield f'data: {json.dumps({"content": char}, ensure_ascii=False)}\n\n'
+                if (i + 1) % 12 == 0:
+                    await asyncio.sleep(0.01)
+            yield 'event: done\ndata: {}\n\n'
+            return
+
         # -- Step 1: Retrieval --
         yield sse_reasoning("retrieval", "检索古籍知识库", "running", model="Kimi-32k")
-        yield f'event: progress\ndata: {json.dumps({"status": "检索古籍..."}, ensure_ascii=False)}\n\n'
+        yield f'event: progress\ndata: {json.dumps({"status": "正在整理线索..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
         result = await asyncio.to_thread(rag_agent.query_ancient_text, query)
         answer = result["answer"]
@@ -120,7 +147,7 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
 
         # -- Step 4: Generation (streaming) --
         yield sse_reasoning("generation", "生成通俗解读", "running", model="Kimi-32k")
-        yield f'event: progress\ndata: {json.dumps({"status": "生成回答..."}, ensure_ascii=False)}\n\n'
+        yield f'event: progress\ndata: {json.dumps({"status": "正在组织回答..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
 
         for i, char in enumerate(answer):

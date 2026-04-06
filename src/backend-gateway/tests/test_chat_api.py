@@ -63,6 +63,23 @@ class TestChatRouterFunctions:
         assert "抱歉" in all_events
         assert "测试错误" not in all_events
 
+    @pytest.mark.asyncio
+    async def test_stream_chat_response_handles_small_talk_without_rag(self):
+        """寒暄类消息不应强行走古籍检索"""
+        from routers.chat import stream_chat_response, rag_agent
+
+        rag_agent.query_ancient_text = Mock(side_effect=AssertionError("should not call rag for greeting"))
+
+        events = []
+        async for event in stream_chat_response("你好", rag_agent):
+            events.append(event)
+
+        all_events = "".join(events)
+        assert "正在回应" in all_events
+        assert "检索古籍知识库" not in all_events
+        assert "event: citations" not in all_events
+        assert "event: done" in all_events
+
 
 class TestChatRequestValidation:
     """测试3: ChatRequest模型验证"""

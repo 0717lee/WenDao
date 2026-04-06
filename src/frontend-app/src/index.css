@@ -239,3 +239,25 @@ html, body, #root {
 .reader-char:active {
   transform: scale(0.85);
 }
+
+.gf-input {
+  border: 1px solid rgba(26, 30, 35, 0.12);
+  background-color: #fff;
+  color: var(--gf-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.gf-input:focus {
+  outline: none;
+  border-color: rgba(140, 26, 17, 0.42);
+  box-shadow: 0 0 0 3px rgba(140, 26, 17, 0.12);
+}
+
+.gf-input:-webkit-autofill,
+.gf-input:-webkit-autofill:hover,
+.gf-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--gf-text);
+  box-shadow: 0 0 0 1000px #fff inset, 0 0 0 3px rgba(140, 26, 17, 0.12);
+  border: 1px solid rgba(140, 26, 17, 0.24);
+  transition: background-color 9999s ease-out 0s;
+}

@@ -88,10 +88,9 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                 placeholder="2–20 个字符"
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                autoComplete="username"
+                                className="gf-input w-full px-4 py-3 rounded-lg text-sm"
                                 style={{
-                                    borderColor: 'rgba(26,30,35,0.12)',
-                                    backgroundColor: '#fff',
                                     fontFamily: '"Noto Serif SC", serif',
                                 }}
                                 required
@@ -108,10 +107,9 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                 placeholder="用于找回密码"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                autoComplete="email"
+                                className="gf-input w-full px-4 py-3 rounded-lg text-sm"
                                 style={{
-                                    borderColor: 'rgba(26,30,35,0.12)',
-                                    backgroundColor: '#fff',
                                     fontFamily: '"Noto Serif SC", serif',
                                 }}
                                 required
@@ -128,10 +126,9 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                     placeholder="至少 6 个字符"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
-                                    className="w-full px-4 py-3 pr-12 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                    autoComplete="new-password"
+                                    className="gf-input w-full px-4 py-3 pr-12 rounded-lg text-sm"
                                     style={{
-                                        borderColor: 'rgba(26,30,35,0.12)',
-                                        backgroundColor: '#fff',
                                         fontFamily: '"Noto Serif SC", serif',
                                     }}
                                     required
@@ -167,10 +164,9 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                     placeholder="请再次输入密码"
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
-                                    className="w-full px-4 py-3 pr-12 rounded-lg text-sm border outline-none focus:ring-2 transition-all"
+                                    autoComplete="new-password"
+                                    className="gf-input w-full px-4 py-3 pr-12 rounded-lg text-sm"
                                     style={{
-                                        borderColor: 'rgba(26,30,35,0.12)',
-                                        backgroundColor: '#fff',
                                         fontFamily: '"Noto Serif SC", serif',
                                     }}
                                     required
