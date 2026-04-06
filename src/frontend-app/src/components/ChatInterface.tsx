@@ -1,10 +1,10 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Search, Volume2, VolumeX } from 'lucide-react'
+import { Loader2, Search } from 'lucide-react'
 import { useStore, type AnswerContextAction } from '../store/useStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { ImageUploadPreview } from './ImageUploadPreview'
-import { useVoiceRecorder, playTTSAudio } from './AudioRecorder'
+import { useVoiceRecorder } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
 import { useGraphStore } from '../store/useGraphStore'
@@ -34,8 +34,8 @@ export function ChatInterface() {
     const streamBufferRef = useRef('')
     const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const assistantContentRef = useRef('')
-    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageCitations, updateLastMessageAnswerContext, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage, ttsAutoRead, setTtsAutoRead } = useStore()
-    const { setDocument, setUploadStatus, setPendingAnchorText, setPendingReaderPanel } = useDocumentStore()
+    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageCitations, updateLastMessageAnswerContext, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage } = useStore()
+    const { setDocument, setUploadStatus, setPendingAnchorText } = useDocumentStore()
     const setActiveTab = useGraphStore((state) => state.setActiveTab)
     const setReaderReturnTab = useGraphStore((state) => state.setReaderReturnTab)
     const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery)
@@ -161,62 +161,6 @@ export function ChatInterface() {
         [queueSearchQuery, setActiveTab, setDocument, setPendingAnchorText, setReaderReturnTab, setUploadStatus]
     )
 
-    const openDocumentById = useCallback(
-        async (documentId: string, panel?: 'study' | null) => {
-            try {
-                const documentRes = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions())
-                if (!documentRes.ok) return false
-                const data = await documentRes.json()
-                setDocument({
-                    id: data.id,
-                    title: data.title,
-                    author: data.author ?? undefined,
-                    dynasty: data.dynasty ?? undefined,
-                    category: data.category ?? undefined,
-                    sourceName: data.source_name ?? undefined,
-                    sourceUrl: data.source_url ?? undefined,
-                    chapterTitles: data.chapter_titles ?? undefined,
-                    chapterCount: data.chapter_count ?? undefined,
-                    featuredExcerpt: data.featured_excerpt ?? undefined,
-                    difficulty: data.difficulty ?? undefined,
-                    guideSummary: data.guide_summary ?? undefined,
-                    readingTip: data.reading_tip ?? undefined,
-                    recommendedChapters: data.recommended_chapters ?? undefined,
-                    segmentGuides: data.segment_guides ?? undefined,
-                    segments: Array.isArray(data.segments)
-                        ? data.segments.map((segment: any) => ({
-                              index: segment.index ?? 0,
-                              title: segment.title ?? '',
-                              text: segment.text ?? '',
-                              excerpt: segment.excerpt ?? undefined,
-                              summary: segment.summary ?? undefined,
-                              charCount: segment.char_count ?? segment.charCount ?? undefined,
-                              lineCount: segment.line_count ?? segment.lineCount ?? undefined,
-                          }))
-                        : undefined,
-                    translationCache: data.translation_cache ?? undefined,
-                    translationStatus: data.translation_status ?? undefined,
-                    originalText: data.original_text,
-                    punctuatedText: data.punctuated_text || '',
-                    translatedText: data.translated_text || '',
-                    confidence: data.ocr_confidence,
-                    imageUrl: data.image_data || undefined,
-                    sourceType: data.source_type || 'user',
-                })
-                setUploadStatus(data.punctuated_text ? 'done' : 'idle')
-                if (panel) {
-                    setPendingReaderPanel(panel)
-                }
-                setReaderReturnTab('chat')
-                setActiveTab('reader')
-                return true
-            } catch {
-                return false
-            }
-        },
-        [setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
-    )
-
     const handleVoiceToggle = useCallback(() => {
         toggleRecording(
             (text) => {
@@ -231,16 +175,6 @@ export function ChatInterface() {
             }
         )
     }, [toggleRecording])
-
-    // TTS auto-read: called after assistant message completes
-    const triggerTTSAutoRead = useCallback(
-        (text: string) => {
-            if (ttsAutoRead && text && text.length > 0) {
-                playTTSAudio(text)
-            }
-        },
-        [ttsAutoRead]
-    )
 
     const handleAttachImage = () => {
         fileInputRef.current?.click()
@@ -457,41 +391,6 @@ export function ChatInterface() {
         }
     }
 
-    const handleAnswerAction = useCallback(
-        (action: AnswerContextAction) => {
-            if (action.citation) {
-                void handleCitationClick(action.citation)
-                return
-            }
-
-            if (action.kind === 'reader' && action.documentId) {
-                void openDocumentById(action.documentId)
-                return
-            }
-
-            if (action.kind === 'search' && action.query) {
-                queueSearchQuery(action.query)
-                setActiveTab('search')
-                return
-            }
-
-            if (action.kind === 'wordbook') {
-                setActiveTab('wordbook')
-                return
-            }
-
-            if (action.kind === 'study' && action.documentId) {
-                void openDocumentById(action.documentId, 'study')
-                return
-            }
-
-            if (action.prompt) {
-                setInputValue(action.prompt)
-            }
-        },
-        [handleCitationClick, openDocumentById, queueSearchQuery, setActiveTab]
-    )
-
     const sendMessage = async () => {
         if (isLoading) return
 
@@ -668,8 +567,6 @@ export function ChatInterface() {
                             flushStreamBuffer(true)
                             setLoading(false)
                             setProgress('')
-                            // TTS auto-read when chat stream completes
-                            if (assistantContentRef.current) triggerTTSAutoRead(assistantContentRef.current)
                         } else if (currentEventType === 'error') {
                             flushStreamBuffer(true)
                             console.error('Stream error:', event.message)
@@ -695,26 +592,6 @@ export function ChatInterface() {
 
     return (
         <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
-            {/* TTS auto-read toggle in top-right corner */}
-            <div className="flex items-center justify-end px-4 py-2">
-                <button
-                    onClick={() => setTtsAutoRead(!ttsAutoRead)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors"
-                    style={{
-                        color: ttsAutoRead ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.4)',
-                        backgroundColor: ttsAutoRead ? 'rgba(140,26,17,0.08)' : 'transparent',
-                    }}
-                    title="自动朗读AI回答"
-                >
-                    {ttsAutoRead ? (
-                        <Volume2 className="w-4 h-4" />
-                    ) : (
-                        <VolumeX className="w-4 h-4" />
-                    )}
-                    <span>{ttsAutoRead ? '朗读开' : '朗读关'}</span>
-                </button>
-            </div>
-
             {/* Hidden file input for image upload */}
             <input
                 ref={fileInputRef}
@@ -769,7 +646,7 @@ export function ChatInterface() {
             )}
 
             {/* Messages */}
-            <MessageList messages={messages} onCitationClick={handleCitationClick} onAnswerAction={handleAnswerAction} />
+            <MessageList messages={messages} onCitationClick={handleCitationClick} />
 
             {/* Loading indicator */}
             {isLoading && currentProgress && (

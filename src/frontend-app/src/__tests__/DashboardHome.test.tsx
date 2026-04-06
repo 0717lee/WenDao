@@ -78,7 +78,9 @@ describe('DashboardHome', () => {
     onOpenDocument: vi.fn(),
     onAsk: vi.fn(),
     onSearch: vi.fn(),
+    onOpenSearch: vi.fn(),
     onOpenReaderHub: vi.fn(),
+    onOpenReaderUpload: vi.fn(),
     onOpenWordbook: vi.fn(),
     onOpenCompare: vi.fn(),
     onContinueStudy: vi.fn(),
@@ -108,7 +110,7 @@ describe('DashboardHome', () => {
     expect(props.onOpenReaderHub).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: /先从一句话找起/ }))
-    expect(props.onSearch).toHaveBeenCalledWith('孔子怎样谈“仁”')
+    expect(props.onOpenSearch).toHaveBeenCalled()
   })
 
   it('keeps the primary reading entry available when one dashboard request fails', async () => {
@@ -175,7 +177,7 @@ describe('DashboardHome', () => {
     fireEvent.click(await screen.findByRole('button', { name: /有图片时再走这里/ }))
 
     await waitFor(() => {
-      expect(props.onOpenReaderHub).toHaveBeenCalled()
+      expect(props.onOpenReaderUpload).toHaveBeenCalled()
     })
   })
 })

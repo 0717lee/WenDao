@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
-import { ScrollSync, ScrollSyncPane } from 'react-scroll-sync';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, GraduationCap, Loader2, Menu, NotebookText } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
@@ -11,9 +10,10 @@ import { ReaderExplainPanel } from './ReaderExplainPanel';
 import { ReaderNotesPanel } from './ReaderNotesPanel';
 import { ReaderTocPanel } from './ReaderTocPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
-import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
 import { buildReaderParagraphs, type ReaderSentence } from '../utils/readerSentences';
+
+const TECHNICAL_SECTION_ID_RE = /^[A-Za-z]{1,6}\d[\w-]*$/;
 
 const columnContainerVariants = {
   hidden: { opacity: 0 },
@@ -34,8 +34,6 @@ export function ThreeColumnReader() {
   const setAppTab = useGraphStore((state) => state.setActiveTab);
   const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery);
   const setDraftMessage = useStore((state) => state.setDraftMessage);
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
-  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeReaderTab, setActiveReaderTab] = useState<'original' | 'punctuated' | 'translated'>('original');
   const [sidePanel, setSidePanel] = useState<'notes' | 'study' | 'explain' | null>(null);
@@ -47,7 +45,15 @@ export function ThreeColumnReader() {
   const [translationGenerating, setTranslationGenerating] = useState(false);
   const [translationError, setTranslationError] = useState('');
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+
+  const formatSectionTitle = (title: string | undefined | null, index: number) => {
+    const trimmed = title?.trim() ?? ''
+    if (!trimmed || TECHNICAL_SECTION_ID_RE.test(trimmed)) {
+      return `第${index + 1}段`
+    }
+    return trimmed
+  }
 
   useEffect(() => {
     const handleResize = () => {
@@ -104,22 +110,25 @@ export function ThreeColumnReader() {
     currentDocument.category,
     currentDocument.chapterCount ? `${currentDocument.chapterCount}篇` : null,
   ].filter(Boolean).join(' · ')
-  const chapterPreview = currentDocument.chapterTitles?.slice(0, 5) ?? []
+  const chapterPreview = (currentDocument.chapterTitles ?? [])
+    .slice(0, 5)
+    .map((title, index) => formatSectionTitle(title, index))
   const recommendedChapters = currentDocument.recommendedChapters?.slice(0, 4) ?? []
-  const segmentGuides = currentDocument.segmentGuides?.slice(0, 6) ?? []
+  const segmentGuides = (currentDocument.segmentGuides ?? [])
+    .slice(0, 6)
+    .map((item, index) => ({
+      ...item,
+      title: formatSectionTitle(item.title, index),
+    }))
   const translationCache = currentDocument.translationCache ?? []
-  const tocEntries = currentDocument.segments?.map((segment) => ({
+  const tocEntries = currentDocument.segments?.map((segment, index) => ({
     title: segment.title,
+    displayTitle: formatSectionTitle(segment.title, index),
     excerpt: segment.excerpt,
     summary: segment.summary,
-  })) ?? chapterPreview.map((title) => ({ title }))
+  })) ?? chapterPreview.map((title) => ({ title, displayTitle: title }))
 
   const totalParagraphs = Math.max(1, readerParagraphs.length);
-
-  const handleWordClick = (word: string, event: React.MouseEvent) => {
-    setSelectedWord(word);
-    setPopoverPosition({ x: event.clientX, y: event.clientY });
-  };
 
   const handleBack = () => {
     setAppTab(readerReturnTab || 'home');
@@ -128,15 +137,18 @@ export function ThreeColumnReader() {
   const handleSentenceSelect = (sentence: ReaderSentence) => {
     setSelectedSentence(sentence);
     setSelectedChapterTitle(
-      currentDocument.segments?.[sentence.paragraphIndex]?.title ??
-      currentDocument.chapterTitles?.[sentence.paragraphIndex] ??
+      formatSectionTitle(
+        currentDocument.segments?.[sentence.paragraphIndex]?.title ??
+        currentDocument.chapterTitles?.[sentence.paragraphIndex],
+        sentence.paragraphIndex,
+      ) ??
       null,
     );
     setSidePanel('explain');
   };
 
-  const handleTocSelect = (entry: { title: string; excerpt?: string; summary?: string }) => {
-    setSelectedChapterTitle(entry.title);
+  const handleTocSelect = (entry: { title: string; displayTitle?: string; excerpt?: string; summary?: string }) => {
+    setSelectedChapterTitle(entry.displayTitle ?? entry.title);
     setAnchorText(entry.excerpt || entry.title);
     setActiveReaderTab('punctuated');
     setTocOpen(false);
@@ -194,6 +206,7 @@ export function ThreeColumnReader() {
                   key={`${column}-${sentence.id}`}
                   type="button"
                   onClick={() => handleSentenceSelect(sentence)}
+                  ref={isAnchorSentence ? anchorRef : undefined}
                   className="block w-full rounded-lg px-2 py-1 text-left transition-colors"
                   style={{
                     backgroundColor: isSelectedSentence
@@ -203,17 +216,7 @@ export function ThreeColumnReader() {
                         : 'transparent',
                   }}
                 >
-                  {displayText.split('').map((char, idx) => (
-                    <span
-                      key={`${column}-${sentence.id}-${idx}`}
-                      ref={isAnchorSentence && idx === 0 ? anchorRef : undefined}
-                      onClick={(e) => handleWordClick(char, e)}
-                      className="reader-char inline-block cursor-pointer transition-colors duration-200"
-                      style={{ borderRadius: '4px' }}
-                    >
-                      {char}
-                    </span>
-                  ))}
+                  {displayText}
                 </button>
               );
             })}
@@ -268,14 +271,14 @@ export function ThreeColumnReader() {
     if (translationCache.length > 0) {
       return (
         <div className="space-y-3">
-          {translationCache.map((item) => (
+          {translationCache.map((item, index) => (
             <div
-              key={item.title}
+              key={`${item.title}-${index}`}
               className="rounded-[18px] px-3 py-3"
               style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
             >
               <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                {item.title}
+                {formatSectionTitle(item.title, index)}
               </div>
               <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
                 {item.translated}
@@ -550,13 +553,6 @@ export function ThreeColumnReader() {
           </div>
         )}
 
-        {selectedWord && popoverPosition && (
-          <WordPopover
-            word={selectedWord}
-            position={popoverPosition}
-            onClose={() => setSelectedWord(null)}
-          />
-        )}
       </div>
     );
   }
@@ -680,83 +676,75 @@ export function ThreeColumnReader() {
           </div>
         </div>
       )}
-      <ScrollSync>
+      <motion.div
+        layout
+        variants={columnContainerVariants}
+        initial="hidden"
+        animate="show"
+        transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
+        className={`grid h-full gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}
+      >
         <motion.div
           layout
-          variants={columnContainerVariants}
-          initial="hidden"
-          animate="show"
-          transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
-          className={`grid h-full gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}
+          variants={columnItemVariants}
+          className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative"
+          onScroll={(e) => {
+            const target = e.currentTarget;
+            reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+          }}
         >
-          <ScrollSyncPane>
-            <motion.div
-              layout
-              variants={columnItemVariants}
-              className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative"
-              onScroll={(e) => {
-                const target = e.currentTarget;
-                reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
-              }}
-            >
-              <div className="bg-xuan-paper rounded-[20px]"></div>
-              <div className="ink-wash-blob w-32 h-32 -top-10 -left-10 bg-[var(--gf-gold)] opacity-10"></div>
-              {renderColumn('原文', renderInteractiveParagraphs('original'))}
-            </motion.div>
-          </ScrollSyncPane>
-
-          <ScrollSyncPane>
-            <motion.div layout variants={columnItemVariants} className="overflow-y-auto scrollbar-hide h-full rounded-[20px] p-5 glass-card relative">
-              <div className="bg-xuan-paper rounded-[20px]"></div>
-              <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
-              {renderColumn(
-                '标点文',
-                currentDocument.punctuatedText
-                  ? renderInteractiveParagraphs('punctuated')
-                  : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>
-              )}
-            </motion.div>
-          </ScrollSyncPane>
-
-          <ScrollSyncPane>
-            <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
-              <div className="bg-xuan-paper rounded-[20px]"></div>
-              {renderColumn(
-                '白话疏解',
-                renderTranslatedParagraphs()
-              )}
-            </motion.div>
-          </ScrollSyncPane>
-
-          <AnimatePresence mode="wait">
-            {sidePanel && (
-              <motion.div
-                key={sidePanel}
-                layout
-                initial={{ opacity: 0, x: 40, scale: 0.95 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 20, scale: 0.98 }}
-                transition={{ type: 'spring', stiffness: 220, damping: 25 }}
-                className="overflow-y-auto h-full rounded-[20px] glass-card"
-              >
-                {sidePanel === 'notes' ? (
-                  <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
-                ) : sidePanel === 'explain' && selectedSentence ? (
-                  <ReaderExplainPanel
-                    documentId={currentDocument.id}
-                    documentTitle={currentDocument.title}
-                    sentence={selectedSentence.punctuated || selectedSentence.original}
-                    context={readerParagraphs[selectedSentence.paragraphIndex]?.punctuated ?? ''}
-                    chapterTitle={selectedChapterTitle ?? undefined}
-                  />
-                ) : (
-                  <StudyCardsPanel documentId={currentDocument.id} />
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className="bg-xuan-paper rounded-[20px]"></div>
+          <div className="ink-wash-blob w-32 h-32 -top-10 -left-10 bg-[var(--gf-gold)] opacity-10"></div>
+          {renderColumn('原文', renderInteractiveParagraphs('original'))}
         </motion.div>
-      </ScrollSync>
+
+        <motion.div layout variants={columnItemVariants} className="overflow-y-auto scrollbar-hide h-full rounded-[20px] p-5 glass-card relative">
+          <div className="bg-xuan-paper rounded-[20px]"></div>
+          <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
+          {renderColumn(
+            '标点文',
+            currentDocument.punctuatedText
+              ? renderInteractiveParagraphs('punctuated')
+              : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>
+          )}
+        </motion.div>
+
+        <motion.div layout variants={columnItemVariants} className="overflow-y-auto h-full rounded-[20px] p-5 glass-card relative">
+          <div className="bg-xuan-paper rounded-[20px]"></div>
+          {renderColumn(
+            '白话疏解',
+            renderTranslatedParagraphs()
+          )}
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+          {sidePanel && (
+            <motion.div
+              key={sidePanel}
+              layout
+              initial={{ opacity: 0, x: 40, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 20, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 25 }}
+              className="overflow-y-auto h-full rounded-[20px] glass-card"
+            >
+              {sidePanel === 'notes' ? (
+                <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
+              ) : sidePanel === 'explain' && selectedSentence ? (
+                <ReaderExplainPanel
+                  documentId={currentDocument.id}
+                  documentTitle={currentDocument.title}
+                  sentence={selectedSentence.punctuated || selectedSentence.original}
+                  context={readerParagraphs[selectedSentence.paragraphIndex]?.punctuated ?? ''}
+                  chapterTitle={selectedChapterTitle ?? undefined}
+                />
+              ) : (
+                <StudyCardsPanel documentId={currentDocument.id} />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       <Drawer
         side="left"
@@ -767,14 +755,6 @@ export function ThreeColumnReader() {
       >
         <ReaderTocPanel entries={tocEntries} selectedTitle={selectedChapterTitle} onSelect={handleTocSelect} />
       </Drawer>
-
-      {selectedWord && popoverPosition && (
-        <WordPopover
-          word={selectedWord}
-          position={popoverPosition}
-          onClose={() => setSelectedWord(null)}
-        />
-      )}
     </div>
   );
 }

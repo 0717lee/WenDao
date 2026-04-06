@@ -18,7 +18,9 @@ interface DashboardHomeProps {
   onOpenDocument: (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => void
   onAsk: (prompt: string) => void
   onSearch: (query: string) => void
+  onOpenSearch: () => void
   onOpenReaderHub: () => void
+  onOpenReaderUpload: () => void
   onOpenWordbook: () => void
   onOpenCompare: () => void
   onContinueStudy: (documentId: string) => void
@@ -92,21 +94,6 @@ interface LearningFocus {
   co_reading_prompts: FocusItem[]
 }
 
-const QUICK_QUESTION_PROMPTS = [
-  '“学而时习之”到底在讲什么？',
-  '《道德经》第一章到底想说什么？',
-  '孔子和孟子的思想有什么联系？',
-]
-
-const SEARCH_TOPICS = [
-  '孔子怎样谈“仁”',
-  '“学而时习之”怎么理解',
-  '《逍遥游》里的“大鹏”',
-  '孟子为什么说“舍生取义”',
-  '《道德经》第一章',
-  '“关关雎鸠”讲的是什么',
-]
-
 function formatTimeLabel(value?: string) {
   if (!value) return '刚刚整理'
   const date = new Date(value)
@@ -118,7 +105,9 @@ export default function DashboardHome({
   onOpenDocument,
   onAsk,
   onSearch,
+  onOpenSearch,
   onOpenReaderHub,
+  onOpenReaderUpload,
   onOpenWordbook,
   onOpenCompare,
   onContinueStudy,
@@ -243,7 +232,7 @@ export default function DashboardHome({
       eyebrow: '寻章摘句',
       title: '先从一句话找起',
       description: '记得一句原文、一个人物或一个典故，从这里最快找到。',
-      action: () => onSearch(SEARCH_TOPICS[0]),
+      action: onOpenSearch,
       accent: '#7b5b44',
       accentSoft: 'rgba(123,91,68,0.08)',
     },
@@ -252,7 +241,7 @@ export default function DashboardHome({
       eyebrow: '拍页即读',
       title: '有图片时再走这里',
       description: '手头有影印页或扫描图，用 OCR 转成可读文字，再做断句和对照。',
-      action: onOpenReaderHub,
+      action: onOpenReaderUpload,
       accent: 'var(--gf-gold)',
       accentSoft: 'rgba(201,160,99,0.12)',
     },

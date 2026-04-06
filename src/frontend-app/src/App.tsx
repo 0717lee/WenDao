@@ -49,7 +49,7 @@ function TabLoader() {
 }
 
 function App() {
-    const { activeTab, setActiveTab, queueSearchQuery, setReaderReturnTab } = useGraphStore();
+    const { activeTab, setActiveTab, queueSearchQuery, queueReaderHubSection, setReaderReturnTab } = useGraphStore();
     const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
     const { username, logout, validateStoredAuth } = useAuthStore();
     const { setDraftMessage } = useStore();
@@ -156,17 +156,29 @@ function App() {
 
     const jumpToSearch = useCallback(
         (query: string) => {
-            queueSearchQuery(query);
+            queueSearchQuery(query.trim());
             setActiveTab('search');
         },
         [queueSearchQuery, setActiveTab]
     );
+
+    const openSearch = useCallback(() => {
+        queueSearchQuery('');
+        setActiveTab('search');
+    }, [queueSearchQuery, setActiveTab]);
 
     const openReaderHub = useCallback(() => {
         clearCurrentDocument();
         setReaderReturnTab(activeTab);
         setActiveTab('reader');
     }, [activeTab, clearCurrentDocument, setActiveTab, setReaderReturnTab]);
+
+    const openReaderUpload = useCallback(() => {
+        clearCurrentDocument();
+        setReaderReturnTab(activeTab);
+        queueReaderHubSection('upload');
+        setActiveTab('reader');
+    }, [activeTab, clearCurrentDocument, queueReaderHubSection, setActiveTab, setReaderReturnTab]);
 
 
     const toggleCompare = useCallback(
@@ -211,7 +223,9 @@ function App() {
                         onOpenDocument={openDocument}
                         onAsk={jumpToChat}
                         onSearch={jumpToSearch}
+                        onOpenSearch={openSearch}
                         onOpenReaderHub={openReaderHub}
+                        onOpenReaderUpload={openReaderUpload}
                         onOpenWordbook={() => setActiveTab('wordbook')}
                         onOpenCompare={() => setActiveTab('compare')}
                         onContinueStudy={(documentId) => openDocument(documentId, { readerPanel: 'study' })}

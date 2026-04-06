@@ -116,6 +116,17 @@ def test_empty_query_returns_400_with_chinese_message(app_client):
     assert any(ord(c) > 127 for c in data["detail"]), "Error message should be in Chinese"
 
 
+def test_extract_search_terms_keeps_core_terms_and_drops_question_noise():
+    from routers.search import _extract_search_terms
+
+    terms = _extract_search_terms('孔子怎样谈“仁”')
+
+    assert "孔子" in terms
+    assert "仁" in terms
+    assert "怎样" not in terms
+    assert "谈" not in terms
+
+
 def test_fulltext_mode_uses_fts5(app_client):
     """Test fulltext mode uses SQLite FTS5"""
     response = app_client.get("/api/v1/search?q=斗拱&mode=FULLTEXT")
@@ -219,3 +230,79 @@ async def test_fulltext_search_prioritizes_exact_quote_with_segment_location():
     assert len(results) == 1
     assert results[0].source.endswith("学而篇")
     assert results[0].anchor_text == "学而时习之，不亦说乎？"
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_demotes_vector_noise_for_question_query():
+    from routers.search import SearchResult, hybrid_search
+
+    fulltext_results = [
+        SearchResult(
+            id="doc-lunyu",
+            document_id="doc-lunyu",
+            title="《论语》",
+            content="仁者爱人。",
+            source="古籍库",
+            score=36.0,
+            anchor_text="仁者爱人",
+        )
+    ]
+    vector_results = [
+        SearchResult(
+            id="doc-noise",
+            document_id="doc-noise",
+            title="清式营造则例·装修",
+            content="雀替、装修与斗口做法。",
+            source="我的文档",
+            score=0.01,
+            anchor_text="雀替",
+        ),
+        SearchResult(
+            id="doc-lunyu",
+            document_id="doc-lunyu",
+            title="《论语》",
+            content="孔子论仁，以爱人为本。",
+            source="古籍库",
+            score=0.18,
+            anchor_text="孔子论仁",
+        ),
+    ]
+    candidate_rows = [
+        {
+            "id": "doc-lunyu",
+            "title": "《论语》",
+            "source_name": "Kanripo",
+            "author": "孔子弟子",
+            "dynasty": "先秦",
+            "category": "经学典籍",
+            "original_text": "子曰仁者爱人",
+            "punctuated_text": "子曰：仁者爱人。",
+            "translated_text": "孔子谈仁，强调爱人。",
+            "segments": [],
+            "source_type": "corpus",
+            "owner_user_id": None,
+        },
+        {
+            "id": "doc-noise",
+            "title": "清式营造则例·装修",
+            "source_name": "建筑资料",
+            "author": "佚名",
+            "dynasty": "清",
+            "category": "建筑工艺",
+            "original_text": "雀替装修做法",
+            "punctuated_text": "雀替装修做法。",
+            "translated_text": "介绍木作装修工艺。",
+            "segments": [],
+            "source_type": "user",
+            "owner_user_id": "user-1",
+        },
+    ]
+
+    with patch("routers.search.fulltext_search", new=AsyncMock(return_value=fulltext_results)), \
+         patch("routers.search.vector_search", new=AsyncMock(return_value=vector_results)), \
+         patch("routers.search._load_document_candidates", new=AsyncMock(return_value=candidate_rows)):
+        results = await hybrid_search("孔子怎样谈仁", limit=5, user_id="user-1")
+
+    assert results
+    assert results[0].document_id == "doc-lunyu"
+    assert all(result.document_id != "doc-noise" for result in results[:1])

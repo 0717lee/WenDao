@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { ArrowRight, BookMarked, BookOpen, Clock3, LibraryBig, Loader2, ScanText, Search, Upload } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { getDemoBookshelfDocuments } from '../data/demoDocuments'
 import { authFetchOptions } from '../store/useAuthStore'
 import { useDocumentStore } from '../store/useDocumentStore'
+import { useGraphStore } from '../store/useGraphStore'
 
 interface BookshelfItem {
   id: string
@@ -87,6 +88,8 @@ export default function BookshelfPanel({
   const [selectedCatalogFamily, setSelectedCatalogFamily] = useState('全部')
   const [uploadErrorMessage, setUploadErrorMessage] = useState('')
   const { setDocument, setUploadStatus, uploadStatus } = useDocumentStore()
+  const consumeReaderHubSection = useGraphStore((state) => state.consumeReaderHubSection)
+  const uploadSectionRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -140,6 +143,15 @@ export default function BookshelfPanel({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    const nextSection = consumeReaderHubSection()
+    if (nextSection !== 'upload') return
+
+    requestAnimationFrame(() => {
+      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [consumeReaderHubSection])
 
   const continueReadingItems = useMemo(() => {
     return history.slice(0, 4)
@@ -690,6 +702,7 @@ export default function BookshelfPanel({
           </div>
 
           <div
+            ref={uploadSectionRef}
             className="rounded-[28px] p-5"
             style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,244,233,0.98) 100%)', border: '1px solid rgba(201,160,99,0.14)' }}
           >

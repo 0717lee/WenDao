@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 type TabType = 'home' | 'chat' | 'search' | 'reader' | 'bookshelf' | 'compare' | 'history' | 'favorites' | 'wordbook';
+type ReaderHubSection = 'upload'
 
 interface GraphStore {
     // Global tab navigation (shared so any component can switch tabs)
@@ -10,6 +11,7 @@ interface GraphStore {
     // Cross-Tab navigation state
     pendingReaderDocId: string | null;
     pendingSearchQuery: string;
+    pendingReaderHubSection: ReaderHubSection | null;
     readerReturnTab: TabType | null;
 
     // Actions
@@ -18,12 +20,15 @@ interface GraphStore {
     setReaderReturnTab: (tab: TabType | null) => void;
     queueSearchQuery: (query: string) => void;
     consumeSearchQuery: () => string;
+    queueReaderHubSection: (section: ReaderHubSection) => void;
+    consumeReaderHubSection: () => ReaderHubSection | null;
 }
 
 export const useGraphStore = create<GraphStore>((set, get) => ({
     activeTab: 'home',
     pendingReaderDocId: null,
     pendingSearchQuery: '',
+    pendingReaderHubSection: null,
     readerReturnTab: null,
 
     setActiveTab: (tab) => set({ activeTab: tab }),
@@ -35,5 +40,11 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
         const query = get().pendingSearchQuery
         if (query) set({ pendingSearchQuery: '' })
         return query
+    },
+    queueReaderHubSection: (section) => set({ pendingReaderHubSection: section }),
+    consumeReaderHubSection: () => {
+        const section = get().pendingReaderHubSection
+        if (section) set({ pendingReaderHubSection: null })
+        return section
     },
 }));

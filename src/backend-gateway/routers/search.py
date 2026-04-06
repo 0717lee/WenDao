@@ -28,6 +28,12 @@ if os.path.exists(DICT_PATH):
 router = APIRouter(prefix="/api/v1", tags=["search"])
 logger = logging.getLogger(__name__)
 SEARCH_NORMALIZE_PATTERN = re.compile(r"[\s，。！？；：、“”‘’「」『』（）()《》〈〉【】〔〕—…·,.!?:;\"'\-]+")
+QUESTION_NOISE_TERMS = {
+    "什么", "为何", "为什么", "如何", "怎么", "怎样", "到底", "是否", "哪些", "哪个", "哪句", "哪里",
+    "讲", "谈", "说", "解释", "理解", "意思", "入门", "相关", "有关", "适合", "里面", "原本", "本来",
+    "可以", "一下", "一下子", "一下儿", "请问", "请", "一下吧", "一下吗",
+}
+FUNCTION_WORDS = {"的", "了", "吗", "呢", "啊", "呀", "吧", "着", "在", "和", "与", "及", "并", "而", "是", "有"}
 
 
 def get_connection():
@@ -80,7 +86,7 @@ class SearchResponse(BaseModel):
     total: int
 
 
-def normalize_scores(scores: List[float]) -> List[float]:
+def normalize_scores(scores: List[float], higher_is_better: bool = True) -> List[float]:
     """归一化分数到0-1区间"""
     if not scores:
         return []
@@ -88,7 +94,10 @@ def normalize_scores(scores: List[float]) -> List[float]:
     max_score = max(scores)
     if max_score == min_score:
         return [1.0] * len(scores)
-    return [(s - min_score) / (max_score - min_score) for s in scores]
+    normalized = [(s - min_score) / (max_score - min_score) for s in scores]
+    if higher_is_better:
+        return normalized
+    return [1.0 - value for value in normalized]
 
 
 def _normalize_candidate_row(row: Any) -> dict:
@@ -129,6 +138,37 @@ def _normalize_search_text(value: str) -> str:
     return SEARCH_NORMALIZE_PATTERN.sub("", value or "").lower()
 
 
+def _extract_preserved_terms(query: str) -> list[str]:
+    preserved: list[str] = []
+    for pattern in (r"[“\"]([^”\"]+)[”\"]", r"《([^》]+)》"):
+        for match in re.findall(pattern, query):
+            term = match.strip()
+            if term and term not in preserved:
+                preserved.append(term)
+    return preserved
+
+
+def _extract_search_terms(query: str) -> list[str]:
+    preserved_terms = _extract_preserved_terms(query)
+    tokens = [token.strip() for token in jieba.cut(query) if token.strip()]
+    terms: list[str] = []
+
+    for token in preserved_terms + tokens:
+        normalized = _normalize_search_text(token)
+        if not normalized:
+            continue
+        if normalized in FUNCTION_WORDS or normalized in QUESTION_NOISE_TERMS:
+            continue
+        if token not in terms:
+            terms.append(token)
+
+    if terms:
+        return terms
+
+    normalized_query = _normalize_search_text(query)
+    return [normalized_query] if normalized_query else []
+
+
 def _looks_like_exact_quote(query: str) -> bool:
     query = query.strip()
     if not query:
@@ -157,6 +197,74 @@ def _default_source_label(row: dict[str, Any]) -> str:
     if source_type == "sample":
         return "精选导读"
     return "我的文档"
+
+
+def _row_lexical_haystacks(row: dict[str, Any]) -> dict[str, str]:
+    return {
+        "title": str(row.get("title") or ""),
+        "author": str(row.get("author") or ""),
+        "category": str(row.get("category") or ""),
+        "source_name": str(row.get("source_name") or ""),
+        "original_text": str(row.get("original_text") or ""),
+        "punctuated_text": str(row.get("punctuated_text") or ""),
+        "translated_text": str(row.get("translated_text") or ""),
+    }
+
+
+def _has_term_grounding(row: dict[str, Any], terms: list[str]) -> bool:
+    if not terms:
+        return False
+    haystacks = _row_lexical_haystacks(row)
+    searchable = "\n".join(haystacks.values())
+    normalized_searchable = _normalize_search_text(searchable)
+    for term in terms:
+        normalized = _normalize_search_text(term)
+        if not normalized:
+            continue
+        if term in searchable or normalized in normalized_searchable:
+            return True
+    return False
+
+
+def _lexical_rerank_bonus(result: SearchResult, row: dict[str, Any] | None, query: str, search_terms: list[str]) -> float:
+    if row is None:
+        return 0.0
+
+    haystacks = _row_lexical_haystacks(row)
+    normalized_query = _normalize_search_text(query)
+    title_lower = haystacks["title"].lower()
+    author_lower = haystacks["author"].lower()
+    category_lower = haystacks["category"].lower()
+    content_lower = "\n".join(
+        [haystacks["original_text"], haystacks["punctuated_text"], haystacks["translated_text"], result.content]
+    ).lower()
+
+    bonus = 0.0
+    if normalized_query and normalized_query in _normalize_search_text(haystacks["title"]):
+        bonus += 0.45
+
+    for term in search_terms:
+        normalized_term = _normalize_search_text(term)
+        if not normalized_term:
+            continue
+        if normalized_term in title_lower:
+            bonus += 0.28
+        if normalized_term in author_lower:
+            bonus += 0.22
+        if normalized_term in category_lower:
+            bonus += 0.16
+        if result.anchor_text and normalized_term in _normalize_search_text(result.anchor_text):
+            bonus += 0.20
+        if normalized_term in content_lower:
+            bonus += 0.08
+
+    if row.get("source_type") == "corpus":
+        bonus += 0.06
+
+    if not _has_term_grounding(row, search_terms):
+        bonus -= 0.45
+
+    return bonus
 
 
 def _iter_segment_candidates(row: dict[str, Any]) -> list[dict[str, Any]]:
@@ -298,8 +406,7 @@ async def _resolve_document_id(
 
 async def fulltext_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
     """全文搜索（优先兼容当前 documents 表结构）。"""
-    tokens = [token.strip() for token in jieba.cut(query) if token.strip()]
-    search_terms = tokens or [query.strip()]
+    search_terms = _extract_search_terms(query)
     exact_quote_mode = _looks_like_exact_quote(query)
     rows = await _load_document_candidates(limit=400, user_id=user_id)
 
@@ -320,40 +427,80 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
             author = row.get("author", "")
             dynasty = row.get("dynasty", "")
             category = row.get("category", "")
+            source_name = row.get("source_name", "")
             original_text = row.get("original_text") or ""
             punctuated_text = row.get("punctuated_text") or ""
             translated_text = row.get("translated_text") or ""
             source_type = row.get("source_type") or ""
-            searchable_text = "\n".join([title, author or "", dynasty or "", category or "", original_text, punctuated_text, translated_text])
+            searchable_text = "\n".join([title, author or "", dynasty or "", category or "", source_name or "", original_text, punctuated_text, translated_text])
+            normalized_searchable = _normalize_search_text(searchable_text)
+            normalized_title = _normalize_search_text(title)
+            normalized_author = _normalize_search_text(author)
+            normalized_category = _normalize_search_text(category)
+            normalized_source = _normalize_search_text(source_name)
+            normalized_punctuated = _normalize_search_text(punctuated_text)
+            normalized_original = _normalize_search_text(original_text)
+            normalized_translated = _normalize_search_text(translated_text)
             segment_match = _match_segment_location(row, query) if exact_quote_mode else None
             document_match = _match_document_location(row, query)
 
             match_score = 0.0
-            query_lower = query.strip().lower()
-            if query_lower == title.lower():
-                match_score += 50.0  # Exact title match gets massive boost
-            elif query_lower in title.lower():
-                match_score += 20.0  # Substring title match
-            if author and query_lower in author.lower():
-                match_score += 15.0
+            matched_terms: set[str] = set()
+            normalized_query = _normalize_search_text(query)
+            if normalized_query and normalized_query == normalized_title:
+                match_score += 50.0
+            elif normalized_query and normalized_query in normalized_title:
+                match_score += 24.0
+            if normalized_query and normalized_query in normalized_author:
+                match_score += 18.0
 
             for term in search_terms:
-                term_lower = term.lower()
-                combined_lower = searchable_text.lower()
-                
-                # Check segments for title matches too
-                if term_lower in title.lower():
-                    match_score += 4.0
-                occurrences = combined_lower.count(term_lower)
+                normalized_term = _normalize_search_text(term)
+                if not normalized_term:
+                    continue
+                term_matched = False
+                if normalized_term == normalized_title:
+                    match_score += 28.0
+                    term_matched = True
+                elif normalized_term in normalized_title:
+                    match_score += 16.0
+                    term_matched = True
+                if normalized_author and normalized_term in normalized_author:
+                    match_score += 18.0
+                    term_matched = True
+                if normalized_category and normalized_term in normalized_category:
+                    match_score += 12.0
+                    term_matched = True
+                if normalized_source and normalized_term in normalized_source:
+                    match_score += 6.0
+                    term_matched = True
+
+                occurrences = normalized_punctuated.count(normalized_term) + normalized_original.count(normalized_term)
                 if occurrences:
-                    match_score += min(occurrences, 6) * 1.2
+                    match_score += min(occurrences, 5) * 3.2
+                    term_matched = True
+
+                translated_occurrences = normalized_translated.count(normalized_term)
+                if translated_occurrences:
+                    match_score += min(translated_occurrences, 3) * 1.0
+                    term_matched = True
+
+                if term_matched:
+                    matched_terms.add(normalized_term)
 
             if segment_match:
                 match_score += float(segment_match["score_boost"])
             elif document_match:
                 match_score += float(document_match["score_boost"])
 
-            if match_score <= 0:
+            if matched_terms:
+                coverage = len(matched_terms) / max(len(search_terms), 1)
+                match_score += coverage * 20.0
+
+            if source_type == "corpus" and matched_terms:
+                match_score += 3.0
+
+            if match_score <= 0 or (search_terms and not exact_quote_mode and not matched_terms and not document_match):
                 continue
 
             preview = (
@@ -430,58 +577,57 @@ async def vector_search(query: str, limit: int = 10, user_id: str | None = None)
 
 async def hybrid_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
     """混合检索：BM25 + Embedding，优化相关性"""
-    # Execute both searches in parallel
-    fulltext_results = await fulltext_search(query, limit=limit * 3, user_id=user_id)
+    search_terms = _extract_search_terms(query)
+    question_like_query = not _looks_like_exact_quote(query) and any(
+        marker in query for marker in ("什么", "为何", "为什么", "如何", "怎么", "怎样", "到底", "？", "?")
+    )
+
+    fulltext_results = await fulltext_search(query, limit=limit * 4, user_id=user_id)
 
     try:
-        vector_results = await vector_search(query, limit=limit * 3, user_id=user_id)
+        vector_results = await vector_search(query, limit=limit * 4, user_id=user_id)
     except HTTPException:
-        # Fallback to fulltext only if vector search fails
         return fulltext_results[:limit]
 
-    # Normalize scores
     fulltext_scores = [r.score for r in fulltext_results]
     vector_scores = [r.score for r in vector_results]
 
     norm_fulltext = normalize_scores(fulltext_scores)
-    norm_vector = normalize_scores(vector_scores)
+    norm_vector = normalize_scores(vector_scores, higher_is_better=False)
 
-    # Update normalized scores
+    fulltext_weight = 0.7 if question_like_query else 0.55
+    vector_weight = 0.3 if question_like_query else 0.45
+
     for i, result in enumerate(fulltext_results):
-        result.score = norm_fulltext[i]
+        result.score = norm_fulltext[i] * fulltext_weight
 
     for i, result in enumerate(vector_results):
-        result.score = norm_vector[i]
+        result.score = norm_vector[i] * vector_weight
 
-    # Merge results by ID with adjusted weights
-    merged = {}
+    merged: dict[str, SearchResult] = {}
     for result in fulltext_results:
-        merged[result.id] = result
-        result.score *= 0.5  # BM25 weight increased from 0.4
+        merge_key = result.document_id or result.id
+        merged[merge_key] = result
 
     for result in vector_results:
-        if result.id in merged:
-            merged[result.id].score += result.score * 0.5  # Embedding weight decreased from 0.6
+        merge_key = result.document_id or result.id
+        if merge_key in merged:
+            merged[merge_key].score += result.score
         else:
-            result.score *= 0.5
-            merged[result.id] = result
+            merged[merge_key] = result
 
-    # Boost results that contain query keywords in title
-    query_lower = query.lower()
-    for result in merged.values():
-        if query_lower in result.title.lower():
-            result.score *= 1.3  # Title match boost
-        # Boost if query appears multiple times in content
-        content_lower = result.content.lower()
-        query_count = content_lower.count(query_lower)
-        if query_count > 1:
-            result.score *= (1 + min(query_count * 0.1, 0.5))  # Max 50% boost
+    candidate_rows = await _load_document_candidates(limit=500, user_id=user_id)
+    candidate_map = {str(row.get("id")): row for row in candidate_rows if row.get("id") is not None}
 
-    # Sort by combined score
+    for merge_key, result in merged.items():
+        row = candidate_map.get(str(result.document_id or result.id))
+        result.score += _lexical_rerank_bonus(result, row, query, search_terms)
+        if row and question_like_query and not _has_term_grounding(row, search_terms):
+            result.score *= 0.25
+
     sorted_results = sorted(merged.values(), key=lambda x: x.score, reverse=True)
-
-    # Filter out very low relevance results (score < 0.1)
-    filtered_results = [r for r in sorted_results if r.score >= 0.1]
+    threshold = 0.2 if question_like_query else 0.08
+    filtered_results = [r for r in sorted_results if r.score >= threshold]
 
     return filtered_results[:limit]
 

@@ -1,5 +1,6 @@
 interface TocEntry {
   title: string
+  displayTitle?: string
   excerpt?: string
   summary?: string
 }
@@ -29,7 +30,7 @@ export function ReaderTocPanel({ entries, selectedTitle, onSelect }: ReaderTocPa
       ) : (
         <div className="space-y-2">
           {entries.map((entry, index) => {
-            const active = selectedTitle === entry.title
+            const active = selectedTitle === (entry.displayTitle ?? entry.title)
             return (
               <button
                 key={`${entry.title}-${index}`}
@@ -41,7 +42,7 @@ export function ReaderTocPanel({ entries, selectedTitle, onSelect }: ReaderTocPa
                   border: '1px solid rgba(26,30,35,0.06)',
                 }}
               >
-                <div className="text-sm font-medium">{entry.title}</div>
+                <div className="text-sm font-medium">{entry.displayTitle ?? entry.title}</div>
                 {entry.excerpt && (
                   <div className="mt-1 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
                     {entry.excerpt}
