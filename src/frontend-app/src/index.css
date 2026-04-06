@@ -254,10 +254,15 @@ html, body, #root {
 }
 
 .gf-input:-webkit-autofill,
-.gf-input:-webkit-autofill:hover,
+.gf-input:-webkit-autofill:hover {
+  -webkit-text-fill-color: var(--gf-text);
+  box-shadow: 0 0 0 1000px #fff inset;
+  border: 1px solid rgba(26, 30, 35, 0.12);
+  transition: background-color 9999s ease-out 0s;
+}
+
 .gf-input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--gf-text);
   box-shadow: 0 0 0 1000px #fff inset, 0 0 0 3px rgba(140, 26, 17, 0.12);
-  border: 1px solid rgba(140, 26, 17, 0.24);
-  transition: background-color 9999s ease-out 0s;
+  border: 1px solid rgba(140, 26, 17, 0.42);
 }
