@@ -61,7 +61,7 @@ export function useVoiceRecorder() {
                                 onError(data.error || '这段语音没识别出来，请换一句再录')
                             }
                         } catch {
-                            onError('语音识别没有成功，请检查麦克风后再试，或直接输入问题')
+                            onError('语音识别失败，请检查麦克风后重试，或直接输入问题')
                         }
                         setIsTranscribing(false)
                     }

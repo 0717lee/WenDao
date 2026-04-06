@@ -120,8 +120,8 @@ describe('ThreeColumnReader', () => {
 
     // Should render the layout with placeholder text for empty columns
     expect(screen.getByText('原文')).toBeTruthy()
-    expect(screen.getByText('这篇内容暂时还没有标点文')).toBeTruthy()
-    expect(screen.getByText('此处尚无白话疏解')).toBeTruthy()
+    expect(screen.getByText('这篇内容还没有标点文')).toBeTruthy()
+    expect(screen.getByText('这里还没有白话疏解')).toBeTruthy()
   })
 
   it('switches tabs on mobile viewport', async () => {

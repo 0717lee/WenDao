@@ -36,8 +36,8 @@ describe('ChatInterface', () => {
   it('renders the reading guidance and quick prompts when empty', () => {
     render(<ChatInterface />)
 
-    expect(screen.getByRole('heading', { name: '问道解疑' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '转至寻章摘句' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '从一句原文问起' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '去检索原文' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '“学而时习之，不亦说乎？”到底在讲什么？' })).toBeInTheDocument()
   })
 
@@ -46,7 +46,7 @@ describe('ChatInterface', () => {
 
     render(<ChatInterface />)
 
-    expect(screen.getByPlaceholderText('输入人物、典故、概念或一句原文，继续往下问')).toHaveValue('请解释这句话')
+    expect(screen.getByPlaceholderText('输入一句原文，或提问人物、典故、概念')).toHaveValue('请解释这句话')
   })
 
   it('fills the composer when clicking a quick prompt', () => {
@@ -54,6 +54,6 @@ describe('ChatInterface', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '孔子和孟子的思想有什么联系？' }))
 
-    expect(screen.getByPlaceholderText('输入人物、典故、概念或一句原文，继续往下问')).toHaveValue('孔子和孟子的思想有什么联系？')
+    expect(screen.getByPlaceholderText('输入一句原文，或提问人物、典故、概念')).toHaveValue('孔子和孟子的思想有什么联系？')
   })
 })

@@ -118,7 +118,7 @@ export default function ComparePanel() {
                       {COLUMN_TITLES[field]}
                     </div>
                     <div className="max-h-[360px] overflow-y-auto scrollbar-hide whitespace-pre-wrap text-sm leading-7" style={{ color: 'rgba(26,30,35,0.72)' }}>
-                      {doc[field] || '暂时还没有内容'}
+                      {doc[field] || '这里还没有内容'}
                     </div>
                   </div>
                 ))}

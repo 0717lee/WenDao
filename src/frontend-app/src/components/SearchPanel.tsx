@@ -201,7 +201,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
             在库中检索人物、典故与原文片段
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            义理未明时，可转至问道解疑继续辨析。
+            想继续追问，可以转到“问道解疑”。
           </p>
         </div>
 
@@ -213,7 +213,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="输入人物、典故、概念或一句原文..."
+              placeholder="输入一句原文，或搜索人物、典故、概念..."
               className="gf-input w-full px-4 py-3 pl-10 rounded-[22px] text-sm"
               style={{
                 color: 'var(--gf-text)',
@@ -267,7 +267,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            转至问道解疑，可作辨析。
+            没找到想要的内容时，也可以去问道解疑继续追问。
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -276,7 +276,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(140,26,17,0.12)', color: 'var(--gf-gugong-red)', backgroundColor: 'rgba(140,26,17,0.06)' }}
             >
-              转至问道解疑
+              去问道解疑
             </button>
             <button
               type="button"
@@ -315,7 +315,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                 className="rounded-full px-3 py-1.5 text-xs transition-colors"
                 style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: '#8c1a11', border: '1px solid rgba(140,26,17,0.12)' }}
               >
-                转至阅读页
+                打开阅读页
               </button>
               <button
                 onClick={reshuffleSuggestions}
@@ -340,7 +340,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         {results.length === 0 && !loading && !error && !query && (
           <div className="text-center mt-20 opacity-35">
             <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>输入人物、典故或原句，开始检索</p>
+            <p style={{ color: 'var(--gf-text)' }}>输入一句原文，或搜索人物、典故，开始检索</p>
           </div>
         )}
 
@@ -351,7 +351,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               没找到“{query}”相关内容
             </p>
             <p className="text-sm mb-4" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              原句未得，可试人物名、典故名，或换作更完整的原文。
+              试试人物名、典故名，或输入更完整的原句。
             </p>
             <div className="flex justify-center flex-wrap gap-2">
               {suggestedQueries.map((item) => (
@@ -411,7 +411,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300"
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
-                  去问答
+                  继续追问
                 </button>
               </div>
             </div>
@@ -478,12 +478,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                     className="rounded-full px-4 py-2 text-sm transition-all duration-300"
                     style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                   >
-                    去问答
+                    继续追问
                   </button>
                 </div>
                 {!selectedResult.document_id && (
                   <p className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    这条结果目前来自索引片段，尚未映射至可直接翻开的阅读页，你仍可继续问答追问。
+                    这条结果目前来自索引片段，暂时还不能直接打开阅读页；你可以继续追问。
                   </p>
                 )}
               </div>

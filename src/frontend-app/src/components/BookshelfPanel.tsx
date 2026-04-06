@@ -54,7 +54,7 @@ interface BookshelfPanelProps {
 
 function progressLabel(item: BookshelfItem): string {
   if (item.source_type === 'sample') return '样例全文'
-  if (!item.total_paragraphs) return item.has_processed ? '已经整理好，等你开始读' : '还在整理中'
+  if (!item.total_paragraphs) return item.has_processed ? '已经整理好，等你开始阅读' : '正在整理'
   return `读到 ${item.current_paragraph}/${item.total_paragraphs}`
 }
 
@@ -238,7 +238,7 @@ export default function BookshelfPanel({
       clearTimeout(timer)
       if (!response.ok) {
         const err = await response.json().catch(() => null)
-        alert(err?.detail || '导入没有成功，请稍后再试')
+        alert(err?.detail || '导入失败，请稍后重试')
         return
       }
       const data = await response.json()
@@ -256,9 +256,9 @@ export default function BookshelfPanel({
     } catch (e: any) {
       clearTimeout(timer)
       if (e.name === 'AbortError') {
-        alert('导入没有完成，请检查网络后再试')
+        alert('导入未完成，请检查网络后重试')
       } else {
-        alert('导入没有成功：' + (e.message || '请稍后再试'))
+        alert('导入失败：' + (e.message || '请稍后重试'))
       }
     } finally {
       setCatalogImportingId(null)
@@ -301,7 +301,7 @@ export default function BookshelfPanel({
       setUploadErrorMessage(
         message.toLowerCase().includes('fetch')
           ? '识别服务暂时不可用，建议先阅读样例或定位原文。'
-          : '上传没有成功，请检查图片格式后再试。'
+          : '上传失败，请检查图片格式后重试。'
       )
       setUploadStatus('error')
     }
@@ -340,14 +340,14 @@ export default function BookshelfPanel({
               再循序通晓其义
             </h2>
             <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.6)' }}>
-              即可循序通读。
+              从这里开始，一篇篇往下读。
             </p>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {[
               { label: '继续阅读', value: continueReadingItems.length, hint: '直接回到上次停下的地方', icon: Clock3, accent: '#5b8aab' },
-              { label: '古籍库', value: corpusTotal, hint: '优先陈列可直接翻开的古籍', icon: LibraryBig, accent: 'var(--gf-gugong-red)' },
+              { label: '古籍库', value: corpusTotal, hint: '优先陈列能直接翻开的古籍', icon: LibraryBig, accent: 'var(--gf-gugong-red)' },
               { label: '我的典籍', value: userTotal, hint: '自上传文档，皆汇于此', icon: BookMarked, accent: 'var(--gf-gold)' },
               { label: '加入对照', value: comparedDocumentIds.length, hint: '想并排看时再放进对照', icon: ScanText, accent: '#7b5b44' },
             ].map((item) => (
@@ -379,14 +379,14 @@ export default function BookshelfPanel({
             style={{ backgroundColor: 'rgba(201,160,99,0.12)', border: '1px solid rgba(201,160,99,0.20)' }}
           >
             <span className="text-sm" style={{ color: 'var(--gf-text)' }}>
-              尚可并排参照。
+              已加入对照，可并排阅读。
             </span>
             <button
               onClick={onOpenCompare}
               className="rounded-[18px] px-4 py-2 text-sm text-white"
               style={{ backgroundColor: 'var(--gf-gugong-red)' }}
             >
-              转至对照
+              打开对照
             </button>
           </div>
         )}
@@ -402,7 +402,7 @@ export default function BookshelfPanel({
                   继续阅读
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  近日所读，皆记于此。
+                  最近读过的内容，会接在这里。
                 </p>
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function BookshelfPanel({
               </div>
             ) : continueReadingItems.length === 0 ? (
               <div className="rounded-[24px] p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.42)' }}>
-                尚无阅读记录，可先自下方择一篇翻开。
+                还没有阅读记录，先从下面选一篇开始。
               </div>
             ) : (
               <div className="space-y-3">
@@ -451,7 +451,7 @@ export default function BookshelfPanel({
                   古籍库精选
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  此处陈列可直接翻开的古籍，点开即可循序阅读。
+                  这里放着能直接翻开的古籍，点开就能开始阅读。
                 </p>
               </div>
             </div>
@@ -477,7 +477,7 @@ export default function BookshelfPanel({
 
             {corpusDocuments.length === 0 && usingDemoSamples && !loading && (
               <div className="mb-3 rounded-[22px] px-4 py-3 text-sm leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
-                当前展示本地体验样例，主流程仍可完整体验。
+                当前展示本地体验样例，主流程依然可以完整体验。
               </div>
             )}
 
@@ -517,7 +517,7 @@ export default function BookshelfPanel({
                     </div>
                   )}
                   <div className="line-clamp-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                    {doc.preview || '翻开后即可对照原文、标点和白话。'}
+                    {doc.preview || '翻开后就能对照原文、标点和白话。'}
                   </div>
                 </button>
               ))}
@@ -548,7 +548,7 @@ export default function BookshelfPanel({
               <input
                 value={catalogQuery}
                 onChange={(event) => setCatalogQuery(event.target.value)}
-                placeholder="搜索整源书目，比如 史记、庄子、礼记..."
+                placeholder="搜索古籍书目，如《史记》、庄子、礼记"
                 className="w-full rounded-[22px] px-4 py-3 pl-10 text-sm outline-none"
                 style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
               />
@@ -596,7 +596,7 @@ export default function BookshelfPanel({
                         color: entry.imported ? 'var(--gf-gold)' : 'rgba(26,30,35,0.55)',
                       }}
                     >
-                      {catalogImportingId === entry.repo_id ? '正在导入' : entry.imported ? '已导入' : '可直接导入'}
+                      {catalogImportingId === entry.repo_id ? '正在导入' : entry.imported ? '已导入' : '可导入'}
                     </span>
                   </div>
                   <div className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
@@ -604,7 +604,7 @@ export default function BookshelfPanel({
                   </div>
                   <div className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
                     {catalogImportingId === entry.repo_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                    <span>{entry.imported ? '继续翻开' : '导入后翻开'}</span>
+                    <span>{entry.imported ? '打开阅读' : '导入并打开'}</span>
                   </div>
                 </button>
               ))}
@@ -627,7 +627,7 @@ export default function BookshelfPanel({
                 </p>
               </div>
               <span className="text-sm" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                {loading ? '整理中...' : `${userTotal} 份文档`}
+                {loading ? '加载中...' : `${userTotal} 份文档`}
               </span>
             </div>
 
@@ -666,7 +666,7 @@ export default function BookshelfPanel({
                                 color: doc.has_processed ? 'var(--gf-gold)' : 'rgba(26,30,35,0.45)',
                               }}
                             >
-                              {doc.has_processed ? '已整理好' : '整理中'}
+                              {doc.has_processed ? '已整理好' : '正在整理'}
                             </span>
                             {doc.has_note && (
                               <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(60,138,81,0.12)', color: '#3c8a51' }}>

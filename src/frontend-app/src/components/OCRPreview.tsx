@@ -104,7 +104,7 @@ export function OCRPreview() {
           </div>
           <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先校对识别结果，再继续整理</h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            请核对识别结果，若有误可直接修正，确认无误后点击“继续处理”开始断句与翻译
+            请先核对识别结果；如有错误可直接修改。确认后点击“开始整理”，继续断句和翻译。
           </p>
         </div>
 
@@ -193,7 +193,7 @@ export function OCRPreview() {
                     正在继续整理
                   </>
                 ) : (
-                  '继续处理'
+                  '开始整理'
                 )}
               </button>
             </div>

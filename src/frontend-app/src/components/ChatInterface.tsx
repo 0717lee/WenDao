@@ -613,10 +613,10 @@ export function ChatInterface() {
                                     问道解疑
                                 </div>
                                 <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                                    问道解疑
+                                    从一句原文问起
                                 </h2>
                                 <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                                    义理辨析与典故参照。
+                                    可问义理、人物、典故，也可以把一句话追问到明白。
                                 </p>
                             </div>
                             <button
@@ -625,7 +625,7 @@ export function ChatInterface() {
                                 style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.66)' }}
                             >
                                 <Search className="h-3.5 w-3.5" />
-                                转至寻章摘句
+                                去检索原文
                             </button>
                         </div>
 

@@ -33,7 +33,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             setPassword('')
             setConfirmPassword('')
         } catch (err: any) {
-            setError(err.message || '注册没有成功，请稍后再试')
+            setError(err.message || '注册失败，请稍后重试')
         } finally {
             setLoading(false)
         }

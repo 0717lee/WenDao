@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/useAuthStore'
 // Mock fetch with URL-based routing
 global.fetch = vi.fn()
 
-const chatPlaceholder = /输入人物、典故、概念或一句原文，继续往下问/i
+const chatPlaceholder = /输入一句原文，或提问人物、典故、概念/i
 
 function mockChatFetch(mockReader: any) {
     (global.fetch as any).mockImplementation((url: string) => {

@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
               加载遇到小状况
             </h2>
             <p className="text-sm leading-relaxed text-[rgba(26,30,35,0.55)] mb-8">
-              系统遇到意外状况，请不要担心。点击下方按钮即可重新加载页面继续体验。
+              系统遇到一点意外状况。点击下方按钮，重新加载后再继续使用。
             </p>
             <button
               onClick={this.handleReset}

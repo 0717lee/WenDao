@@ -220,18 +220,18 @@ export default function DashboardHome({
   const heroEntryWays = [
     {
       key: 'corpus',
-      eyebrow: '开卷即览',
-      title: firstCorpus ? '先翻开一部经典' : firstSample ? '先读一篇导读' : '转至阅读页',
-      description: '古籍库里已有可以直接翻开的文本，第一次来也能立刻上手。',
+      eyebrow: '开卷入古',
+      title: firstCorpus ? '先翻开一部经典' : firstSample ? '先读一篇导读' : '打开阅读页',
+      description: '古籍已在卷中候你，初来时也能就此起读。',
       action: primaryAction,
       accent: 'var(--gf-gugong-red)',
       accentSoft: 'rgba(140,26,17,0.08)',
     },
     {
       key: 'search',
-      eyebrow: '寻章摘句',
+      eyebrow: '寻章问义',
       title: '先从一句话找起',
-      description: '记得一句原文、一个人物或一个典故，从这里最快找到。',
+      description: '若只记得一句原文、一个人物或一桩典故，便从这里循线而入。',
       action: onOpenSearch,
       accent: '#7b5b44',
       accentSoft: 'rgba(123,91,68,0.08)',
@@ -239,8 +239,8 @@ export default function DashboardHome({
     {
       key: 'scan',
       eyebrow: '拍页即读',
-      title: '有图片时再走这里',
-      description: '手头有影印页或扫描图，用 OCR 转成可读文字，再做断句和对照。',
+      title: '手头有图片时，从这里开始',
+      description: '若案头只有影印页或扫描图，也可先化作文字，再徐徐整理。',
       action: onOpenReaderUpload,
       accent: 'var(--gf-gold)',
       accentSoft: 'rgba(201,160,99,0.12)',
@@ -356,7 +356,7 @@ export default function DashboardHome({
                   开卷导读
                 </span>
                 <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
-                  先读原文，再徐徐通晓
+                  开卷有路，问义有门
                 </div>
               </div>
 
@@ -367,18 +367,18 @@ export default function DashboardHome({
                 >
                   先把古籍翻开，
                   <br className="hidden md:block" />
-                  一句一句通晓其义
+                  让一句一句都慢慢明白
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  既可翻开一篇古籍，亦可由一句未明之语发问。
+                  从一句原文起步，遇到不明白处再停下来细问；读着读着，一卷也就慢慢开了。
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>直接开读</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>原句检索</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>继续追问</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>有图再上传</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>翻开一卷</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>从一句问起</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>边读边问</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>有图可识</span>
               </div>
             </div>
 
@@ -393,7 +393,7 @@ export default function DashboardHome({
             >
               <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
                 <BookOpen className="h-4 w-4" />
-                第一次打开，可先由此入手
+                初来问道，可以先从这里起卷
               </div>
               <div className="space-y-4">
                 {heroEntryWays.map((item, index) => (
@@ -442,7 +442,7 @@ export default function DashboardHome({
                   开卷总览
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  此后可续前读。
+                  读过什么，停在何处，这里都替你记着。
                 </p>
               </div>
               {usingDemoSamples && (
@@ -489,11 +489,11 @@ export default function DashboardHome({
             style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
             <div className="mb-4">
-              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                学习脉络
-              </h3>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  学习进度
+                </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  读、记、问、复习，尽量不断线。
+                  读过的、问过的、记下的，都在这里慢慢连成一条线。
                 </p>
               </div>
 
@@ -525,35 +525,35 @@ export default function DashboardHome({
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    if (continueStudyTarget) {
+                  <button
+                    onClick={() => {
+                      if (continueStudyTarget) {
                       onContinueStudy(continueStudyTarget)
                     } else {
                       onOpenReaderHub()
                     }
                   }}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
-                  style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-                >
-                  转至续读
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
+                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+                  >
+                    回到上次阅读
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
             ) : (
               <div
                 className="rounded-[24px] px-4 py-4"
                 style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.06)' }}
               >
                 <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
-                  先读一篇、记一词，或做一轮卡片，此处便会替你记住进度。
+                  先读一篇、记一词，或做一轮卡片，这里就会开始替你记录进度。
                 </div>
                 <button
                   onClick={primaryAction}
                   className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                 >
-                  转至起读
+                  开始阅读
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -572,7 +572,7 @@ export default function DashboardHome({
                   今日一课
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  起手一事。
+                  今日先定一卷，再慢慢读深。
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.55)' }}>
@@ -592,7 +592,7 @@ export default function DashboardHome({
                 {todayReview?.title || '先翻开一篇古籍'}
               </div>
               <div className="mt-1 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                {todayReview?.description || '先翻开一篇古籍，你的复习节奏就会慢慢长出来。'}
+                {todayReview?.description || '先翻开一篇古籍，今天的学习就从这里开始。'}
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.62)' }}>
@@ -607,7 +607,7 @@ export default function DashboardHome({
                 className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                 style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
               >
-                {todayReview?.action_label || '转至起读'}
+                {todayReview?.action_label || '开始今天的阅读'}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -646,10 +646,10 @@ export default function DashboardHome({
                 今天可以这样读
               </div>
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                起手一卷
+                共读建议
               </h3>
               <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                由此起手，便可续读。
+                换一个角度同读，也许更容易把一篇读活。
               </p>
             </div>
 
@@ -667,7 +667,7 @@ export default function DashboardHome({
               ))}
               {coReadingPrompts.length === 0 && (
                 <div className="rounded-[20px] px-4 py-4 text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.5)' }}>
-                  先完成一次阅读或问答，这里会出现更贴合你的共读建议。
+                  先读一篇，或先问一句，这里会慢慢长出更懂你的共读建议。
                 </div>
               )}
             </div>
@@ -681,10 +681,10 @@ export default function DashboardHome({
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
                 <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  起手一卷
+                  接下来读什么
                 </h3>
                 <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  依近来所读与字词收藏，续推数篇可读之作。
+                  顺着你最近的阅读脉络，再续几篇可接着读下去的文章。
                 </p>
               </div>
             <div className="flex gap-2">
@@ -693,14 +693,14 @@ export default function DashboardHome({
                 className="rounded-xl px-3 py-1.5 text-xs"
                 style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
               >
-                转至对照
+                打开对照
               </button>
               <button
                 onClick={onOpenWordbook}
                 className="rounded-xl px-3 py-1.5 text-xs"
                 style={{ backgroundColor: 'rgba(26,30,35,0.04)', color: 'var(--gf-text)' }}
               >
-                转至字词本
+                打开字词本
               </button>
             </div>
           </div>

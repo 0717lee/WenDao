@@ -101,7 +101,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       if (!response.ok) throw new Error('favorite failed')
       showMessage(`已加入${folder.name}`)
     } catch {
-      showMessage('收藏没有成功，请稍后再试')
+      showMessage('收藏未成功，请稍后再试')
     }
   }
 
@@ -133,7 +133,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       <textarea
         value={noteText}
         onChange={(e) => setNoteText(e.target.value)}
-        placeholder="记录你的理解、课堂批注或想继续追问的问题..."
+        placeholder="记下你的理解、疑问，或稍后想继续追问的内容..."
         className="min-h-[180px] w-full rounded-2xl px-4 py-3 text-sm leading-7 focus:outline-none focus:ring-2"
         style={{
           backgroundColor: 'rgba(255,255,255,0.8)',
@@ -146,7 +146,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
           <BookMarked className="h-3.5 w-3.5" />
-          {folders.length > 0 ? `默认收藏夹：${folders[0].name}` : '需要时会自动创建默认收藏夹'}
+          {folders.length > 0 ? `默认收藏夹：${folders[0].name}` : '收藏时会自动创建默认收藏夹'}
         </div>
         <button
           onClick={handleSaveNote}

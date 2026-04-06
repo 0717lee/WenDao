@@ -100,7 +100,7 @@ describe('DashboardHome', () => {
       })
     ).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /先读一篇导读/ })).toBeInTheDocument()
-    expect(screen.getByText('学习脉络')).toBeInTheDocument()
+    expect(screen.getByText('学习进度')).toBeInTheDocument()
   })
 
   it('routes the primary reading and search entries to the right callbacks', async () => {
@@ -159,22 +159,22 @@ describe('DashboardHome', () => {
   it('routes overview cards and study CTA to the right entry points', async () => {
     render(<DashboardHome {...props} />)
 
-    await screen.findByRole('button', { name: /转至续读/ })
+    await screen.findByRole('button', { name: /回到上次阅读/ })
 
     fireEvent.click(screen.getByRole('button', { name: /可读篇目/ }))
     expect(props.onOpenReaderHub).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: '转至字词本' }))
+    fireEvent.click(screen.getByRole('button', { name: '打开字词本' }))
     expect(props.onOpenWordbook).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: /转至续读/ }))
+    fireEvent.click(screen.getByRole('button', { name: /回到上次阅读/ }))
     expect(props.onContinueStudy).toHaveBeenCalledWith('sample-1')
   })
 
   it('routes the OCR helper entry to reader hub', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /有图片时再走这里/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /手头有图片时，从这里开始/ }))
 
     await waitFor(() => {
       expect(props.onOpenReaderUpload).toHaveBeenCalled()

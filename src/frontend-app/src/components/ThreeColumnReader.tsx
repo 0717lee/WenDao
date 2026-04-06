@@ -320,7 +320,7 @@ export function ThreeColumnReader() {
       )
     }
 
-    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>此处尚无白话疏解</p>
+    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这里还没有白话疏解</p>
   }
 
   const generateTranslationCache = async () => {
@@ -451,7 +451,7 @@ export function ThreeColumnReader() {
             >
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                  开卷导读
+                  阅读导读
                 </span>
                 {currentDocument.difficulty && (
                   <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}>
@@ -495,14 +495,14 @@ export function ThreeColumnReader() {
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                 >
-                  顺览人物典故
+                  看人物典故
                 </button>
                 <button
                   onClick={() => openReaderCompanion('study')}
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
                 >
-                  顺着往下读
+                  继续阅读
                 </button>
               </div>
               {!currentDocument.translatedText && currentDocument.sourceType === 'corpus' && (
@@ -512,7 +512,7 @@ export function ThreeColumnReader() {
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
                   {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  {translationCache.length > 0 ? '续补白话疏解' : '生成推荐章节白话疏解'}
+                  {translationCache.length > 0 ? '继续生成白话疏解' : '生成白话疏解（推荐章节）'}
                 </button>
               )}
               {translationError && (
@@ -521,7 +521,7 @@ export function ThreeColumnReader() {
             </div>
           )}
           {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original'))}
-          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>)}
+          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没有标点文</p>)}
           {activeReaderTab === 'translated' && renderColumn('白话疏解', renderTranslatedParagraphs())}
         </div>
 
@@ -644,14 +644,14 @@ export function ThreeColumnReader() {
                 className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                 style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
               >
-                追人物典故
+                看人物典故
               </button>
               <button
                 onClick={() => openReaderCompanion('study')}
                 className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                 style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
               >
-                顺着往下读
+                继续阅读
               </button>
             </div>
           </div>
@@ -686,7 +686,7 @@ export function ThreeColumnReader() {
             '标点文',
             currentDocument.punctuatedText
               ? renderInteractiveParagraphs('punctuated')
-              : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容暂时还没有标点文</p>
+              : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没有标点文</p>
           )}
         </motion.div>
 

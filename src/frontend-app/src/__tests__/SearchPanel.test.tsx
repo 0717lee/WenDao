@@ -7,7 +7,7 @@ import { useDocumentStore } from '../store/useDocumentStore';
 global.fetch = vi.fn();
 
 describe('SearchPanel', () => {
-  const searchPlaceholder = /输入人物、典故、概念或一句原文/i;
+  const searchPlaceholder = /输入一句原文，或搜索人物、典故、概念/i;
   const props = {
     onOpenDocument: vi.fn(),
     onAsk: vi.fn(),
@@ -210,7 +210,7 @@ describe('SearchPanel', () => {
     expect(props.onOpenDocument).toHaveBeenCalledWith('real-doc-42');
     expect(useDocumentStore.getState().pendingAnchorText).toBe('斗拱是中国古代建筑特有的构件');
 
-    fireEvent.click(screen.getByRole('button', { name: '去问答' }));
+    fireEvent.click(screen.getByRole('button', { name: '继续追问' }));
     expect(props.onAsk).toHaveBeenCalledWith(expect.stringContaining('斗拱结构'));
   });
 });

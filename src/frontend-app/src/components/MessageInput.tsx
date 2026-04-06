@@ -49,7 +49,7 @@ export function MessageInput({
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="输入人物、典故、概念或一句原文，继续往下问"
+                placeholder="输入一句原文，或提问人物、典故、概念"
                 disabled={disabled}
                 className="gf-input flex-1 resize-none rounded-xl px-4 py-2.5 disabled:opacity-50"
                 style={{

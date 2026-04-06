@@ -63,18 +63,18 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
             </p>
           </div>
           <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            {loading ? '整理中...' : `${entries.length} 条`}
+            {loading ? '加载中...' : `${entries.length} 条`}
           </span>
         </div>
 
         {loading ? (
           <div className="rounded-2xl p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.65)' }}>
-            正在整理生词...
+            正在加载字词...
           </div>
         ) : entries.length === 0 ? (
           <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.65)' }}>
             <BookHeart className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.25)' }} />
-            <p style={{ color: 'rgba(26,30,35,0.45)' }}>阅读时点按字词并收藏，便可在此逐步积累。</p>
+            <p style={{ color: 'rgba(26,30,35,0.45)' }}>阅读时点按字词并收藏，这里会慢慢积累你的字词记录。</p>
           </div>
         ) : (
           <div className="space-y-3">
