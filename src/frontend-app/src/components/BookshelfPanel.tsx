@@ -142,14 +142,8 @@ export default function BookshelfPanel({
   }, [])
 
   const continueReadingItems = useMemo(() => {
-    if (history.length > 0) return history.slice(0, 4)
-    const fallbackDocs = [...userDocuments, ...corpusDocuments]
-    return fallbackDocs.slice(0, 4).map((item) => ({
-      id: item.id,
-      title: item.title,
-      last_read_at: item.updated_at ?? '',
-    }))
-  }, [history, userDocuments, corpusDocuments])
+    return history.slice(0, 4)
+  }, [history])
 
   const corpusCategories = useMemo(() => {
     const items = new Set(

@@ -22,4 +22,71 @@ describe('BookshelfPanel', () => {
 
     expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
   })
+
+  it('shows an empty continue-reading state for accounts with no reading history', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=100')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            documents: [
+              {
+                id: 'corpus-1',
+                title: '《论语》',
+                preview: '学而时习之',
+                has_processed: true,
+                has_note: false,
+                status: 'done',
+                current_paragraph: 0,
+                total_paragraphs: 6,
+                source_type: 'corpus',
+              },
+            ],
+            total: 1,
+          }),
+        })
+      }
+
+      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            documents: [
+              {
+                id: 'corpus-1',
+                title: '《论语》',
+                preview: '学而时习之',
+                has_processed: true,
+                has_note: false,
+                status: 'done',
+                current_paragraph: 0,
+                total_paragraphs: 6,
+                source_type: 'corpus',
+              },
+            ],
+            total: 1,
+          }),
+        })
+      }
+
+      if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+      }
+
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+
+      if (url.includes('/api/v1/documents/catalog?')) {
+        return Promise.resolve({ ok: true, json: async () => ({ entries: [], total: 0 }) })
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+
+    expect(await screen.findByText('尚无阅读记录，可先自下方择一篇翻开。')).toBeInTheDocument()
+    expect(screen.queryByText(/最近阅读：/)).not.toBeInTheDocument()
+  })
 })
