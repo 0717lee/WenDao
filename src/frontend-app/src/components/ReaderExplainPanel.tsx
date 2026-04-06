@@ -235,9 +235,9 @@ export function ReaderExplainPanel({
             逐字解析
           </div>
           <div className="space-y-2">
-            {gloss.map((item) => (
+            {gloss.map((item, idx) => (
               <div
-                key={`${item.token}-${item.explanation}`}
+                key={`${item.token}-${item.explanation}-${idx}`}
                 className="rounded-xl px-3 py-3 text-sm"
                 style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.05)' }}
               >
@@ -268,9 +268,9 @@ export function ReaderExplainPanel({
             古注 / 出处参考
           </div>
           <div className="space-y-2">
-            {references.map((reference) => (
+            {references.map((reference, idx) => (
               <div
-                key={`${reference.title}-${reference.source}-${reference.excerpt ?? ''}`}
+                key={`${reference.title}-${reference.source}-${reference.excerpt ?? ''}-${idx}`}
                 className="rounded-xl px-3 py-3 text-sm"
                 style={{ backgroundColor: 'rgba(201,160,99,0.08)', border: '1px solid rgba(201,160,99,0.16)' }}
               >

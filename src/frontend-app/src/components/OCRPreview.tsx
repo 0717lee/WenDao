@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { API_BASE } from '../lib/api';
@@ -6,12 +6,19 @@ import { API_BASE } from '../lib/api';
 export function OCRPreview() {
   const { currentDocument, setDocument, uploadStatus, setUploadStatus, processProgress, setProcessProgress } = useDocumentStore();
   const [editedText, setEditedText] = useState('');
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     if (currentDocument?.originalText) {
       setEditedText(currentDocument.originalText);
     }
   }, [currentDocument?.originalText]);
+
+  useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, []);
 
   const handleProcess = async () => {
     if (!currentDocument) return;
@@ -31,6 +38,7 @@ export function OCRPreview() {
       }
 
       const eventSource = new EventSource(`${API_BASE}/api/v1/documents/process/${currentDocument.id}`);
+      eventSourceRef.current = eventSource;
 
       eventSource.addEventListener('progress', (e) => {
         const data = JSON.parse(e.data);
@@ -41,13 +49,14 @@ export function OCRPreview() {
         const data = JSON.parse(e.data);
         setDocument({
           ...currentDocument,
-          originalText: editedText, // Use edited text
+          originalText: editedText,
           punctuatedText: data.punctuated,
           translatedText: data.translated,
         });
         setUploadStatus('done');
         setProcessProgress('');
         eventSource.close();
+        eventSourceRef.current = null;
       });
 
       eventSource.addEventListener('error', (e) => {
@@ -55,6 +64,7 @@ export function OCRPreview() {
         setUploadStatus('error');
         setProcessProgress('整理没有完成，请稍后再试');
         eventSource.close();
+        eventSourceRef.current = null;
       });
     } catch (error) {
       console.error('Process error:', error);

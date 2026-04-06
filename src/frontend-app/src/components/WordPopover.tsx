@@ -24,7 +24,10 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API_BASE}/api/v1/documents/explain?word=${encodeURIComponent(word)}`, { method: 'POST' })
+    fetch(`${API_BASE}/api/v1/documents/explain?word=${encodeURIComponent(word)}`, {
+      method: 'POST',
+      ...authFetchOptions(),
+    })
       .then(res => res.json())
       .then(data => {
         setExplanation(data);

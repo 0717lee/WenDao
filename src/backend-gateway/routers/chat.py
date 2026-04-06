@@ -100,7 +100,7 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
         yield sse_reasoning("retrieval", "检索古籍知识库", "running", model="Kimi-32k")
         yield f'event: progress\ndata: {json.dumps({"status": "检索古籍..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
-        result = rag_agent.query_ancient_text(query)
+        result = await asyncio.to_thread(rag_agent.query_ancient_text, query)
         answer = result["answer"]
         citations = result["citations"]
         yield sse_reasoning("retrieval", "检索古籍知识库", "complete", time.time() - t0, model="Kimi-32k")

@@ -212,7 +212,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="输入人物、典故、概念或一句原文..."
               className="w-full px-4 py-3 pl-10 rounded-[22px] text-sm focus:outline-none focus:ring-2 transition-shadow"
               style={{

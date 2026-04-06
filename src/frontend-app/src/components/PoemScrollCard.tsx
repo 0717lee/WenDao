@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Play, Square } from 'lucide-react'
 import type { PoemResult } from '../store/useStore'
 
@@ -9,6 +9,15 @@ interface PoemScrollCardProps {
 export function PoemScrollCard({ result }: PoemScrollCardProps) {
     const [isPlaying, setIsPlaying] = useState(false)
     const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
+
+    useEffect(() => {
+        return () => {
+            if (audioEl) {
+                audioEl.pause()
+                audioEl.src = ''
+            }
+        }
+    }, [audioEl])
 
     const handlePlayAudio = () => {
         if (!result.audioBase64) return

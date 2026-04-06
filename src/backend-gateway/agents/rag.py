@@ -4,7 +4,6 @@ T3.4.2 · 月之暗面 Kimi (Moonshot) 长文 RAG 知识检索代理
 结合本地 FAISS (真实 Embedding) 做向量检索后，将相关文档段交由
 Kimi 生成通俗化的古籍知识解读。
 """
-import asyncio
 import json
 import logging
 import os
@@ -282,47 +281,3 @@ class RAGAgent:
         except Exception as e:
             logger.warning("[RAGAgent] 检索失败: %s", e)
             return ""
-
-    async def query_knowledge(self, intent_data: Dict[str, Any], original_text: str) -> str:
-        """检索知识库 + Kimi 生成解读"""
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None, self._call_kimi, intent_data, original_text
-        )
-        return result
-
-    def _call_kimi(self, intent_data: Dict[str, Any], original_text: str) -> str:
-        """同步调用 Moonshot Kimi API"""
-        # 1. 先从本地向量库检索相关段落
-        context = self._retrieve_context(original_text)
-
-        action = intent_data.get("action", "idle")
-        action_desc = {
-            "explode": "用户要求拆解查看构件结构",
-            "stress": "用户要求查看应力受力分析",
-            "idle": "用户在进行一般性提问"
-        }.get(action, "一般性提问")
-
-        user_prompt = f"""用户提问：{original_text}
-当前场景动作：{action_desc}
-
-以下是从《营造法式》知识库检索到的相关原文片段：
-{context if context else "（未检索到相关原文，请基于自身知识回答）"}
-
-请基于上述信息，为用户生成一段通俗易懂的讲解。"""
-
-        try:
-            response = self.client.chat.completions.create(
-                model="moonshot-v1-8k",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=300
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.info("[降级] RAGAgent: Kimi-8k → 静态兜底回复, reason: %s", str(e))
-            # 降级返回
-            return f'抱歉，知识检索服务暂时不可用。您询问的是关于"{original_text}"的问题，请稍后再试。'

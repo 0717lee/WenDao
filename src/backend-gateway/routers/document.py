@@ -423,6 +423,36 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
         return [dict(row) for row in rows]
 
 
+async def _count_documents(source_type: str | None = None, user_id: str | None = None) -> int:
+    """Return total count of documents ignoring limit and offset."""
+    where_clause = (
+        "WHERE (source_type IN ('corpus', 'sample') OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid))"
+    )
+    if source_type:
+        where_clause += " AND source_type = $2"
+        
+    try:
+        async with get_connection() as conn:
+            sql = f"SELECT COUNT(*) FROM documents {where_clause}"
+            val = await conn.fetchval(sql, user_id, source_type) if source_type else await conn.fetchval(sql, user_id)
+            return int(val)
+    except RuntimeError:
+        pass
+
+    async with get_db() as db:
+        where_clause_sqlite = "WHERE (source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND owner_user_id = ?))"
+        if source_type:
+            where_clause_sqlite += " AND source_type = ?"
+        
+        sql = f"SELECT COUNT(*) as c FROM documents {where_clause_sqlite}"
+        cursor = await db.execute(
+            sql,
+            (user_id, user_id, source_type) if source_type else (user_id, user_id)
+        )
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+
 async def _upsert_document_record(record: dict[str, Any]) -> None:
     try:
         async with get_connection() as conn:
@@ -1062,8 +1092,10 @@ async def list_documents(
     _user: dict = Depends(require_auth),
 ):
     """List documents for the bookshelf/home views."""
-    documents = await _list_documents(limit=limit, source_type=source_type, user_id=_extract_user_id(_user))
-    return {"documents": documents, "total": len(documents)}
+    user_id = _extract_user_id(_user)
+    documents = await _list_documents(limit=limit, source_type=source_type, user_id=user_id)
+    total = await _count_documents(source_type=source_type, user_id=user_id)
+    return {"documents": documents, "total": total}
 
 
 @router.get("/resolve-citation")

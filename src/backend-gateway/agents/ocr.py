@@ -90,7 +90,9 @@ class OCRAgent:
         if self.paddle_ocr is None:
             from paddleocr import PaddleOCR
 
-            self.paddle_ocr = PaddleOCR(use_angle_cls=True, lang="ch", use_gpu=False)
+            self.paddle_ocr = await asyncio.to_thread(
+                PaddleOCR, use_angle_cls=True, lang="ch", use_gpu=False
+            )
         import numpy as np
         from PIL import Image
         import io as _io

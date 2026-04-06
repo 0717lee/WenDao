@@ -77,7 +77,7 @@ export function MessageList({ messages, onCitationClick, onAnswerAction }: Messa
                             <div className="mt-2 space-y-1">
                                 {message.citations.map((citation, idx) => (
                                     <CitationCard
-                                        key={idx}
+                                        key={`${citation.title}-${citation.source}-${idx}`}
                                         title={citation.title}
                                         source={citation.source}
                                         onClick={() => onCitationClick?.(citation)}

@@ -9,7 +9,7 @@ WenDao 是一个帮助普通人“真正读懂”古籍的 AI 阅读工具。它
 - **主阅读入口**：真实古籍库、精选导读、继续阅读、字词沉淀
 - **辅助理解入口**：问题追问、人物典故检索、原句定位
 - **专业入口**：上传古籍图片，进入 OCR → 断句 → 翻译 → 对照阅读链路
-- **持续学习入口**：生词积累、阅读历史、学习卡片、继续阅读推荐
+- **持续学习入口**：生词积累、字词本、学习卡片、继续阅读推荐
 
 它面向三层目标用户：
 
@@ -19,7 +19,7 @@ WenDao 是一个帮助普通人“真正读懂”古籍的 AI 阅读工具。它
 
 ### 核心特性
 
-- **真实古籍仓库**：内置基于 Kanripo 整理的首批 40 部公共版权古籍，主阅读功能不再只依赖样例，并保留整源书目懒导入能力
+- **真实古籍仓库**：内置基于 Kanripo 整理的首批 40+ 部公共版权古籍，主阅读功能不再只依赖样例，并保留整源书目懒导入能力
 - **精选导读**：保留小批量精选内容，帮助第一次进入的用户快速上手
 - **片段问答与问题检索**：支持从人物、概念、典故或一句原文切入理解古籍内容
 - **OCR 古籍识别**：支持竖排文字上传识别（百度 OCR + PaddleOCR 降级链）
@@ -31,7 +31,7 @@ WenDao 是一个帮助普通人“真正读懂”古籍的 AI 阅读工具。它
 
 ### 当前产品主链路
 
-- **主阅读链路**：古籍库 -> 三栏阅读 -> 字词释义 -> 继续追问
+- **主阅读链路**：古籍库 -> 目录导航 -> 三栏阅读 -> 逐句精讲 / 字词释义 -> 继续追问
 - **课堂/考试链路**：问题提问 -> 人物典故检索 -> 原文引用 -> 背景理解
 - **专业解析链路**：OCR 上传 -> 标点翻译 -> 三栏对照 -> 字词释义
 - **持续学习链路**：搜索 -> 历史/字词本 -> 学习卡片 -> 继续阅读推荐
@@ -79,9 +79,6 @@ cp src/frontend-app/.env.example src/frontend-app/.env
 # IFLYTEK_*           — 讯飞 ASR/TTS 语音服务
 # BAIDU_OCR_*         — 百度 OCR 文字识别
 # DATABASE_URL        — PostgreSQL 连接串（可选，降级到 SQLite）
-#
-# 如需启用“新实体发现”的实时 LLM 抽取，可额外设置：
-# ENTITY_DISCOVERY_USE_LLM=true
 #
 # 编辑前端 .env：
 # VITE_API_URL        — 后端 REST API 地址
@@ -132,13 +129,13 @@ cd ../backend-gateway
 │   │   ├── src/
 │   │   │   ├── components/        # UI 组件
 │   │   │   │   ├── ChatInterface.tsx      # AI 对话界面
-│   │   │   │   ├── ThreeColumnReader.tsx   # 三栏阅读器
-│   │   │   │   ├── DocumentUpload.tsx      # 文档上传
+│   │   │   │   ├── ThreeColumnReader.tsx   # 三栏阅读器（含目录导航面板）
 │   │   │   │   ├── OCRPreview.tsx          # OCR 预览编辑
-│   │   │   │   ├── AIExplainPanel.tsx       # 逐句精讲面板
+│   │   │   │   ├── ReaderTocPanel.tsx      # 目录导航面板
+│   │   │   │   ├── ReaderExplainPanel.tsx  # 逐句精盘面
 │   │   │   │   ├── WordPopover.tsx         # 字词释义弹窗
-│   │   │   │   ├── ReadingHistory.tsx      # 阅读历史
-│   │   │   │   └── FavoritesList.tsx       # 收藏夹
+│   │   │   │   ├── FavoritesList.tsx       # 收藏夹
+│   │   │   │   └── WordbookPanel.tsx       # 字词本
 │   │   │   ├── store/             # Zustand 状态管理
 │   │   │   └── hooks/             # 自定义 Hooks
 │   │   └── package.json
@@ -157,7 +154,7 @@ cd ../backend-gateway
 │       │   ├── pg_database.py     # PostgreSQL 管理
 │       │   └── reading_guides.py    # 阅读引导与章节摘要
 │       ├── routers/               # API 路由
-│       ├── data/                  # 知识图谱种子数据
+│       ├── data/                  # Kanripo 古籍索引与快照数据
 │       ├── faiss_db/              # FAISS 向量索引
 │       └── tests/                 # 后端测试
 │

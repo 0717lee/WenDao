@@ -226,7 +226,7 @@ class SpeechAgent:
         """异步 ASR: 将音频字节流转为文字"""
         if not all([self.asr_app_id, self.asr_api_key, self.asr_api_secret]):
             return "（ASR 服务未配置）"
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         text = await loop.run_in_executor(
             None, _run_asr, audio_data,
             self.asr_app_id, self.asr_api_key, self.asr_api_secret
@@ -237,7 +237,7 @@ class SpeechAgent:
         """异步 TTS: 将文字转为音频字节流"""
         if not all([self.tts_app_id, self.tts_api_key, self.tts_api_secret]):
             return b"TTS_NOT_CONFIGURED"
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         audio = await loop.run_in_executor(
             None, _run_tts, text,
             self.tts_app_id, self.tts_api_key, self.tts_api_secret
