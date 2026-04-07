@@ -52,9 +52,19 @@ interface BookshelfPanelProps {
   onOpenCompare: () => void
 }
 
+const FAMILY_LABELS: Record<string, string> = {
+  全部: '全部',
+  经部: '经学',
+  史部: '历史',
+  子部: '思想',
+  集部: '文学',
+  道部: '道教',
+  佛部: '佛学',
+}
+
 function progressLabel(item: BookshelfItem): string {
   if (item.source_type === 'sample') return '样例全文'
-  if (!item.total_paragraphs) return item.has_processed ? '已经整理好，等你开始阅读' : '正在整理'
+  if (!item.total_paragraphs) return item.has_processed ? '已经整理好，可以直接开始读' : '还在继续处理'
   return `读到 ${item.current_paragraph}/${item.total_paragraphs}`
 }
 
@@ -80,13 +90,14 @@ export default function BookshelfPanel({
   const [selectedCorpusCategory, setSelectedCorpusCategory] = useState('全部')
   const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([])
   const [catalogTotal, setCatalogTotal] = useState(0)
-  const [corpusTotal, setCorpusTotal] = useState(0)
   const [userTotal, setUserTotal] = useState(0)
   const [catalogQuery, setCatalogQuery] = useState('')
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogImportingId, setCatalogImportingId] = useState<string | null>(null)
   const [selectedCatalogFamily, setSelectedCatalogFamily] = useState('全部')
   const [uploadErrorMessage, setUploadErrorMessage] = useState('')
+  const [panelNotice, setPanelNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null)
+  const [showMoreOptions, setShowMoreOptions] = useState(false)
   const { setDocument, setUploadStatus, uploadStatus } = useDocumentStore()
   const consumeReaderHubSection = useGraphStore((state) => state.consumeReaderHubSection)
   const continueReadingRef = useRef<HTMLDivElement | null>(null)
@@ -121,7 +132,6 @@ export default function BookshelfPanel({
           : getDemoBookshelfDocuments()
 
         setCorpusDocuments(corpusList)
-        setCorpusTotal(corpusData.total || corpusList.length)
         
         const userDocs = allDocuments.filter((item: BookshelfItem) => item.source_type === 'user')
         setUserDocuments(userDocs)
@@ -151,16 +161,35 @@ export default function BookshelfPanel({
     const nextSection = consumeReaderHubSection()
     if (nextSection !== 'upload') return
 
-    requestAnimationFrame(() => {
+    setShowMoreOptions(true)
+    window.setTimeout(() => {
       uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
+    }, 30)
   }, [consumeReaderHubSection])
 
   const continueReadingItems = useMemo(() => {
     return history.slice(0, 4)
   }, [history])
 
+  const primaryContinueItem = continueReadingItems[0] ?? null
+  const secondaryContinueItems = primaryContinueItem ? continueReadingItems.slice(1) : continueReadingItems
+
+  const recommendedStart = useMemo(() => {
+    return corpusDocuments[0] ?? sampleDocuments[0] ?? null
+  }, [corpusDocuments, sampleDocuments])
+
   const scrollToSection = (target: { current: HTMLDivElement | null }) => {
+    target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const openMoreAndScroll = (target: { current: HTMLDivElement | null }) => {
+    if (!showMoreOptions) {
+      setShowMoreOptions(true)
+      window.setTimeout(() => {
+        target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 30)
+      return
+    }
     target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -178,9 +207,16 @@ export default function BookshelfPanel({
     return corpusDocuments.filter((item) => item.category === selectedCorpusCategory)
   }, [corpusDocuments, selectedCorpusCategory])
 
-  const featuredCorpusDocuments = filteredCorpusDocuments.length > 0
-    ? filteredCorpusDocuments.slice(0, 6)
-    : sampleDocuments.slice(0, 4)
+  const featuredCorpusDocuments = useMemo(() => {
+    const preferredList = filteredCorpusDocuments.length > 0 ? filteredCorpusDocuments : corpusDocuments
+    if (preferredList.length > 0) return preferredList.slice(0, 4)
+    return sampleDocuments.slice(0, 4)
+  }, [corpusDocuments, filteredCorpusDocuments, sampleDocuments])
+
+  const secondaryFeaturedDocuments = useMemo(() => {
+    if (!recommendedStart) return featuredCorpusDocuments
+    return featuredCorpusDocuments.filter((doc) => doc.id !== recommendedStart.id)
+  }, [featuredCorpusDocuments, recommendedStart])
 
   const renderMetaLine = (doc: BookshelfItem) => {
     const parts = [doc.dynasty, doc.author, doc.category, doc.chapter_count ? `${doc.chapter_count}篇` : null].filter(Boolean)
@@ -228,6 +264,12 @@ export default function BookshelfPanel({
     }
   }, [catalogQuery, selectedCatalogFamily])
 
+  useEffect(() => {
+    if (!panelNotice) return
+    const timer = window.setTimeout(() => setPanelNotice(null), 3200)
+    return () => window.clearTimeout(timer)
+  }, [panelNotice])
+
   const openCatalogEntry = useCallback(async (entry: CatalogEntry) => {
     if (entry.imported_document_id) {
       onOpenDocument(entry.imported_document_id)
@@ -245,7 +287,7 @@ export default function BookshelfPanel({
       clearTimeout(timer)
       if (!response.ok) {
         const err = await response.json().catch(() => null)
-        alert(err?.detail || '导入失败，请稍后重试')
+        setPanelNotice({ tone: 'error', message: err?.detail || '加入阅读失败，请稍后重试。' })
         return
       }
       const data = await response.json()
@@ -258,14 +300,15 @@ export default function BookshelfPanel({
               : item
           )
         )
+        setPanelNotice({ tone: 'success', message: `《${entry.title}》已加入阅读，正在为你打开。` })
         onOpenDocument(documentId)
       }
     } catch (e: any) {
       clearTimeout(timer)
       if (e.name === 'AbortError') {
-        alert('导入未完成，请检查网络后重试')
+        setPanelNotice({ tone: 'error', message: '加入阅读超时，请检查网络后重试。' })
       } else {
-        alert('导入失败：' + (e.message || '请稍后重试'))
+        setPanelNotice({ tone: 'error', message: `加入阅读失败：${e.message || '请稍后重试'}` })
       }
     } finally {
       setCatalogImportingId(null)
@@ -303,6 +346,7 @@ export default function BookshelfPanel({
         sourceType: 'user',
       })
       setUploadStatus('done')
+      setPanelNotice({ tone: 'success', message: '图片已识别完成，请先核对文字，再继续整理。' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed'
       setUploadErrorMessage(
@@ -339,127 +383,157 @@ export default function BookshelfPanel({
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] tracking-[0.24em]" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}>
               <BookOpen className="h-3.5 w-3.5" />
-              开卷总览
+              开始阅读
             </div>
             <h2 className="text-3xl leading-tight md:text-4xl" style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}>
-              先把古籍翻开，
+              先选一种开始方式，
               <br className="hidden md:block" />
-              再循序通晓其义
+              然后顺着读下去
             </h2>
             <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.6)' }}>
-              从这里开始，一篇篇往下读。
+              如果你已经读过，就回到上次停下的地方；如果是第一次来，可以从一篇整理好的内容开始；若手头只有影印页，也可以先做图片识读。
             </p>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-4">
-            {[
-              {
-                label: '继续阅读',
-                value: continueReadingItems.length,
-                hint: continueReadingItems[0] ? '点击回到最近读到的位置' : '还没开始时，会跳到下方阅读区',
-                icon: Clock3,
-                accent: '#5b8aab',
-                action: continueReadingItems[0]
-                  ? () => onOpenDocument(continueReadingItems[0].id)
-                  : () => scrollToSection(continueReadingRef),
-              },
-              {
-                label: '古籍库',
-                value: corpusTotal,
-                hint: '点击查看可直接开始的古籍',
-                icon: LibraryBig,
-                accent: 'var(--gf-gugong-red)',
-                action: () => scrollToSection(corpusSectionRef),
-              },
-              {
-                label: '我的上传',
-                value: userTotal,
-                hint: '点击查看你上传和整理过的文档',
-                icon: BookMarked,
-                accent: 'var(--gf-gold)',
-                action: () => scrollToSection(userDocumentsRef),
-              },
-              {
-                label: '对照区',
-                value: comparedDocumentIds.length,
-                hint: comparedDocumentIds.length > 0 ? '点击进入并排阅读' : '先在下方点“加入对照”',
-                icon: ScanText,
-                accent: '#7b5b44',
-                action: onOpenCompare,
-              },
-            ].map((item) => (
-              <button
-                key={item.label}
-                onClick={item.action}
-                className="rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
-                style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.06)' }}
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    {item.label}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <item.icon className="h-4 w-4" style={{ color: item.accent }} />
-                    <ArrowRight className="h-3.5 w-3.5" style={{ color: 'rgba(26,30,35,0.28)' }} />
+          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+            <button
+              onClick={primaryContinueItem ? () => onOpenDocument(primaryContinueItem.id) : () => scrollToSection(corpusSectionRef)}
+              className="flex h-full flex-col rounded-[26px] px-5 py-5 text-left transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 12px 24px rgba(26,30,35,0.04)' }}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                  继续阅读
+                </span>
+                <Clock3 className="h-4 w-4" style={{ color: '#5b8aab' }} />
+              </div>
+              <div className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                回到上次进度
+              </div>
+              <div className="mt-2 min-h-[4.25rem] text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
+                {primaryContinueItem ? (
+                  <div className="space-y-0.5">
+                    <div className="line-clamp-1">当前文章：{primaryContinueItem.title}</div>
+                    <div>最近读到：{formatTimeLabel(primaryContinueItem.last_read_at)}</div>
                   </div>
-                </div>
-                <div className="text-3xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
-                  {loading ? '—' : item.value}
-                </div>
-                <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                  {item.hint}
-                </div>
+                ) : (
+                  '还没有阅读记录时，可以先从右侧的精选篇目起读。'
+                )}
+              </div>
+              <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
+                {primaryContinueItem ? '继续阅读' : '前往起读'}
+                <ArrowRight className="h-4 w-4" />
+              </div>
+            </button>
+
+            <button
+              onClick={recommendedStart ? () => onOpenDocument(recommendedStart.id) : () => scrollToSection(corpusSectionRef)}
+              className="flex h-full flex-col rounded-[26px] px-5 py-5 text-left transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 12px 24px rgba(26,30,35,0.04)' }}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                  推荐起读
+                </span>
+                <LibraryBig className="h-4 w-4" style={{ color: 'var(--gf-gugong-red)' }} />
+              </div>
+              <div className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                先读推荐篇目
+              </div>
+              <div className="mt-2 min-h-[4.25rem] text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
+                {recommendedStart ? (
+                  <div className="space-y-0.5">
+                    <div className="line-clamp-1">推荐篇目：{recommendedStart.title}</div>
+                    <div className="line-clamp-2">{recommendedStart.preview}</div>
+                  </div>
+                ) : (
+                  '这里整理了一批可直接起读的篇目，适合第一次进入时打开。'
+                )}
+              </div>
+              <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
+                {recommendedStart ? '打开此篇' : '前往篇目'}
+                <ArrowRight className="h-4 w-4" />
+              </div>
+            </button>
+
+            <button
+              onClick={() => openMoreAndScroll(uploadSectionRef)}
+              className="flex h-full flex-col rounded-[26px] px-5 py-5 text-left transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 12px 24px rgba(26,30,35,0.04)' }}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                  图片识读
+                </span>
+                <ScanText className="h-4 w-4" style={{ color: 'var(--gf-gold)' }} />
+              </div>
+              <div className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                先做图片识读
+              </div>
+              <div className="mt-2 min-h-[4.25rem] text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
+                适合影印页、扫描图与馆藏图片。先识读成文，再继续整理与阅读。
+              </div>
+              <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gold)' }}>
+                开始识读
+                <ArrowRight className="h-4 w-4" />
+              </div>
+            </button>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              onClick={() => scrollToSection(corpusSectionRef)}
+              className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
+            >
+              精选篇目
+            </button>
+            <button
+              onClick={() => openMoreAndScroll(userDocumentsRef)}
+              className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
+            >
+              我的上传
+            </button>
+            <button
+              onClick={() => openMoreAndScroll(uploadSectionRef)}
+              className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
+            >
+              图片识读
+            </button>
+            {comparedDocumentIds.length > 0 && (
+              <button
+                onClick={onOpenCompare}
+                className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: 'rgba(201,160,99,0.12)', border: '1px solid rgba(201,160,99,0.20)', color: 'var(--gf-gold)' }}
+              >
+                对照阅读
               </button>
-            ))}
+            )}
           </div>
         </section>
 
-        {comparedDocumentIds.length > 0 && (
-          <div
-            className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] px-4 py-3"
-            style={{ backgroundColor: 'rgba(201,160,99,0.12)', border: '1px solid rgba(201,160,99,0.20)' }}
-          >
-            <span className="text-sm" style={{ color: 'var(--gf-text)' }}>
-              已加入对照，可并排阅读。
-            </span>
-            <button
-              onClick={onOpenCompare}
-              className="rounded-[18px] px-4 py-2 text-sm text-white"
-              style={{ backgroundColor: 'var(--gf-gugong-red)' }}
-            >
-              打开对照
-            </button>
-          </div>
-        )}
-
         <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-          <div
-            ref={continueReadingRef}
-            className="rounded-[28px] p-5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  继续阅读
-                </h3>
-                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  最近读过的内容，会接在这里。
-                </p>
+          {secondaryContinueItems.length > 0 ? (
+            <div
+              ref={continueReadingRef}
+              className="rounded-[28px] p-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                    最近读过
+                  </h3>
+                  <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                    除了刚才那篇，这里还有你最近翻过的内容。
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {loading ? (
-              <div className="rounded-[24px] p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.42)' }}>
-                正在整理阅读进度...
-              </div>
-            ) : continueReadingItems.length === 0 ? (
-              <div className="rounded-[24px] p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.42)' }}>
-                还没有阅读记录，先从下面选一篇开始。
-              </div>
-            ) : (
               <div className="space-y-3">
-                {continueReadingItems.map((item) => (
+                {secondaryContinueItems.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => onOpenDocument(item.id)}
@@ -480,52 +554,71 @@ export default function BookshelfPanel({
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div
+              ref={continueReadingRef}
+              className="rounded-[28px] p-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-4">
+                <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                  初次起读提示
+                </h3>
+                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                  第一次来时，不必先研究全部功能。先从右侧的精选篇目起读，遇到看不懂的地方，再点一句请 AI 讲解就好。
+                </p>
+              </div>
+              <button
+                onClick={() => scrollToSection(corpusSectionRef)}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
+                style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+              >
+                去看精选篇目
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           <div
             ref={corpusSectionRef}
             className="rounded-[28px] p-5"
             style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  古籍库精选
+                  精选篇目
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  这里放着能直接翻开的古籍，点开就能开始阅读。
+                  这里放着已经整理好的文章，适合直接翻开开始读。
                 </p>
               </div>
+              <label className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
+                按门类看
+                <select
+                  value={selectedCorpusCategory}
+                  onChange={(event) => setSelectedCorpusCategory(event.target.value)}
+                  className="ml-2 rounded-full px-3 py-1 outline-none"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                >
+                  {corpusCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {FAMILY_LABELS[category] || category}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-
-            {corpusDocuments.length > 0 && (
-              <div className="mb-4 flex flex-wrap gap-2">
-                {corpusCategories.map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => setSelectedCorpusCategory(category)}
-                    className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-                    style={{
-                      backgroundColor: selectedCorpusCategory === category ? 'rgba(140,26,17,0.10)' : 'rgba(255,255,255,0.74)',
-                      color: selectedCorpusCategory === category ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.62)',
-                      border: '1px solid rgba(26,30,35,0.08)',
-                    }}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            )}
 
             {corpusDocuments.length === 0 && usingDemoSamples && !loading && (
               <div className="mb-3 rounded-[22px] px-4 py-3 text-sm leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
-                当前展示本地体验样例，主流程依然可以完整体验。
+                你现在看到的是本地体验样例，主要阅读流程依然可以完整体验。
               </div>
             )}
 
             <div className="grid gap-3">
-              {featuredCorpusDocuments.map((doc) => (
+              {(secondaryFeaturedDocuments.length > 0 ? secondaryFeaturedDocuments : featuredCorpusDocuments).map((doc) => (
                 <button
                   key={doc.id}
                   onClick={() => onOpenDocument(doc.id)}
@@ -549,7 +642,7 @@ export default function BookshelfPanel({
                           color: doc.source_type === 'corpus' ? 'var(--gf-gold)' : 'var(--gf-gugong-red)',
                         }}
                       >
-                        {doc.source_type === 'corpus' ? '古籍库' : '精选导读'}
+                        {doc.source_type === 'corpus' ? '精选篇目' : '体验样例'}
                       </span>
                     </div>
                   </div>
@@ -572,26 +665,50 @@ export default function BookshelfPanel({
           className="rounded-[28px] p-5"
           style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
         >
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setShowMoreOptions((prev) => !prev)}
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
             <div>
+              <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                更多来源与工具
+              </h3>
+              <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                想继续扩展阅读时，再来看更多篇目、我的上传和图片识读。
+              </p>
+            </div>
+            <span className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
+              {showMoreOptions ? '收起' : '展开'}
+            </span>
+          </button>
+
+          {showMoreOptions && (
+            <div className="mt-5 space-y-5">
+            <section
+              className="rounded-[28px] p-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
+            >
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
                 <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  更多古籍
+                  更多篇目
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  想继续往下找，可以从这里翻书目，再按需导入。
+                  如果上面没有你想读的，可以从这里找别的，再加到阅读页。
                 </p>
+                </div>
+                <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                  当前可浏览 {catalogTotal} 条目录
+                </div>
               </div>
-            <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-              当前可看 {catalogTotal} 条书目
-            </div>
-          </div>
 
           <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
             <div className="relative">
               <input
                 value={catalogQuery}
                 onChange={(event) => setCatalogQuery(event.target.value)}
-                placeholder="搜索古籍书目，如《史记》、庄子、礼记"
+                placeholder="搜书名、作者或主题，比如《史记》、庄子、礼记"
                 className="w-full rounded-[22px] px-4 py-3 pl-10 text-sm outline-none"
                 style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
               />
@@ -603,21 +720,21 @@ export default function BookshelfPanel({
                   key={family}
                   onClick={() => setSelectedCatalogFamily(family)}
                   className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-                  style={{
-                    backgroundColor: selectedCatalogFamily === family ? 'rgba(140,26,17,0.10)' : 'rgba(255,255,255,0.74)',
-                    color: selectedCatalogFamily === family ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.62)',
-                    border: '1px solid rgba(26,30,35,0.08)',
-                  }}
-                >
-                  {family}
-                </button>
-              ))}
-            </div>
+                    style={{
+                      backgroundColor: selectedCatalogFamily === family ? 'rgba(140,26,17,0.10)' : 'rgba(255,255,255,0.74)',
+                      color: selectedCatalogFamily === family ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.62)',
+                      border: '1px solid rgba(26,30,35,0.08)',
+                    }}
+                  >
+                    {FAMILY_LABELS[family] || family}
+                  </button>
+                ))}
+              </div>
           </div>
 
           {catalogLoading ? (
             <div className="rounded-[24px] p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.42)' }}>
-              正在整理书目...
+              正在找目录...
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -639,24 +756,24 @@ export default function BookshelfPanel({
                         color: entry.imported ? 'var(--gf-gold)' : 'rgba(26,30,35,0.55)',
                       }}
                     >
-                      {catalogImportingId === entry.repo_id ? '正在导入' : entry.imported ? '已导入' : '可导入'}
+                      {catalogImportingId === entry.repo_id ? '正在加入' : entry.imported ? '已加入' : '可加入阅读'}
                     </span>
                   </div>
                   <div className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    {[entry.family, entry.section, entry.dynasty, entry.author].filter(Boolean).join(' · ') || '整源书目'}
+                    {([FAMILY_LABELS[entry.family || ''] || entry.family, entry.section, entry.dynasty, entry.author].filter(Boolean).join(' · ') || '目录条目')}
                   </div>
                   <div className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
                     {catalogImportingId === entry.repo_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                    <span>{entry.imported ? '打开阅读' : '导入并打开'}</span>
+                    <span>{entry.imported ? '打开此篇' : '加入阅读并打开'}</span>
                   </div>
                 </button>
               ))}
             </div>
           )}
-        </section>
+            </section>
 
-        <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-          <div
+            <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+              <div
             ref={userDocumentsRef}
             className="rounded-[28px] p-5"
             style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
@@ -735,7 +852,7 @@ export default function BookshelfPanel({
                             color: compared ? 'var(--gf-gold)' : 'rgba(26,30,35,0.55)',
                           }}
                         >
-                          {compared ? '已加入对照' : '加入对照'}
+                          {compared ? '已在对照中' : '加入对照'}
                         </button>
                       </div>
                     </div>
@@ -743,9 +860,9 @@ export default function BookshelfPanel({
                 })}
               </div>
             )}
-          </div>
+              </div>
 
-          <div
+              <div
             ref={uploadSectionRef}
             className="rounded-[28px] p-5"
             style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,244,233,0.98) 100%)', border: '1px solid rgba(201,160,99,0.14)' }}
@@ -753,13 +870,13 @@ export default function BookshelfPanel({
             <div className="mb-4">
               <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] tracking-[0.22em]" style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}>
                 <ScanText className="h-3.5 w-3.5" />
-                图片识别入口
+                图片识读
               </div>
               <h3 className="mt-3 text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                图像扫描与文字解析
+                图片识读与整理
               </h3>
               <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                手头有影印页、扫描图或馆藏图片时，再从这里开始识别。
+                手头有影印页、扫描图或馆藏图片时，就从这里开始。
               </p>
             </div>
 
@@ -779,7 +896,7 @@ export default function BookshelfPanel({
                 {uploadStatus === 'uploading' ? '正在上传图片' : isDragActive ? '松开后开始识别' : '拖拽图片到这里，或点击上传'}
               </div>
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                支持 JPG、PNG、TIFF。上传后会依次做 OCR、断句和白话翻译。
+                支持 JPG、PNG、TIFF。上传后会依次识别文字、补标点，再生成白话。
               </div>
             </div>
 
@@ -790,17 +907,48 @@ export default function BookshelfPanel({
             )}
 
             <div className="mt-4 rounded-[22px] px-4 py-4 text-sm leading-7" style={{ backgroundColor: 'rgba(255,255,255,0.66)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.54)' }}>
-              适合这些情况：
+              这种情况下最适合用它：
               <br />
-              1. 手头有古籍扫描图、影印页或馆藏残页。
+              1. 手头只有扫描图、影印页或馆藏图片。
               <br />
-              2. 想先把图片转成可读文字。
+              2. 想先把图片变成可以直接读的文字。
               <br />
-              3. 还想继续做断句、对照阅读和字词释义。
+              3. 后面还想继续补标点、看白话和查词。
             </div>
-          </div>
+              </div>
+            </section>
+            </div>
+          )}
         </section>
       </div>
+
+      {panelNotice && (
+        <div
+          className="rounded-[22px] px-4 py-3 text-sm"
+          style={{
+            backgroundColor:
+              panelNotice.tone === 'success'
+                ? 'rgba(60,138,81,0.10)'
+                : panelNotice.tone === 'error'
+                  ? 'rgba(176,58,58,0.08)'
+                  : 'rgba(26,30,35,0.05)',
+            border:
+              panelNotice.tone === 'success'
+                ? '1px solid rgba(60,138,81,0.16)'
+                : panelNotice.tone === 'error'
+                  ? '1px solid rgba(176,58,58,0.15)'
+                  : '1px solid rgba(26,30,35,0.06)',
+            color:
+              panelNotice.tone === 'success'
+                ? '#2d8a56'
+                : panelNotice.tone === 'error'
+                  ? '#b03a3a'
+                  : 'rgba(26,30,35,0.62)',
+          }}
+        >
+          {panelNotice.message}
+        </div>
+      )}
     </div>
   )
 }

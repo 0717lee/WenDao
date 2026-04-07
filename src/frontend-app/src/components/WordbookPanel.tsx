@@ -56,10 +56,10 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
-              字词本
+              字词记录
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              这里保存的是查过并收下来的字词；如果你想收藏整篇文章，请去“收藏夹”。
+              这里保存阅读时查过的字词；整篇文章请去“文章收藏”。
             </p>
           </div>
           <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
@@ -75,7 +75,7 @@ export default function WordbookPanel({ onAskAboutWord }: WordbookPanelProps) {
           <div className="rounded-2xl p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.65)' }}>
             <BookHeart className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.25)' }} />
             <p className="leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              先在阅读页拖选一个字词，打开查词卡后点“加入字词本”，这里就会出现你的记录。
+              先在阅读页拖选一个字词，打开查词卡后点“加入字词记录”，这里就会出现条目。
             </p>
           </div>
         ) : (

@@ -14,10 +14,10 @@ import { buildDemoChatResponse, resolveDemoCitation, getDemoDocumentById, toRead
 
 // Default reasoning steps template
 const INITIAL_REASONING_STEPS: ReasoningStep[] = [
-    { step: 'retrieval', label: '检索古籍知识库', status: 'pending' },
-    { step: 'entity_extraction', label: '抽取关联实体', status: 'pending' },
-    { step: 'knowledge_linking', label: '知识关联推理', status: 'pending' },
-    { step: 'generation', label: '生成通俗解读', status: 'pending' },
+    { step: 'retrieval', label: '查找相关原文', status: 'pending' },
+    { step: 'entity_extraction', label: '提取关键信息', status: 'pending' },
+    { step: 'knowledge_linking', label: '联系上下文', status: 'pending' },
+    { step: 'generation', label: '生成讲解', status: 'pending' },
 ]
 
 const QUICK_CHAT_PROMPTS = [
@@ -610,22 +610,22 @@ export function ChatInterface() {
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="max-w-2xl">
                                 <div className="mb-2 text-[11px] tracking-[0.26em]" style={{ color: 'var(--gf-gold)' }}>
-                                    问道解疑
+                                    AI问答
                                 </div>
                                 <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
                                     从一句原文问起
                                 </h2>
                                 <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                                    不知道怎么搜也没关系，像聊天一样把问题问出来就行。最稳妥的方式，是直接贴一句原文。
+                                    不知道怎样检索也没关系。最稳妥的方式，是直接贴一句原文或提一个问题。
                                 </p>
                             </div>
                             <button
                                 onClick={() => setActiveTab('search')}
-                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+                                className="inline-flex min-w-[7.5rem] justify-center items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
                                 style={{ backgroundColor: 'rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.66)' }}
                             >
                                 <Search className="h-3.5 w-3.5" />
-                                去检索原文
+                                转到原文检索
                             </button>
                         </div>
 
@@ -643,7 +643,7 @@ export function ChatInterface() {
                         </div>
 
                         <div className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                            提示：按 Enter 发送，按 Shift + Enter 换行。
+                            Enter 发送，Shift + Enter 换行。
                         </div>
                     </div>
                 </div>

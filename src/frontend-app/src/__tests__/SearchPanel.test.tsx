@@ -206,7 +206,7 @@ describe('SearchPanel', () => {
 
     expect(await screen.findByText('斗拱结构')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '翻开原文' }));
+    fireEvent.click(screen.getByRole('button', { name: '打开原文' }));
     expect(props.onOpenDocument).toHaveBeenCalledWith('real-doc-42');
     expect(useDocumentStore.getState().pendingAnchorText).toBe('斗拱是中国古代建筑特有的构件');
 

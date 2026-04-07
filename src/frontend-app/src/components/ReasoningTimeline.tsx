@@ -64,7 +64,7 @@ export function ReasoningTimeline({ steps, defaultCollapsed = true }: ReasoningT
                     <ChevronUp className="w-3.5 h-3.5" />
                 )}
                 <span>
-                    {collapsed ? '查看推理过程' : '收起推理过程'}
+                    {collapsed ? '查看解析过程' : '收起解析过程'}
                     {totalDuration > 0 && (
                         <span className="ml-1.5 opacity-60">({totalDuration.toFixed(2)}s)</span>
                     )}

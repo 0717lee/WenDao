@@ -34,7 +34,7 @@ export function MessageInput({
     return (
         <div className="border-t px-4 py-3" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.5)' }}>
             <div className="mb-2 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                直接贴一句原文、一个人名，或输入“请推荐一篇入门古籍”。Enter 发送，Shift + Enter 换行。
+                可直接贴一句原文，或提一个问题。Enter 发送，Shift + Enter 换行。
             </div>
             <div className="flex items-end gap-2">
                 {/* Paperclip image attach button */}

@@ -71,7 +71,7 @@ describe('ThreeColumnReader', () => {
     // Verify three-column layout exists
     expect(screen.getByText('原文')).toBeTruthy()
     expect(screen.getByText('标点文')).toBeTruthy()
-    expect(screen.getByText('白话疏解')).toBeTruthy()
+    expect(screen.getByText('白话解读')).toBeTruthy()
     expect(screen.getAllByText('返回').length).toBeGreaterThan(0)
   })
 
@@ -103,7 +103,7 @@ describe('ThreeColumnReader', () => {
     const tabTexts = tabButtons.map(b => b.textContent)
     expect(tabTexts).toContain('原文')
     expect(tabTexts).toContain('标点文')
-    expect(tabTexts).toContain('白话疏解')
+    expect(tabTexts).toContain('白话解读')
   })
 
   it('renders empty container when document has empty text fields', async () => {
@@ -121,7 +121,7 @@ describe('ThreeColumnReader', () => {
     // Should render the layout with placeholder text for empty columns
     expect(screen.getByText('原文')).toBeTruthy()
     expect(screen.getByText('这篇内容还没有标点文')).toBeTruthy()
-    expect(screen.getByText('这里还没有白话疏解')).toBeTruthy()
+    expect(screen.getByText('这里还没有白话解读')).toBeTruthy()
   })
 
   it('switches tabs on mobile viewport', async () => {
@@ -201,16 +201,16 @@ describe('ThreeColumnReader', () => {
     const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
     const { container } = render(<ThreeColumnReader />)
 
-    const explainButton = screen.getByRole('button', { name: /讲这句/ })
+    const explainButton = screen.getByRole('button', { name: /讲解此句/ })
     expect(explainButton).toBeDisabled()
 
     fireEvent.click(screen.getByText('学而时习之'))
 
     expect(container.textContent).toContain('当前已选')
     expect(screen.queryByText('当前句子')).toBeNull()
-    expect(screen.getByRole('button', { name: /讲这句/ })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /讲解此句/ })).not.toBeDisabled()
 
-    fireEvent.click(screen.getByRole('button', { name: /讲这句/ }))
+    fireEvent.click(screen.getByRole('button', { name: /讲解此句/ }))
 
     expect(await screen.findByText('当前句子')).toBeInTheDocument()
   })

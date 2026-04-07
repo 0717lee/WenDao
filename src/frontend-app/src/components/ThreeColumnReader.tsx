@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookPlus, GraduationCap, Loader2, Menu, NotebookText, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookPlus, Loader2, Menu, Sparkles } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
@@ -192,8 +192,8 @@ export function ThreeColumnReader() {
     toggleComparisonDocument(currentDocument);
     setReaderNotice(
       isCompared
-        ? { tone: 'info', message: '已从对照区移出这篇。' }
-        : { tone: 'success', message: '已加入对照区，可在“对照”页并排阅读。' }
+        ? { tone: 'info', message: '已从对照阅读中移出本文。' }
+        : { tone: 'success', message: '已加入对照阅读，可在“对照阅读”页查看。' }
     );
   };
 
@@ -390,7 +390,7 @@ export function ThreeColumnReader() {
       )
     }
 
-    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这里还没有白话疏解</p>
+    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这里还没有白话解读</p>
   }
 
   const generateTranslationCache = async () => {
@@ -415,7 +415,7 @@ export function ThreeColumnReader() {
         })
       }
     } catch {
-      setTranslationError('白话疏解暂未生成，请稍后再试')
+      setTranslationError('白话解读暂未生成，请稍后再试')
     } finally {
       setTranslationGenerating(false)
     }
@@ -488,7 +488,7 @@ export function ThreeColumnReader() {
         className="mt-3 rounded-[18px] px-3 py-3 text-xs leading-7"
         style={{ backgroundColor: 'rgba(244,241,225,0.72)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.55)' }}
       >
-        这一页默认是轻模式：先读，卡住了再点一句；需要时再讲这句、查词或收下这篇，不会一下子跳出很多东西。
+        这一页默认先让你安静读原文：读到疑难处再点一句；需要时再讲解此句、查词或收藏本文，不会一下子出现过多操作。
       </div>
       {selectedSentenceText && (
         <div
@@ -498,7 +498,7 @@ export function ThreeColumnReader() {
           <div className="mb-1 text-[11px] tracking-[0.22em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
             当前已选
           </div>
-          <div className="text-sm leading-7" style={{ color: 'var(--gf-text)' }}>
+          <div className="line-clamp-2 text-sm leading-7" style={{ color: 'var(--gf-text)' }}>
             {selectedSentenceText}
           </div>
         </div>
@@ -507,31 +507,34 @@ export function ThreeColumnReader() {
         <button
           onClick={openSelectedSentenceExplain}
           disabled={!selectedSentence}
-          className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
+          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
         >
           <Sparkles className="mr-1 inline h-3.5 w-3.5" />
-          讲这句
+          讲解此句
         </button>
         <button
           onClick={handleFavoriteDocument}
           disabled={favoriteSaving}
-          className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
         >
           <BookPlus className="mr-1 inline h-3.5 w-3.5" />
-          {favoriteSaving ? '记下中...' : '记下这篇'}
+          {favoriteSaving ? '正在收藏' : '收藏本文'}
         </button>
         <button
           onClick={clearSentenceSelection}
-          className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
+          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(255,255,255,0.74)', color: 'rgba(26,30,35,0.66)', border: '1px solid rgba(26,30,35,0.08)' }}
         >
-          继续往下读
+          继续阅读
         </button>
       </div>
-      <div className="mt-2 text-xs" style={{ color: 'rgba(26,30,35,0.46)' }}>
-        查词方式：直接在原文里拖选一个词，系统会弹出查词卡并可加入字词本。
+      <div
+        className="mt-2 rounded-[16px] px-3 py-2 text-xs leading-6"
+        style={{ backgroundColor: 'rgba(255,255,255,0.66)', color: 'rgba(26,30,35,0.46)', border: '1px solid rgba(26,30,35,0.05)' }}
+      >
+        查词提示：在原文里拖选一个词，系统会弹出查词卡，并可加入字词记录。
       </div>
       {readerNotice && (
         <div
@@ -559,52 +562,59 @@ export function ThreeColumnReader() {
         style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.06)' }}
       >
         <summary className="cursor-pointer text-sm" style={{ color: 'var(--gf-text)' }}>
-          更多深读工具
+          更多功能
         </summary>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
+            onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
+          >
+            阅读笔记
+          </button>
+          <button
             onClick={handleToggleCompare}
-            className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
           >
             {isCompared ? '移出对照' : '加入对照'}
           </button>
           <button
             onClick={() => openReaderCompanion('explain')}
-            className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
           >
-            问 AI 聊这篇
+            全文讲解
           </button>
           <button
             onClick={() => openReaderCompanion('allusion')}
-            className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
           >
-            查人物典故
+            人物典故
           </button>
           <button
             onClick={() => openReaderCompanion('study')}
-            className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
           >
-            学习卡片
+            复习卡片
           </button>
           <button
             onClick={() => setAppTab('wordbook')}
-            className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(255,255,255,0.74)', color: 'rgba(26,30,35,0.66)', border: '1px solid rgba(26,30,35,0.08)' }}
           >
-            打开字词本
+            字词记录
           </button>
           {!currentDocument.translatedText && currentDocument.sourceType === 'corpus' && (
             <button
               onClick={generateTranslationCache}
-              className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
             >
               {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {translationCache.length > 0 ? '继续生成白话疏解' : '生成白话疏解'}
+              {translationCache.length > 0 ? '继续生成白话' : '生成白话'}
             </button>
           )}
         </div>
@@ -642,22 +652,6 @@ export function ThreeColumnReader() {
               <Menu className="w-3.5 h-3.5" />
               目录
             </button>
-            <button
-              onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
-              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs"
-              style={{ backgroundColor: sidePanel === 'notes' ? 'rgba(140,26,17,0.12)' : 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-            >
-              <NotebookText className="w-3.5 h-3.5" />
-              笔记
-            </button>
-            <button
-              onClick={() => setSidePanel((prev) => (prev === 'study' ? null : 'study'))}
-              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs"
-              style={{ backgroundColor: sidePanel === 'study' ? 'rgba(201,160,99,0.18)' : 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              学习卡片
-            </button>
           </div>
         </div>
 
@@ -666,7 +660,7 @@ export function ThreeColumnReader() {
           {[
             { key: 'original' as const, label: '原文' },
             { key: 'punctuated' as const, label: '标点文' },
-            { key: 'translated' as const, label: '白话疏解' },
+            { key: 'translated' as const, label: '白话解读' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -695,7 +689,7 @@ export function ThreeColumnReader() {
           <div className="mb-4">{renderReaderGuideCard()}</div>
           {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original'))}
           {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没有标点文</p>)}
-          {activeReaderTab === 'translated' && renderColumn('白话疏解', renderTranslatedParagraphs())}
+          {activeReaderTab === 'translated' && renderColumn('白话解读', renderTranslatedParagraphs())}
         </div>
 
         {sidePanel === 'notes' && (
@@ -763,22 +757,6 @@ export function ThreeColumnReader() {
               <Menu className="w-3.5 h-3.5" />
               目录
             </button>
-            <button
-              onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs"
-              style={{ backgroundColor: sidePanel === 'notes' ? 'rgba(140,26,17,0.12)' : 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-            >
-              <NotebookText className="w-3.5 h-3.5" />
-              {sidePanel === 'notes' ? '收起笔记' : '阅读笔记'}
-            </button>
-            <button
-              onClick={() => setSidePanel((prev) => (prev === 'study' ? null : 'study'))}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs"
-              style={{ backgroundColor: sidePanel === 'study' ? 'rgba(201,160,99,0.18)' : 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              {sidePanel === 'study' ? '收起卡片' : '学习卡片'}
-            </button>
           </div>
         </div>
       <div className="px-4 pt-3">{renderReaderGuideCard()}</div>
@@ -818,7 +796,7 @@ export function ThreeColumnReader() {
         <motion.div layout variants={columnItemVariants} className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card">
           <div className="bg-xuan-paper rounded-[20px]"></div>
           {renderColumn(
-            '白话疏解',
+            '白话解读',
             renderTranslatedParagraphs()
           )}
         </motion.div>

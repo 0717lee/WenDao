@@ -146,10 +146,10 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
                   color: saved ? '#3c8a51' : 'var(--gf-gugong-red)',
                   border: saved ? '1px solid rgba(60,138,81,0.15)' : '1px solid rgba(140,26,17,0.10)',
                 }}
-              >
-                <BookPlus className="w-4 h-4" />
-                {saved ? '已加入字词本' : saving ? '正在保存...' : '加入字词本'}
-              </button>
+                >
+                    <BookPlus className="w-4 h-4" />
+                    {saved ? '已加入字词记录' : saving ? '正在保存...' : '加入字词记录'}
+                </button>
 
               {/* Meaning */}
               {explanation.meaning && (

@@ -62,12 +62,12 @@ describe('ReasoningTimeline', () => {
   it('collapses and expands on click', () => {
     render(<ReasoningTimeline steps={SAMPLE_STEPS} defaultCollapsed={true} />)
     // Initially collapsed - button text says expand
-    const toggleBtn = screen.getByText(/查看推理过程/)
+    const toggleBtn = screen.getByText(/查看解析过程/)
     expect(toggleBtn).toBeDefined()
 
     fireEvent.click(toggleBtn)
     // After click, should show collapse text
-    expect(screen.getByText(/收起推理过程/)).toBeDefined()
+    expect(screen.getByText(/收起解析过程/)).toBeDefined()
   })
 
   it('displays duration for completed steps', () => {

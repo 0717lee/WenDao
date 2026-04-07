@@ -195,11 +195,11 @@ function App() {
     const tabs = [
         { key: 'home' as const, label: '首页' },
         { key: 'reader' as const, label: '阅读' },
-        { key: 'search' as const, label: '检索' },
+        { key: 'search' as const, label: '原文检索' },
         { key: 'chat' as const, label: 'AI问答' },
-        { key: 'wordbook' as const, label: '字词本' },
-        { key: 'favorites' as const, label: '收藏夹' },
-        { key: 'compare' as const, label: '对照' },
+        { key: 'wordbook' as const, label: '字词记录' },
+        { key: 'favorites' as const, label: '文章收藏' },
+        { key: 'compare' as const, label: '对照阅读' },
     ];
 
     const renderActiveTab = () => {
@@ -290,7 +290,7 @@ function App() {
                                         className="text-[11px] tracking-[0.24em] hidden md:inline-flex rounded-full px-2.5 py-1"
                                         style={{ color: 'rgba(26,30,35,0.42)', backgroundColor: 'rgba(255,255,255,0.62)' }}
                                     >
-                                        原文、检索、问答一起看
+                                        遇到疑难处，可随时请 AI 讲解
                                     </span>
                                 </div>
                             </div>

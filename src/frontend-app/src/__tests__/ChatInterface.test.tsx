@@ -37,7 +37,7 @@ describe('ChatInterface', () => {
     render(<ChatInterface />)
 
     expect(screen.getByRole('heading', { name: '从一句原文问起' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '去检索原文' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '转到原文检索' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '“学而时习之，不亦说乎？”到底在讲什么？' })).toBeInTheDocument()
   })
 

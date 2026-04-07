@@ -20,7 +20,9 @@ describe('BookshelfPanel', () => {
 
     render(<BookshelfPanel {...props} />)
 
-    expect(await screen.findByText('体验样例 · 《论语·学而》')).toBeInTheDocument()
+    expect(
+      await screen.findByText((content) => content.includes('体验样例 · 《论语·学而》'))
+    ).toBeInTheDocument()
   })
 
   it('shows an empty continue-reading state for accounts with no reading history', async () => {
@@ -86,11 +88,13 @@ describe('BookshelfPanel', () => {
 
     render(<BookshelfPanel {...props} />)
 
-    expect(await screen.findByText('还没有阅读记录，先从下面选一篇开始。')).toBeInTheDocument()
+    expect(
+      await screen.findByText((content) => content.includes('还没有阅读记录时，可以先从右侧的精选篇目起读。'))
+    ).toBeInTheDocument()
     expect(screen.queryByText(/最近阅读：/)).not.toBeInTheDocument()
   })
 
-  it('turns the top overview cards into real actions', async () => {
+  it('uses the top starting cards and secondary quick links as real actions', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
       if (url.includes('/api/v1/documents?limit=100')) {
         return Promise.resolve({
@@ -138,12 +142,12 @@ describe('BookshelfPanel', () => {
       return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
     })
 
-    render(<BookshelfPanel {...props} />)
+    render(<BookshelfPanel {...props} comparedDocumentIds={['user-doc-1']} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /继续阅读/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /回到上次进度/i }))
     expect(props.onOpenDocument).toHaveBeenCalledWith('history-doc-1')
 
-    fireEvent.click(screen.getByRole('button', { name: /对照区/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^对照阅读$/ }))
     expect(props.onOpenCompare).toHaveBeenCalled()
   })
 })

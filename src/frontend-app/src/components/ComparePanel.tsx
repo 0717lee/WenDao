@@ -10,7 +10,7 @@ const COLUMN_LABELS: Array<keyof Pick<NonNullable<ReturnType<typeof useDocumentS
 const COLUMN_TITLES: Record<string, string> = {
   originalText: '原文',
   punctuatedText: '标点文',
-  translatedText: '白话译',
+  translatedText: '白话',
 }
 
 export default function ComparePanel() {
@@ -32,14 +32,14 @@ export default function ComparePanel() {
             对照阅读
           </h2>
           <p style={{ color: 'rgba(26,30,35,0.45)' }}>
-            先在阅读页点“加入对照”，把 1–2 篇放进来，这里就会并排展示原文、标点和白话。
+            先在阅读页点“加入对照阅读”，把 1–2 篇放进来，这里就会把它们并排展示。
           </p>
           <button
             onClick={() => setActiveTab('reader')}
             className="mt-5 rounded-[18px] px-4 py-2.5 text-sm text-white"
             style={{ backgroundColor: 'var(--gf-gugong-red)' }}
           >
-            去阅读页添加对照
+            去阅读页添加
           </button>
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function ComparePanel() {
               对照阅读
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              适合把 1–2 篇文章并排放在一起，直接比较原文、标点和白话。
+              适合把 1–2 篇文章放在一起，一眼比较原文、标点和白话。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -70,14 +70,14 @@ export default function ComparePanel() {
               className="rounded-[18px] px-3 py-2 text-sm"
               style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)', border: '1px solid rgba(140,26,17,0.12)' }}
             >
-              继续添加对照文档
+              再添加一篇
             </button>
             <button
               onClick={clearComparisonDocuments}
               className="rounded-[18px] px-3 py-2 text-sm"
               style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: 'var(--gf-text)', border: '1px solid rgba(26,30,35,0.06)' }}
             >
-              清空对照
+              清空全部
             </button>
           </div>
         </div>
@@ -95,7 +95,7 @@ export default function ComparePanel() {
                     {doc.title}
                   </h3>
                   <p className="text-xs" style={{ color: 'rgba(26,30,35,0.4)' }}>
-                    {doc.punctuatedText ? '已完成全文处理' : '仅有 OCR 原文'}
+                    {doc.punctuatedText ? '这篇已经可以直接对照阅读' : '这篇目前还只有识别出的原文'}
                   </p>
                 </div>
                 <button
@@ -103,7 +103,7 @@ export default function ComparePanel() {
                   className="rounded-[18px] px-3 py-2 text-xs"
                   style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: 'rgba(26,30,35,0.55)', border: '1px solid rgba(26,30,35,0.06)' }}
                 >
-                  移出对照
+                  移出对照阅读
                 </button>
               </div>
 

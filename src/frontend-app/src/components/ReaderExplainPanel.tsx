@@ -198,7 +198,7 @@ export function ReaderExplainPanel({
           </div>
           <p className="mt-1 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
             {chapterTitle ? `${chapterTitle} · ` : ''}
-            先选中一句，再点“AI解读选中句”，这里会分步展开解析。
+            先选中一句，再点“讲解此句”，这里会分步展开解析。
           </p>
         </div>
       </div>

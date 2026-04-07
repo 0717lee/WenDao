@@ -195,13 +195,13 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       >
         <div className="mb-4">
           <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
-            寻章摘句
+            原文检索
           </div>
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-            在库中检索人物、典故与原文片段
+            查找原句、人物与典故
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            想继续追问，可以转到“问道解疑”。
+            若一时想不清怎样检索，可直接转去 AI 问答。
           </p>
         </div>
 
@@ -242,13 +242,17 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         </div>
 
         {/* Search Mode Selection */}
-        <div className="flex gap-4 flex-wrap">
+        <div className="grid gap-2 md:grid-cols-3">
           {[
-            { value: 'FULLTEXT' as SearchMode, label: '精确原文', desc: '适合原句、人名和章节定位' },
-            { value: 'VECTOR' as SearchMode, label: '语义检索', desc: '适合只记得大意时提问' },
-            { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '兼顾原句与语义，默认推荐' },
+            { value: 'FULLTEXT' as SearchMode, label: '原句检索', desc: '记得几个关键字时' },
+            { value: 'VECTOR' as SearchMode, label: '大意检索', desc: '只记得大意时' },
+            { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '拿不准时选这个' },
           ].map(opt => (
-            <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer group rounded-2xl px-2.5 py-2" style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.58)' }}>
+            <label
+              key={opt.value}
+              className="flex min-h-[4.5rem] items-center gap-1.5 cursor-pointer group rounded-2xl px-3 py-2"
+              style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.58)' }}
+            >
               <input
                 type="radio"
                 value={opt.value}
@@ -267,21 +271,21 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            没找到想要的内容时，也可以去问道解疑继续追问。
+            若一时找不到，不必反复换词，转去 AI 问答通常更省力。
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={jumpToChatExplanation}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              className="inline-flex min-w-[7.5rem] justify-center items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(140,26,17,0.12)', color: 'var(--gf-gugong-red)', backgroundColor: 'rgba(140,26,17,0.06)' }}
             >
-              去问道解疑
+              转到 AI 问答
             </button>
             <button
               type="button"
               onClick={reshuffleSuggestions}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              className="inline-flex min-w-[7.5rem] justify-center items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)', backgroundColor: 'rgba(255,255,255,0.72)' }}
             >
               <RefreshCcw className="h-3.5 w-3.5" />
@@ -340,7 +344,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         {results.length === 0 && !loading && !error && !query && (
           <div className="text-center mt-20 opacity-35">
             <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>输入一句原文，或搜索人物、典故，开始检索</p>
+            <p style={{ color: 'var(--gf-text)' }}>输入一句原文，或输入你记得的人物、典故，开始检索</p>
           </div>
         )}
 
@@ -397,10 +401,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                     openResultDocument(result);
                   }}
                   disabled={!onOpenDocument || !result.document_id}
-                  className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
                   style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                 >
-                  {result.document_id ? '翻开原文' : '原文待导入'}
+                  {result.document_id ? '打开原文' : '暂时不能直接打开'}
                 </button>
                 <button
                   type="button"
@@ -408,7 +412,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                     event.stopPropagation();
                     askAboutResult(result);
                   }}
-                  className="rounded-full px-3 py-1.5 text-xs transition-all duration-300"
+                  className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300"
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >
                   继续追问
@@ -467,15 +471,15 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                     type="button"
                     onClick={() => openResultDocument(selectedResult)}
                     disabled={!onOpenDocument || !selectedResult.document_id}
-                    className="rounded-full px-4 py-2 text-sm transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="inline-flex min-w-[7.5rem] justify-center rounded-full px-4 py-2 text-sm transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
                     style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
                   >
-                    {selectedResult.document_id ? '翻开原文' : '原文待导入'}
+                    {selectedResult.document_id ? '打开原文' : '暂时不能直接打开'}
                   </button>
                   <button
                     type="button"
                     onClick={() => askAboutResult(selectedResult)}
-                    className="rounded-full px-4 py-2 text-sm transition-all duration-300"
+                    className="inline-flex min-w-[7.5rem] justify-center rounded-full px-4 py-2 text-sm transition-all duration-300"
                     style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                   >
                     继续追问
@@ -483,7 +487,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                 </div>
                 {!selectedResult.document_id && (
                   <p className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    这条结果目前来自索引片段，暂时还不能直接打开阅读页；你可以继续追问。
+                    这条结果目前只是一段索引片段，还不能直接打开全文；你可以继续追问。
                   </p>
                 )}
               </div>

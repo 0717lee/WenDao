@@ -24,7 +24,7 @@ export function OCRPreview() {
     if (!currentDocument) return;
 
     setUploadStatus('processing');
-    setProcessProgress('正在断句标点...');
+    setProcessProgress('正在补标点、整理语句...');
 
     try {
       const saveResponse = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/text`, {
@@ -100,11 +100,11 @@ export function OCRPreview() {
           }}
         >
           <div className="text-[11px] tracking-[0.28em] mb-2" style={{ color: 'var(--gf-gold)' }}>
-            拍页校读
+            图片转文字
           </div>
-          <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先校对识别结果，再继续整理</h2>
+          <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先看一眼识别结果，再继续处理</h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            请先核对识别结果；如有错误可直接修改。确认后点击“开始整理”，继续断句和翻译。
+            如果识别得不太对，可以直接改。确认后再点按钮，系统会继续补标点并生成白话。
           </p>
         </div>
 
@@ -143,10 +143,10 @@ export function OCRPreview() {
             }}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>OCR 文本</h3>
+              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>识别出的文字</h3>
               {currentDocument.confidence !== undefined && (
                 <div className="flex items-center gap-2 rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)' }}>
-                  <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>置信度：</span>
+                  <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>识别准确度：</span>
                   <span className={`text-sm font-semibold ${confidenceColor(currentDocument.confidence)}`}>
                     {(currentDocument.confidence * 100).toFixed(1)}%
                   </span>
@@ -190,10 +190,10 @@ export function OCRPreview() {
                 {uploadStatus === 'processing' ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    正在继续整理
+                    正在继续处理
                   </>
                 ) : (
-                  '开始整理'
+                  '继续整理本文'
                 )}
               </button>
             </div>

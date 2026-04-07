@@ -119,10 +119,10 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
         <div>
           <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
             <HelpCircle className="h-4 w-4" />
-            学习卡片
+            复习卡片
           </div>
           <p className="mt-1 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            适合课后复习，亦可在答辩时展示持续学习能力。
+            适合读完之后快速回看重点，也方便之后再复习。
           </p>
         </div>
         <button
@@ -150,7 +150,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
 
       {loading ? (
         <div className="rounded-2xl p-6 text-center text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-          正在生成学习卡片...
+          正在生成复习卡片...
         </div>
       ) : current ? (
         <div className="space-y-4">
@@ -228,7 +228,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
         </div>
       ) : (
         <div className="rounded-2xl p-6 text-center text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.45)' }}>
-          当前文档还无法生成学习卡片。
+          当前文档还无法生成复习卡片。
         </div>
       )}
     </div>
