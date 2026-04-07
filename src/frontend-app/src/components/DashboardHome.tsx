@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
   ArrowRight,
+  BookOpen,
   Sparkles,
-  ScrollText,
 } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { getDemoBookshelfDocuments } from '../data/demoDocuments'
@@ -48,10 +48,8 @@ export default function DashboardHome({
   onOpenReaderHub,
   onOpenReaderUpload,
 }: DashboardHomeProps) {
-  const [homeInput, setHomeInput] = useState('')
   const [corpusTotal, setCorpusTotal] = useState(0)
   const [documentsTotal, setDocumentsTotal] = useState(0)
-
   const [corpusDocuments, setCorpusDocuments] = useState<BookshelfItem[]>([])
   const [sampleDocuments, setSampleDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
@@ -71,31 +69,27 @@ export default function DashboardHome({
         }
       }
 
-      try {
-        const [docsData, corpusData, sampleData, historyData] = await Promise.all([
-          loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [], total: 0 }),
-          loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=corpus`, { documents: [], total: 0 }),
-          loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [], total: 0 }),
-          loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
-        ])
+      const [docsData, corpusData, sampleData, historyData] = await Promise.all([
+        loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [], total: 0 }),
+        loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=corpus`, { documents: [], total: 0 }),
+        loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [], total: 0 }),
+        loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
+      ])
 
-        if (cancelled) return
+      if (cancelled) return
 
-        const allDocuments = Array.isArray(docsData.documents) ? docsData.documents : []
-        const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
-        const builtInSamples = Array.isArray(sampleData.documents) ? sampleData.documents : []
-        const demoSamples = getDemoBookshelfDocuments()
-        const resolvedSamples = builtInSamples.length > 0 ? builtInSamples : demoSamples
+      const allDocuments = Array.isArray(docsData.documents) ? docsData.documents : []
+      const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
+      const builtInSamples = Array.isArray(sampleData.documents) ? sampleData.documents : []
+      const demoSamples = getDemoBookshelfDocuments()
+      const resolvedSamples = builtInSamples.length > 0 ? builtInSamples : demoSamples
 
-        setCorpusDocuments(corpusList)
-        setCorpusTotal(corpusData.total || corpusList.length)
-        setDocumentsTotal(docsData.total || allDocuments.length)
-        setSampleDocuments(resolvedSamples)
-        setUsingDemoSamples(builtInSamples.length === 0)
-        setHistory(Array.isArray(historyData) ? historyData : [])
-      } finally {
-        // no-op: keep behavior explicit if this page needs a loading gate later
-      }
+      setCorpusDocuments(corpusList)
+      setCorpusTotal(corpusData.total || corpusList.length)
+      setDocumentsTotal(docsData.total || allDocuments.length)
+      setSampleDocuments(resolvedSamples)
+      setUsingDemoSamples(builtInSamples.length === 0)
+      setHistory(Array.isArray(historyData) ? historyData : [])
     }
 
     load()
@@ -107,30 +101,57 @@ export default function DashboardHome({
   const firstCorpus = corpusDocuments[0]
   const firstSample = sampleDocuments[0]
   const latestHistoryDocumentId = history[0]?.id ?? null
-  const continueReadingAction = () => {
-    if (latestHistoryDocumentId) return onOpenDocument(latestHistoryDocumentId, { readerPanel: 'notes' })
-    return onOpenReaderHub()
-  }
-  const aiOnboardingPrompt = firstCorpus
-    ? `我第一次用古籍智解，请带我从《${firstCorpus.title}》开始：先用最简单的话告诉我这本书适合怎么读，再给我一句最适合入门的原文。`
-    : '我第一次用古籍智解，请推荐一篇适合入门的古籍内容，并用最简单的话带我开始。'
-  const openAiOnboarding = () => {
-    onAsk(aiOnboardingPrompt)
-  }
-  const homeExamples = [
-    '“学而时习之，不亦说乎？”到底在讲什么？',
-    '请带我从《庄子》开始，告诉我第一篇该怎么读。',
-    '解释“道法自然”原本是什么意思。',
-  ]
-  const startFromHomeInput = () => {
-    const value = homeInput.trim()
-    if (!value) {
-      openAiOnboarding()
+  const recommendedStart = firstCorpus ?? firstSample ?? null
+
+  const openRecommendedStart = () => {
+    if (recommendedStart) {
+      onOpenDocument(recommendedStart.id)
       return
     }
-    onAsk(`请像古文陪读老师一样帮助我开始：先用最简单的话解释下面这句或这个问题，再告诉我下一步该读什么。\n\n${value}`)
+    onOpenReaderHub()
   }
-  const recommendedStart = firstCorpus ?? firstSample ?? null
+
+  const continueReadingAction = () => {
+    if (latestHistoryDocumentId) {
+      onOpenDocument(latestHistoryDocumentId, { readerPanel: 'notes' })
+      return
+    }
+    onOpenReaderHub()
+  }
+
+  const askFromSentencePrompt = firstCorpus
+    ? `我只记得一句古文，请带我从一句话开始读《${firstCorpus.title}》：先用最简单的话解释，再告诉我下一步该读哪里。`
+    : '我只记得一句古文，请带我从一句话开始：先用最简单的话解释，再告诉我下一步可以读什么。'
+
+  const heroEntryWays = [
+    {
+      key: 'read',
+      eyebrow: '开卷入古',
+      title: recommendedStart ? '先翻开一部经典' : '先去阅读页看看',
+      description: '第一次来时，不用想太多，先打开一篇能直接读的内容。',
+      action: openRecommendedStart,
+      accent: 'var(--gf-gugong-red)',
+      accentSoft: 'rgba(140,26,17,0.08)',
+    },
+    {
+      key: 'ask',
+      eyebrow: '随句入门',
+      title: '记得一句，就从这里问起',
+      description: '只要你记得一句原文，或知道哪里没懂，就先问一句。',
+      action: () => onAsk(askFromSentencePrompt),
+      accent: '#7b5b44',
+      accentSoft: 'rgba(123,91,68,0.08)',
+    },
+    {
+      key: 'scan',
+      eyebrow: '拍页即读',
+      title: '手头有图片，再从这里开始',
+      description: '影印页、截图、扫描图，都可以先转成文字再慢慢读。',
+      action: onOpenReaderUpload,
+      accent: 'var(--gf-gold)',
+      accentSoft: 'rgba(201,160,99,0.12)',
+    },
+  ]
 
   return (
     <div className="relative h-full overflow-y-auto px-4 py-5 md:px-6 md:py-7" style={{ backgroundColor: 'var(--gf-bg)' }}>
@@ -164,86 +185,86 @@ export default function DashboardHome({
             />
           </div>
 
-          <div className="relative space-y-6">
-            <div className="space-y-3">
-              <span
-                className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] tracking-[0.28em]"
-                style={{ backgroundColor: 'rgba(140,26,17,0.09)', color: 'var(--gf-gugong-red)' }}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                陪你把一句读明白
-              </span>
-              <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
-                先贴一句，剩下的交给 WenDao
+          <div className="relative grid gap-8 lg:grid-cols-[1.16fr_0.84fr] lg:items-center">
+            <div className="space-y-5">
+              <div className="space-y-3">
+                <span
+                  className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] tracking-[0.28em]"
+                  style={{ backgroundColor: 'rgba(140,26,17,0.09)', color: 'var(--gf-gugong-red)' }}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  开卷导读
+                </span>
+                <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
+                  先读一篇，再慢慢读懂
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-4">
-              <h2
-                className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
-                style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
-              >
-                从一句看不懂的古文开始
-              </h2>
-              <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                贴一句原文，输入一个问题，或者先上传一页图片。你不用先理解功能，先把卡住的地方说出来就行。
-              </p>
+              <div className="space-y-4">
+                <h2
+                  className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
+                  style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
+                >
+                  先把古籍翻开，
+                  <br className="hidden md:block" />
+                  让一句一句都慢慢明白
+                </h2>
+                <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
+                  不用先研究功能。先读一篇、问一句，或者上传一页图片，系统会把下一步尽量收得很简单。
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>先读一篇</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>记得一句就问</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>有图再上传</span>
+              </div>
             </div>
 
             <div
-              className="rounded-[30px] p-5 md:p-6"
+              className="relative rounded-[30px] p-5 md:p-6"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.74)',
+                backgroundColor: 'rgba(255,255,255,0.72)',
                 border: '1px solid rgba(26,30,35,0.07)',
-                boxShadow: '0 18px 34px rgba(26,30,35,0.05)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55)',
+                backdropFilter: 'blur(10px)',
               }}
             >
-              <div className="mb-3 text-sm" style={{ color: 'var(--gf-text)' }}>
-                现在就开始：
+              <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
+                <BookOpen className="h-4 w-4" />
+                第一次来，可以先从这里开始
               </div>
-              <textarea
-                value={homeInput}
-                onChange={(event) => setHomeInput(event.target.value)}
-                placeholder="贴一句古文、输入一个问题，或先想清楚你哪里读不懂"
-                className="min-h-[120px] w-full rounded-[22px] px-4 py-4 text-sm leading-7 outline-none"
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.86)',
-                  border: '1px solid rgba(26,30,35,0.08)',
-                  color: 'var(--gf-text)',
-                }}
-              />
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  onClick={startFromHomeInput}
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5"
-                  style={{ backgroundColor: 'var(--gf-gugong-red)', color: '#fff', boxShadow: '0 14px 28px rgba(140,26,17,0.18)' }}
-                >
-                  开始读懂这句
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={onOpenReaderUpload}
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm transition-all duration-300 hover:-translate-y-0.5"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'var(--gf-text)', border: '1px solid rgba(26,30,35,0.08)' }}
-                >
-                  上传图片识别
-                  <ScrollText className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {homeExamples.map((item) => (
+              <div className="space-y-4">
+                {heroEntryWays.map((item, index) => (
                   <button
-                    key={item}
-                    onClick={() => setHomeInput(item)}
-                    className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.82)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
+                    key={item.key}
+                    onClick={item.action}
+                    className="group flex w-full items-start gap-4 rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    style={{
+                      backgroundColor: item.accentSoft,
+                      border: '1px solid rgba(26,30,35,0.05)',
+                    }}
                   >
-                    {item}
+                    <div
+                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm"
+                      style={{ backgroundColor: item.accent, color: '#fff' }}
+                    >
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] tracking-[0.24em]" style={{ color: item.accent }}>
+                        {item.eyebrow}
+                      </div>
+                      <div className="mt-1 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                        {item.title}
+                      </div>
+                      <div className="mt-1 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                        {item.description}
+                      </div>
+                    </div>
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" style={{ color: item.accent }} />
                   </button>
                 ))}
-              </div>
-              <div className="mt-3 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.46)' }}>
-                不想先提问也可以。下面保留了两个最轻的开始方式：继续上次阅读，或者从推荐篇目开始。
               </div>
             </div>
           </div>
@@ -255,14 +276,12 @@ export default function DashboardHome({
             style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
             <div className="mb-4">
-              <div>
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  继续上次阅读
-                </h3>
-                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  如果你不是第一次来，最省力的开始方式就是从上次停下的地方接着读。
-                </p>
-              </div>
+              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                继续上次阅读
+              </h3>
+              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                如果你不是第一次来，最省力的方式就是从上次停下的地方接着读。
+              </p>
             </div>
 
             <div
@@ -280,7 +299,7 @@ export default function DashboardHome({
                 {history[0]?.title || '还没有阅读记录'}
               </div>
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                {history[0] ? `最近阅读：${formatTimeLabel(history[0].last_read_at)}` : '第一次来时，可以从右侧推荐篇目开始。'}
+                {history[0] ? `最近阅读：${formatTimeLabel(history[0].last_read_at)}` : '第一次来时，也可以先从右侧卡片里的推荐起点开始。'}
               </div>
               <button
                 onClick={continueReadingAction}
@@ -298,13 +317,13 @@ export default function DashboardHome({
             style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
             <div className="mb-4">
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                  从推荐篇目开始
-                </h3>
-                <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  如果你还没决定读什么，就先从一篇适合起步的内容开始。
-                </p>
-              </div>
+              <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                从推荐篇目开始
+              </h3>
+              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                如果你还没决定读什么，就先从一篇适合起步的内容开始。
+              </p>
+            </div>
 
             <div
               className="rounded-[24px] px-4 py-4"
@@ -334,13 +353,7 @@ export default function DashboardHome({
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
-                  onClick={() => {
-                    if (recommendedStart) {
-                      onOpenDocument(recommendedStart.id)
-                      return
-                    }
-                    onOpenReaderHub()
-                  }}
+                  onClick={openRecommendedStart}
                   className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
                 >

@@ -53,6 +53,13 @@ WenDao 是一个帮助普通人“真正读懂”古籍的 AI 阅读工具。它
 
 无需本地部署，直接访问：**https://example.com**
 
+当前生产环境采用“WenDao 前端 + TextTwin 命名的 Railway 后端”组合：
+
+- 前端：`https://example.com`
+- 后端：`https://api.example.com`
+
+这是当前正式配置，不是误指向；若继续保持现状，请在前端部署环境里持续把 `VITE_API_URL` 设为该 Railway 域名。
+
 ## 快速开始
 
 ### 环境要求
@@ -86,6 +93,12 @@ cp src/frontend-app/.env.example src/frontend-app/.env
 ```
 
 如果前端和后端分开部署，务必把 `VITE_API_URL` 指向真实后端域名；本地开发默认使用 `http://localhost:8000`。
+
+当前线上配置可直接写为：
+
+```bash
+VITE_API_URL=https://api.example.com
+```
 
 ### 3. 启动服务
 
