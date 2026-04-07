@@ -89,6 +89,9 @@ export default function BookshelfPanel({
   const [uploadErrorMessage, setUploadErrorMessage] = useState('')
   const { setDocument, setUploadStatus, uploadStatus } = useDocumentStore()
   const consumeReaderHubSection = useGraphStore((state) => state.consumeReaderHubSection)
+  const continueReadingRef = useRef<HTMLDivElement | null>(null)
+  const corpusSectionRef = useRef<HTMLDivElement | null>(null)
+  const userDocumentsRef = useRef<HTMLDivElement | null>(null)
   const uploadSectionRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -156,6 +159,10 @@ export default function BookshelfPanel({
   const continueReadingItems = useMemo(() => {
     return history.slice(0, 4)
   }, [history])
+
+  const scrollToSection = (target: { current: HTMLDivElement | null }) => {
+    target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const corpusCategories = useMemo(() => {
     const items = new Set(
@@ -346,21 +353,55 @@ export default function BookshelfPanel({
 
           <div className="mt-5 grid gap-3 md:grid-cols-4">
             {[
-              { label: '继续阅读', value: continueReadingItems.length, hint: '直接回到上次停下的地方', icon: Clock3, accent: '#5b8aab' },
-              { label: '古籍库', value: corpusTotal, hint: '优先陈列能直接翻开的古籍', icon: LibraryBig, accent: 'var(--gf-gugong-red)' },
-              { label: '我的典籍', value: userTotal, hint: '自上传文档，皆汇于此', icon: BookMarked, accent: 'var(--gf-gold)' },
-              { label: '加入对照', value: comparedDocumentIds.length, hint: '想并排看时再放进对照', icon: ScanText, accent: '#7b5b44' },
+              {
+                label: '继续阅读',
+                value: continueReadingItems.length,
+                hint: continueReadingItems[0] ? '点击回到最近读到的位置' : '还没开始时，会跳到下方阅读区',
+                icon: Clock3,
+                accent: '#5b8aab',
+                action: continueReadingItems[0]
+                  ? () => onOpenDocument(continueReadingItems[0].id)
+                  : () => scrollToSection(continueReadingRef),
+              },
+              {
+                label: '古籍库',
+                value: corpusTotal,
+                hint: '点击查看可直接开始的古籍',
+                icon: LibraryBig,
+                accent: 'var(--gf-gugong-red)',
+                action: () => scrollToSection(corpusSectionRef),
+              },
+              {
+                label: '我的上传',
+                value: userTotal,
+                hint: '点击查看你上传和整理过的文档',
+                icon: BookMarked,
+                accent: 'var(--gf-gold)',
+                action: () => scrollToSection(userDocumentsRef),
+              },
+              {
+                label: '对照区',
+                value: comparedDocumentIds.length,
+                hint: comparedDocumentIds.length > 0 ? '点击进入并排阅读' : '先在下方点“加入对照”',
+                icon: ScanText,
+                accent: '#7b5b44',
+                action: onOpenCompare,
+              },
             ].map((item) => (
-              <div
+              <button
                 key={item.label}
-                className="rounded-[24px] px-4 py-4"
+                onClick={item.action}
+                className="rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
                 style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.06)' }}
               >
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
                     {item.label}
                   </span>
-                  <item.icon className="h-4 w-4" style={{ color: item.accent }} />
+                  <div className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4" style={{ color: item.accent }} />
+                    <ArrowRight className="h-3.5 w-3.5" style={{ color: 'rgba(26,30,35,0.28)' }} />
+                  </div>
                 </div>
                 <div className="text-3xl" style={{ color: 'var(--gf-text)', fontFamily: '"ZCOOL XiaoWei", serif' }}>
                   {loading ? '—' : item.value}
@@ -368,7 +409,7 @@ export default function BookshelfPanel({
                 <div className="mt-2 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.48)' }}>
                   {item.hint}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -393,6 +434,7 @@ export default function BookshelfPanel({
 
         <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
           <div
+            ref={continueReadingRef}
             className="rounded-[28px] p-5"
             style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
@@ -442,6 +484,7 @@ export default function BookshelfPanel({
           </div>
 
           <div
+            ref={corpusSectionRef}
             className="rounded-[28px] p-5"
             style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
@@ -614,13 +657,14 @@ export default function BookshelfPanel({
 
         <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
           <div
+            ref={userDocumentsRef}
             className="rounded-[28px] p-5"
             style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  我的典籍
+                  我的上传
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
                   你自己上传和整理过的文档，都放在这里。

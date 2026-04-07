@@ -49,7 +49,7 @@ function TabLoader() {
 }
 
 function App() {
-    const { activeTab, setActiveTab, queueSearchQuery, queueReaderHubSection, setReaderReturnTab } = useGraphStore();
+    const { activeTab, setActiveTab, queueReaderHubSection, setReaderReturnTab } = useGraphStore();
     const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
     const { username, logout, validateStoredAuth } = useAuthStore();
     const { setDraftMessage } = useStore();
@@ -154,19 +154,6 @@ function App() {
         [setActiveTab, setDraftMessage]
     );
 
-    const jumpToSearch = useCallback(
-        (query: string) => {
-            queueSearchQuery(query.trim());
-            setActiveTab('search');
-        },
-        [queueSearchQuery, setActiveTab]
-    );
-
-    const openSearch = useCallback(() => {
-        queueSearchQuery('');
-        setActiveTab('search');
-    }, [queueSearchQuery, setActiveTab]);
-
     const openReaderHub = useCallback(() => {
         clearCurrentDocument();
         setReaderReturnTab(activeTab);
@@ -209,9 +196,9 @@ function App() {
         { key: 'home' as const, label: '首页' },
         { key: 'reader' as const, label: '阅读' },
         { key: 'search' as const, label: '检索' },
-        { key: 'chat' as const, label: '问答' },
+        { key: 'chat' as const, label: 'AI问答' },
         { key: 'wordbook' as const, label: '字词本' },
-        { key: 'favorites' as const, label: '收藏' },
+        { key: 'favorites' as const, label: '收藏夹' },
         { key: 'compare' as const, label: '对照' },
     ];
 
@@ -222,13 +209,8 @@ function App() {
                     <DashboardHome
                         onOpenDocument={openDocument}
                         onAsk={jumpToChat}
-                        onSearch={jumpToSearch}
-                        onOpenSearch={openSearch}
                         onOpenReaderHub={openReaderHub}
                         onOpenReaderUpload={openReaderUpload}
-                        onOpenWordbook={() => setActiveTab('wordbook')}
-                        onOpenCompare={() => setActiveTab('compare')}
-                        onContinueStudy={(documentId) => openDocument(documentId, { readerPanel: 'study' })}
                     />
                 );
             case 'chat':
@@ -308,7 +290,7 @@ function App() {
                                         className="text-[11px] tracking-[0.24em] hidden md:inline-flex rounded-full px-2.5 py-1"
                                         style={{ color: 'rgba(26,30,35,0.42)', backgroundColor: 'rgba(255,255,255,0.62)' }}
                                     >
-                                        先读原文，再看讲解
+                                        原文、检索、问答一起看
                                     </span>
                                 </div>
                             </div>

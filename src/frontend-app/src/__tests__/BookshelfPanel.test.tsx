@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import BookshelfPanel from '../components/BookshelfPanel'
 
 describe('BookshelfPanel', () => {
@@ -88,5 +88,62 @@ describe('BookshelfPanel', () => {
 
     expect(await screen.findByText('还没有阅读记录，先从下面选一篇开始。')).toBeInTheDocument()
     expect(screen.queryByText(/最近阅读：/)).not.toBeInTheDocument()
+  })
+
+  it('turns the top overview cards into real actions', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=100')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            documents: [
+              {
+                id: 'user-doc-1',
+                title: '我的上传文档',
+                preview: '这是我的上传内容摘要',
+                has_processed: true,
+                has_note: false,
+                status: 'done',
+                current_paragraph: 1,
+                total_paragraphs: 3,
+                source_type: 'user',
+              },
+            ],
+            total: 1,
+          }),
+        })
+      }
+
+      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+      }
+
+      if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+      }
+
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            { id: 'history-doc-1', title: '《庄子》', last_read_at: '2026-04-07T00:00:00Z' },
+          ],
+        })
+      }
+
+      if (url.includes('/api/v1/documents/catalog?')) {
+        return Promise.resolve({ ok: true, json: async () => ({ entries: [], total: 0 }) })
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /继续阅读/ }))
+    expect(props.onOpenDocument).toHaveBeenCalledWith('history-doc-1')
+
+    fireEvent.click(screen.getByRole('button', { name: /对照区/ }))
+    expect(props.onOpenCompare).toHaveBeenCalled()
   })
 })

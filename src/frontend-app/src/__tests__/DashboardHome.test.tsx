@@ -77,13 +77,8 @@ describe('DashboardHome', () => {
   const props = {
     onOpenDocument: vi.fn(),
     onAsk: vi.fn(),
-    onSearch: vi.fn(),
-    onOpenSearch: vi.fn(),
     onOpenReaderHub: vi.fn(),
     onOpenReaderUpload: vi.fn(),
-    onOpenWordbook: vi.fn(),
-    onOpenCompare: vi.fn(),
-    onContinueStudy: vi.fn(),
   }
 
   beforeEach(() => {
@@ -96,21 +91,22 @@ describe('DashboardHome', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /先把古籍翻开/i,
+        name: /从一句看不懂的古文开始/i,
       })
     ).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /先读一篇导读/ })).toBeInTheDocument()
-    expect(screen.getByText('学习进度')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /开始读懂这句/ })).toBeInTheDocument()
+    expect(screen.getByText('继续上次阅读')).toBeInTheDocument()
   })
 
-  it('routes the primary reading and search entries to the right callbacks', async () => {
+  it('routes the primary single-input action to AI guidance', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /先读一篇导读/ }))
-    expect(props.onOpenReaderHub).toHaveBeenCalled()
+    fireEvent.change(screen.getByPlaceholderText(/贴一句古文/i), {
+      target: { value: '“学而时习之，不亦说乎？”是什么意思？' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: /开始读懂这句/ }))
 
-    fireEvent.click(screen.getByRole('button', { name: /先从一句话找起/ }))
-    expect(props.onOpenSearch).toHaveBeenCalled()
+    expect(props.onAsk).toHaveBeenCalled()
   })
 
   it('keeps the primary reading entry available when one dashboard request fails', async () => {
@@ -153,28 +149,25 @@ describe('DashboardHome', () => {
 
     render(<DashboardHome {...props} />)
 
-    expect(await screen.findByRole('button', { name: /先读一篇导读/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /开始读懂这句/ })).toBeInTheDocument()
   })
 
-  it('routes overview cards and study CTA to the right entry points', async () => {
+  it('routes the lightweight continue and recommendation entries to the right actions', async () => {
     render(<DashboardHome {...props} />)
 
-    await screen.findByRole('button', { name: /回到上次阅读/ })
+    await screen.findByRole('button', { name: /去阅读页看看/ })
 
-    fireEvent.click(screen.getByRole('button', { name: /可读篇目/ }))
+    fireEvent.click(screen.getByRole('button', { name: /从这篇开始/ }))
+    expect(props.onOpenDocument).toHaveBeenCalledWith('sample-1')
+
+    fireEvent.click(screen.getByRole('button', { name: /去阅读页看看/ }))
     expect(props.onOpenReaderHub).toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('button', { name: '打开字词本' }))
-    expect(props.onOpenWordbook).toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('button', { name: /回到上次阅读/ }))
-    expect(props.onContinueStudy).toHaveBeenCalledWith('sample-1')
   })
 
   it('routes the OCR helper entry to reader hub', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /手头有图片时，从这里开始/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /上传图片识别/ }))
 
     await waitFor(() => {
       expect(props.onOpenReaderUpload).toHaveBeenCalled()

@@ -100,13 +100,27 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
       {/* Create Folder */}
       <div className="p-4 border-b" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.3)' }}>
+        <div className="mb-3">
+          <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
+            收藏夹
+          </h2>
+          <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+            这里保存的是整篇文章；如果你想回看某个字词，请去“字词本”。
+          </p>
+        </div>
+        <div
+          className="mb-3 rounded-2xl px-3 py-3 text-sm leading-7"
+          style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}
+        >
+          在阅读页点“收藏此篇”后，文档会先进入默认收藏夹；你也可以在这里新建收藏夹再慢慢整理。
+        </div>
         <div className="flex gap-2">
           <input
             type="text"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-            placeholder="新建收藏夹..."
+            placeholder="新建收藏夹名称..."
             className="flex-1 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-shadow"
             style={{
               backgroundColor: 'rgba(255,255,255,0.7)',
@@ -130,9 +144,15 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
       {/* Folder List */}
       <div className="flex-1 overflow-y-auto p-4">
         {folders.length === 0 ? (
-          <div className="text-center mt-16 opacity-35">
-            <Folder className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>还没有收藏内容</p>
+          <div
+            className="mt-16 rounded-[24px] px-5 py-8 text-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}
+          >
+            <Folder className="w-14 h-14 mx-auto mb-4" style={{ color: 'rgba(26,30,35,0.25)' }} />
+            <p className="mb-2" style={{ color: 'var(--gf-text)' }}>还没有收藏内容</p>
+            <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              先去阅读页点“收藏此篇”，这里就会出现你收下来的文章。
+            </p>
           </div>
         ) : (
           <div className="space-y-2">

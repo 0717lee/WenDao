@@ -32,14 +32,14 @@ export default function ComparePanel() {
             对照阅读
           </h2>
           <p style={{ color: 'rgba(26,30,35,0.45)' }}>
-            先去阅读页选 1–2 份样例或自有文档加入对照，就能把原文、标点和白话并排来看。
+            先在阅读页点“加入对照”，把 1–2 篇放进来，这里就会并排展示原文、标点和白话。
           </p>
           <button
             onClick={() => setActiveTab('reader')}
             className="mt-5 rounded-[18px] px-4 py-2.5 text-sm text-white"
             style={{ backgroundColor: 'var(--gf-gugong-red)' }}
           >
-            前往阅读页
+            去阅读页添加对照
           </button>
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function ComparePanel() {
               对照阅读
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              适合并排比较不同版本、不同来源，或同一篇内容的不同处理结果。
+              适合把 1–2 篇文章并排放在一起，直接比较原文、标点和白话。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">

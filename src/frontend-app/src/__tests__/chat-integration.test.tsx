@@ -29,11 +29,10 @@ async function openChatTab() {
     await waitFor(() => {
         expect(screen.getByRole('button', { name: '打开导航' })).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: '打开导航' }))
     await waitFor(() => {
-        expect(screen.getByText('问答')).toBeInTheDocument()
+        expect(screen.getAllByText('AI问答').length).toBeGreaterThan(0)
     })
-    fireEvent.click(screen.getByText('问答'))
+    fireEvent.click(screen.getAllByText('AI问答')[0])
     await screen.findByPlaceholderText(chatPlaceholder)
 }
 

@@ -2,20 +2,16 @@ import { useEffect, useState } from 'react'
 import { BookMarked, NotebookText, Save, Star } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
+import { addDocumentToFavorites, ensureDefaultFavoriteFolder, type FavoriteFolder } from '../lib/favorites'
 
 interface ReaderNotesPanelProps {
   documentId: string
   documentTitle: string
 }
 
-interface FolderItem {
-  id: string
-  name: string
-}
-
 export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanelProps) {
   const [noteText, setNoteText] = useState('')
-  const [folders, setFolders] = useState<FolderItem[]>([])
+  const [folders, setFolders] = useState<FavoriteFolder[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -72,34 +68,12 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
     }
   }
 
-  const ensureDefaultFolder = async () => {
-    if (folders.length > 0) return folders[0]
-    const response = await fetch(`${API_BASE}/api/v1/reader/folders`, {
-      ...authFetchOptions({
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      }),
-      body: JSON.stringify({ name: '默认收藏夹' }),
-    })
-    if (!response.ok) throw new Error('create folder failed')
-    const data = await response.json()
-    const created = { id: data.folder_id, name: data.name }
-    setFolders((prev) => [created, ...prev])
-    return created
-  }
-
   const handleFavorite = async () => {
     try {
-      const folder = await ensureDefaultFolder()
-      const response = await fetch(`${API_BASE}/api/v1/reader/favorites`, {
-        ...authFetchOptions({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        }),
-        body: JSON.stringify({ document_id: documentId, folder_id: folder.id }),
-      })
-      if (!response.ok) throw new Error('favorite failed')
-      showMessage(`已加入${folder.name}`)
+      const folder = await addDocumentToFavorites(documentId, folders)
+      const nextPrimaryFolder = await ensureDefaultFavoriteFolder([folder, ...folders])
+      setFolders((prev) => (prev.some((item) => item.id === nextPrimaryFolder.id) ? prev : [nextPrimaryFolder, ...prev]))
+      showMessage(`已收藏到 ${folder.name}`)
     } catch {
       showMessage('收藏未成功，请稍后再试')
     }
@@ -126,7 +100,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
           style={{ color: 'var(--gf-gold)', border: '1px solid rgba(201,160,99,0.2)' }}
         >
           <Star className="h-3.5 w-3.5" />
-          加入收藏
+          收藏此篇
         </button>
       </div>
 
@@ -146,7 +120,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
           <BookMarked className="h-3.5 w-3.5" />
-          {folders.length > 0 ? `默认收藏夹：${folders[0].name}` : '收藏时会自动创建默认收藏夹'}
+          {folders.length > 0 ? `默认收藏夹：${folders[0].name}` : '点“收藏此篇”后会自动创建默认收藏夹'}
         </div>
         <button
           onClick={handleSaveNote}

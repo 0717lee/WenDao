@@ -616,7 +616,7 @@ export function ChatInterface() {
                                     从一句原文问起
                                 </h2>
                                 <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                                    可问义理、人物、典故，也可以把一句话追问到明白。
+                                    不知道怎么搜也没关系，像聊天一样把问题问出来就行。最稳妥的方式，是直接贴一句原文。
                                 </p>
                             </div>
                             <button
@@ -640,6 +640,10 @@ export function ChatInterface() {
                                     {prompt}
                                 </button>
                             ))}
+                        </div>
+
+                        <div className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
+                            提示：按 Enter 发送，按 Shift + Enter 换行。
                         </div>
                     </div>
                 </div>

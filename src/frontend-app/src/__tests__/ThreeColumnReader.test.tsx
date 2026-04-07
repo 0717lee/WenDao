@@ -180,6 +180,40 @@ describe('ThreeColumnReader', () => {
     expect(mockGraphStoreState.setActiveTab).toHaveBeenCalledWith('reader')
     expect(useDocumentStore.getState().currentDocument).toBeNull()
   })
+
+  it('selects a sentence first and only opens AI explanation after explicit action', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-select',
+      title: 'selection test',
+      originalText: '学而时习之',
+      punctuatedText: '学而时习之。',
+      translatedText: '学习后经常练习它。',
+    })
+
+    vi.mocked(global.fetch).mockImplementation(() => new Promise(() => {}))
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    const { container } = render(<ThreeColumnReader />)
+
+    const explainButton = screen.getByRole('button', { name: /讲这句/ })
+    expect(explainButton).toBeDisabled()
+
+    fireEvent.click(screen.getByText('学而时习之'))
+
+    expect(container.textContent).toContain('当前已选')
+    expect(screen.queryByText('当前句子')).toBeNull()
+    expect(screen.getByRole('button', { name: /讲这句/ })).not.toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: /讲这句/ }))
+
+    expect(await screen.findByText('当前句子')).toBeInTheDocument()
+  })
 })
 
 describe('WordPopover', () => {
