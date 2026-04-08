@@ -199,6 +199,63 @@ async def test_fulltext_search_includes_private_docs_for_owner():
 
 
 @pytest.mark.asyncio
+async def test_load_document_candidates_uses_sqlite_for_corpus_and_pg_for_user_docs():
+    from routers import search as search_router
+
+    pg_conn = AsyncMock()
+    pg_conn.fetch = AsyncMock(return_value=[
+        {
+            "id": "doc-private",
+            "repo_id": None,
+            "title": "我的私有文档",
+            "source_name": "我的文档",
+            "author": "",
+            "dynasty": "",
+            "category": "",
+            "original_text": "私密内容关键字",
+            "punctuated_text": "私密内容关键字。",
+            "translated_text": "",
+            "segments": [],
+            "source_type": "user",
+            "owner_user_id": "user-1",
+        }
+    ])
+    pg_ctx = MagicMock()
+    pg_ctx.__aenter__ = AsyncMock(return_value=pg_conn)
+    pg_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    sqlite_cursor = AsyncMock()
+    sqlite_cursor.fetchall = AsyncMock(return_value=[
+        {
+            "id": "doc-corpus",
+            "repo_id": "KR1h0004",
+            "title": "《论语》",
+            "source_name": "Kanripo",
+            "author": "孔子弟子",
+            "dynasty": "春秋",
+            "category": "四书",
+            "original_text": "学而时习之不亦说乎",
+            "punctuated_text": "学而时习之，不亦说乎？",
+            "translated_text": "",
+            "segments": [],
+            "source_type": "corpus",
+            "owner_user_id": None,
+        }
+    ])
+    sqlite_db = AsyncMock()
+    sqlite_db.execute = AsyncMock(return_value=sqlite_cursor)
+    sqlite_ctx = MagicMock()
+    sqlite_ctx.__aenter__ = AsyncMock(return_value=sqlite_db)
+    sqlite_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("routers.search.get_connection", return_value=pg_ctx), \
+         patch("routers.search.get_db", return_value=sqlite_ctx):
+        rows = await search_router._load_document_candidates(limit=10, user_id="user-1")
+
+    assert [row["id"] for row in rows] == ["doc-corpus", "doc-private"]
+
+
+@pytest.mark.asyncio
 async def test_fulltext_search_prioritizes_exact_quote_with_segment_location():
     from routers.search import fulltext_search
 

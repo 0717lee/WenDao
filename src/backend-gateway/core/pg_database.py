@@ -18,6 +18,53 @@ logger = logging.getLogger(__name__)
 
 # Module-level pool reference
 pool: Optional[asyncpg.Pool] = None
+PG_CORPUS_SEED_MODE_ENV = "PG_CORPUS_SEED_MODE"
+DEFAULT_PG_CORPUS_SEED_MODE = "minimal"
+VALID_PG_CORPUS_SEED_MODES = {"none", "minimal", "full"}
+
+
+def _resolve_pg_corpus_seed_mode(seed_mode: str | None = None) -> str:
+    mode = (seed_mode or os.getenv(PG_CORPUS_SEED_MODE_ENV, DEFAULT_PG_CORPUS_SEED_MODE)).strip().lower()
+    if mode not in VALID_PG_CORPUS_SEED_MODES:
+        logger.warning(
+            "未知的 PG_CORPUS_SEED_MODE=%s，回退到默认值 %s",
+            mode,
+            DEFAULT_PG_CORPUS_SEED_MODE,
+        )
+        return DEFAULT_PG_CORPUS_SEED_MODE
+    return mode
+
+
+def _build_pg_corpus_seed_record(item: dict[str, object], seed_mode: str) -> dict[str, object]:
+    if seed_mode == "full":
+        return item
+
+    return {
+        "id": item["id"],
+        "title": item["title"],
+        "author": item.get("author"),
+        "dynasty": item.get("dynasty"),
+        "category": item.get("category"),
+        "source_name": item.get("source_name"),
+        "source_url": item.get("source_url"),
+        "repo_id": item.get("repo_id"),
+        "chapter_titles": item.get("chapter_titles", []),
+        "chapter_count": int(item.get("chapter_count", 0)),
+        "featured_excerpt": item.get("featured_excerpt"),
+        "difficulty": item.get("difficulty"),
+        "guide_summary": item.get("guide_summary"),
+        "reading_tip": item.get("reading_tip"),
+        "recommended_chapters": item.get("recommended_chapters", []),
+        "segment_guides": [],
+        "segments": [],
+        "translation_cache": [],
+        "translation_status": "none",
+        "original_text": "",
+        "punctuated_text": "",
+        "translated_text": "",
+        "entity_ids": item.get("entity_ids", []),
+        "source_type": item.get("source_type", "corpus"),
+    }
 
 
 async def _maybe_backfill_user_scoped_tables_pg(conn: asyncpg.Connection) -> None:
@@ -152,7 +199,7 @@ async def get_connection() -> AsyncGenerator[asyncpg.Connection, None]:
         yield conn
 
 
-async def init_pg_database() -> None:
+async def init_pg_database(seed_mode: str | None = None) -> None:
     """
     Create Phase 2 tables if they don't exist.
     Tables: documents, reading_history, favorite_folders, favorites, users.
@@ -160,6 +207,8 @@ async def init_pg_database() -> None:
     if pool is None:
         logger.warning("PostgreSQL pool not available, skipping table creation")
         return
+
+    resolved_seed_mode = _resolve_pg_corpus_seed_mode(seed_mode)
 
     async with pool.acquire() as conn:
         await conn.execute("""
@@ -458,96 +507,141 @@ async def init_pg_database() -> None:
 
         await conn.execute("DELETE FROM documents WHERE source_type = 'sample'")
 
-        corpus_documents = load_corpus_documents()
-        if corpus_documents:
-            corpus_ids = [str(item["id"]) for item in corpus_documents]
-            await conn.execute(
-                "DELETE FROM documents WHERE source_type = 'corpus' AND NOT (id::text = ANY($1::text[]))",
-                corpus_ids,
-            )
-            batch_size = 2
-            logger.info("[PG] Seeding %d corpus documents in ultra-resilient mode (batch_size=%d)...", len(corpus_documents), batch_size)
-            
-            for i in range(0, len(corpus_documents), batch_size):
-                batch = corpus_documents[i:i + batch_size]
-                try:
-                    # 每次批次重新从连接池获取连接，确保断线后能自动恢复
-                    async with pool.acquire() as sub_conn:
-                        await sub_conn.executemany(
-                            """
-                            INSERT INTO documents (
-                                id, title, author, dynasty, category, source_name, source_url,
-                                repo_id,
-                                chapter_titles, chapter_count, featured_excerpt,
-                                difficulty, guide_summary, reading_tip, recommended_chapters,
-                                segment_guides, segments, translation_cache, translation_status,
-                                original_text, punctuated_text, translated_text,
-                                ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
-                            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27, $28::uuid)
-                            ON CONFLICT (id) DO UPDATE SET
-                                title = EXCLUDED.title,
-                                repo_id = EXCLUDED.repo_id,
-                                author = EXCLUDED.author,
-                                dynasty = EXCLUDED.dynasty,
-                                category = EXCLUDED.category,
-                                source_name = EXCLUDED.source_name,
-                                source_url = EXCLUDED.source_url,
-                                chapter_titles = EXCLUDED.chapter_titles,
-                                chapter_count = EXCLUDED.chapter_count,
-                                featured_excerpt = EXCLUDED.featured_excerpt,
-                                difficulty = EXCLUDED.difficulty,
-                                guide_summary = EXCLUDED.guide_summary,
-                                reading_tip = EXCLUDED.reading_tip,
-                                recommended_chapters = EXCLUDED.recommended_chapters,
-                                segment_guides = EXCLUDED.segment_guides,
-                                segments = EXCLUDED.segments,
-                                original_text = EXCLUDED.original_text,
-                                punctuated_text = EXCLUDED.punctuated_text,
-                                updated_at = NOW()
-                            """,
-                            [
-                                (
-                                    item["id"],
-                                    item["title"],
-                                    item.get("author"),
-                                    item.get("dynasty"),
-                                    item.get("category"),
-                                    item.get("source_name"),
-                                    item.get("source_url"),
-                                    item.get("repo_id"),
-                                    json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
-                                    int(item.get("chapter_count", 0)),
-                                    item.get("featured_excerpt"),
-                                    item.get("difficulty"),
-                                    item.get("guide_summary"),
-                                    item.get("reading_tip"),
-                                    json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
-                                    json.dumps(item.get("segment_guides", []), ensure_ascii=False),
-                                    json.dumps(item.get("segments", []), ensure_ascii=False),
-                                    json.dumps(item.get("translation_cache", []), ensure_ascii=False),
-                                    item.get("translation_status", "none"),
-                                    item["original_text"],
-                                    item["punctuated_text"],
-                                    item.get("translated_text", ""),
-                                    1.0,
-                                    None,
-                                    "done",
-                                    json.dumps(item.get("entity_ids", []), ensure_ascii=False),
-                                    item["source_type"],
-                                    None,
-                                )
-                                for item in batch
-                            ]
-                        )
-                    logger.info("[PG] Seeded batch %d-%d", i, min(i+batch_size, len(corpus_documents)))
-                    # 在批次间增加微小延时，保护不稳定的公网代理
-                    await asyncio.sleep(0.5)
-                except Exception as exc:
-                    logger.error("[PG] Failed to seed batch %d-%d (Will retry next batch): %s", i, min(i+batch_size, len(corpus_documents)), exc)
-                    await asyncio.sleep(2) # 发生错误时进入冷却
+        if resolved_seed_mode == "none":
+            logger.info("[PG] 跳过 corpus 同步，当前模式: %s", resolved_seed_mode)
         else:
-            await conn.execute("DELETE FROM documents WHERE source_type = 'corpus'")
-            logger.warning("[PG] No corpus documents to seed (load_corpus_documents returned empty)")
+            corpus_documents = load_corpus_documents()
+            if corpus_documents:
+                corpus_seed_documents = [
+                    _build_pg_corpus_seed_record(item, resolved_seed_mode)
+                    for item in corpus_documents
+                ]
+                corpus_ids = [str(item["id"]) for item in corpus_seed_documents]
+                await conn.execute(
+                    "DELETE FROM documents WHERE source_type = 'corpus' AND NOT (id::text = ANY($1::text[]))",
+                    corpus_ids,
+                )
+                batch_size = 2
+                logger.info(
+                    "[PG] Seeding %d corpus documents in %s mode (batch_size=%d)...",
+                    len(corpus_seed_documents),
+                    resolved_seed_mode,
+                    batch_size,
+                )
+
+                upsert_sql = """
+                    INSERT INTO documents (
+                        id, title, author, dynasty, category, source_name, source_url,
+                        repo_id,
+                        chapter_titles, chapter_count, featured_excerpt,
+                        difficulty, guide_summary, reading_tip, recommended_chapters,
+                        segment_guides, segments, translation_cache, translation_status,
+                        original_text, punctuated_text, translated_text,
+                        ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
+                    ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27, $28::uuid)
+                """
+                if resolved_seed_mode == "full":
+                    upsert_sql += """
+                        ON CONFLICT (id) DO UPDATE SET
+                            title = EXCLUDED.title,
+                            repo_id = EXCLUDED.repo_id,
+                            author = EXCLUDED.author,
+                            dynasty = EXCLUDED.dynasty,
+                            category = EXCLUDED.category,
+                            source_name = EXCLUDED.source_name,
+                            source_url = EXCLUDED.source_url,
+                            chapter_titles = EXCLUDED.chapter_titles,
+                            chapter_count = EXCLUDED.chapter_count,
+                            featured_excerpt = EXCLUDED.featured_excerpt,
+                            difficulty = EXCLUDED.difficulty,
+                            guide_summary = EXCLUDED.guide_summary,
+                            reading_tip = EXCLUDED.reading_tip,
+                            recommended_chapters = EXCLUDED.recommended_chapters,
+                            segment_guides = EXCLUDED.segment_guides,
+                            segments = EXCLUDED.segments,
+                            translation_cache = EXCLUDED.translation_cache,
+                            translation_status = EXCLUDED.translation_status,
+                            original_text = EXCLUDED.original_text,
+                            punctuated_text = EXCLUDED.punctuated_text,
+                            translated_text = EXCLUDED.translated_text,
+                            entity_ids = EXCLUDED.entity_ids,
+                            updated_at = NOW()
+                    """
+                else:
+                    upsert_sql += """
+                        ON CONFLICT (id) DO UPDATE SET
+                            title = EXCLUDED.title,
+                            repo_id = EXCLUDED.repo_id,
+                            author = EXCLUDED.author,
+                            dynasty = EXCLUDED.dynasty,
+                            category = EXCLUDED.category,
+                            source_name = EXCLUDED.source_name,
+                            source_url = EXCLUDED.source_url,
+                            chapter_titles = EXCLUDED.chapter_titles,
+                            chapter_count = EXCLUDED.chapter_count,
+                            featured_excerpt = EXCLUDED.featured_excerpt,
+                            difficulty = EXCLUDED.difficulty,
+                            guide_summary = EXCLUDED.guide_summary,
+                            reading_tip = EXCLUDED.reading_tip,
+                            recommended_chapters = EXCLUDED.recommended_chapters,
+                            entity_ids = EXCLUDED.entity_ids,
+                            updated_at = NOW()
+                    """
+
+                for i in range(0, len(corpus_seed_documents), batch_size):
+                    batch = corpus_seed_documents[i:i + batch_size]
+                    try:
+                        # 每次批次重新从连接池获取连接，确保断线后能自动恢复
+                        async with pool.acquire() as sub_conn:
+                            await sub_conn.executemany(
+                                upsert_sql,
+                                [
+                                    (
+                                        item["id"],
+                                        item["title"],
+                                        item.get("author"),
+                                        item.get("dynasty"),
+                                        item.get("category"),
+                                        item.get("source_name"),
+                                        item.get("source_url"),
+                                        item.get("repo_id"),
+                                        json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
+                                        int(item.get("chapter_count", 0)),
+                                        item.get("featured_excerpt"),
+                                        item.get("difficulty"),
+                                        item.get("guide_summary"),
+                                        item.get("reading_tip"),
+                                        json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
+                                        json.dumps(item.get("segment_guides", []), ensure_ascii=False),
+                                        json.dumps(item.get("segments", []), ensure_ascii=False),
+                                        json.dumps(item.get("translation_cache", []), ensure_ascii=False),
+                                        item.get("translation_status", "none"),
+                                        item.get("original_text", ""),
+                                        item.get("punctuated_text", ""),
+                                        item.get("translated_text", ""),
+                                        1.0,
+                                        None,
+                                        "done",
+                                        json.dumps(item.get("entity_ids", []), ensure_ascii=False),
+                                        item["source_type"],
+                                        None,
+                                    )
+                                    for item in batch
+                                ]
+                            )
+                        logger.info("[PG] Seeded batch %d-%d", i, min(i + batch_size, len(corpus_seed_documents)))
+                        await asyncio.sleep(0.5)
+                    except Exception as exc:
+                        logger.error(
+                            "[PG] Failed to seed batch %d-%d (Will retry next batch): %s",
+                            i,
+                            min(i + batch_size, len(corpus_seed_documents)),
+                            exc,
+                        )
+                        await asyncio.sleep(2)
+            else:
+                await conn.execute("DELETE FROM documents WHERE source_type = 'corpus'")
+                logger.warning("[PG] No corpus documents to seed (load_corpus_documents returned empty)")
 
         # 最后的回填操作也应该重新获取连接，避免前面的副作用导致连接不可用
         async with pool.acquire() as final_conn:

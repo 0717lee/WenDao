@@ -16,9 +16,10 @@ async def main():
     load_dotenv()
     
     if os.getenv("DATABASE_URL"):
-        print("发现 DATABASE_URL，连接 PostgreSQL 数据库并初始化/更新数据...")
+        seed_mode = os.getenv("PG_CORPUS_SEED_MODE", "full")
+        print(f"发现 DATABASE_URL，连接 PostgreSQL 数据库并初始化/更新数据... 当前模式: {seed_mode}")
         async with pg_lifespan():
-            await init_pg_database()
+            await init_pg_database(seed_mode=seed_mode)
     else:
         print("未发现 DATABASE_URL，连接默认的 SQLite 数据库 ancient_texts.db 并初始化/更新数据...")
         await init_database()

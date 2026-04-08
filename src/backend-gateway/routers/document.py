@@ -102,6 +102,55 @@ def _normalize_document_payload(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _has_document_body(row: dict[str, Any] | None) -> bool:
+    if not row:
+        return False
+    if row.get("segments"):
+        return True
+    return bool(str(row.get("original_text") or "").strip() or str(row.get("punctuated_text") or "").strip())
+
+
+async def _get_sqlite_document_row(document_id: str | None = None, repo_id: str | None = None) -> dict[str, Any] | None:
+    if not document_id and not repo_id:
+        return None
+
+    sql = """
+        SELECT id, title, repo_id, author, dynasty, category, source_name, source_url,
+               chapter_titles, chapter_count, featured_excerpt,
+               difficulty, guide_summary, reading_tip, recommended_chapters,
+               segment_guides, segments, translation_cache, translation_status,
+               original_text, punctuated_text, translated_text, ocr_confidence,
+               image_data, entity_ids, status, source_type, owner_user_id, created_at, updated_at
+        FROM documents
+        WHERE {where_clause}
+        LIMIT 1
+    """
+    params: tuple[Any, ...]
+    if document_id:
+        where_clause = "id = ?"
+        params = (document_id,)
+    else:
+        where_clause = "repo_id = ?"
+        params = (repo_id,)
+
+    async with get_db() as db:
+        cursor = await db.execute(sql.format(where_clause=where_clause), params)
+        row = await cursor.fetchone()
+        return _normalize_document_payload(dict(row)) if row else None
+
+
+async def _hydrate_public_document(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not row or row.get("source_type") != "corpus" or _has_document_body(row):
+        return row
+
+    sqlite_row = None
+    if row.get("repo_id"):
+        sqlite_row = await _get_sqlite_document_row(repo_id=str(row["repo_id"]))
+    if not sqlite_row and row.get("id"):
+        sqlite_row = await _get_sqlite_document_row(document_id=str(row["id"]))
+    return sqlite_row or row
+
+
 def _is_public_document(row: dict[str, Any] | None) -> bool:
     return bool(row and row.get("source_type") == "corpus")
 
@@ -232,26 +281,12 @@ async def _get_document(document_id: str) -> dict | None:
                 """,
                 document_id,
             )
-            return _normalize_document_payload(dict(row)) if row else None
+            normalized = _normalize_document_payload(dict(row)) if row else None
+            return await _hydrate_public_document(normalized)
     except RuntimeError:
         pass
 
-    async with get_db() as db:
-        cursor = await db.execute(
-            """
-            SELECT id, title, repo_id, author, dynasty, category, source_name, source_url,
-                   chapter_titles, chapter_count, featured_excerpt,
-                   difficulty, guide_summary, reading_tip, recommended_chapters,
-                   segment_guides, segments, translation_cache, translation_status,
-                   original_text, punctuated_text, translated_text, ocr_confidence,
-                   image_data, entity_ids, status, source_type, owner_user_id, created_at, updated_at
-            FROM documents
-            WHERE id = ?
-            """,
-            (document_id,),
-        )
-        row = await cursor.fetchone()
-        return _normalize_document_payload(dict(row)) if row else None
+    return await _get_sqlite_document_row(document_id=document_id)
 
 
 async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
@@ -895,7 +930,10 @@ async def _resolve_citation_reference(title: str, source: str, excerpt: str = ""
                 user_id,
                 200,
             )
-            candidates = [dict(row) for row in rows]
+            candidates = []
+            for row in rows:
+                normalized = _normalize_document_payload(dict(row))
+                candidates.append(await _hydrate_public_document(normalized) or normalized)
     except RuntimeError:
         async with get_db() as db:
             cursor = await db.execute(

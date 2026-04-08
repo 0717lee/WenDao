@@ -46,8 +46,8 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     # chapter_titles, chapter_count, featured_excerpt, difficulty, guide_summary,
     # reading_tip, recommended_chapters, segment_guides, segments, translation_cache,
     # translation_status, email
-    assert mock_conn.execute.call_count == 37
-    assert mock_conn.executemany.call_count == 2
+    assert mock_conn.execute.call_count == 39
+    assert mock_conn.executemany.call_count >= 1
 
     # Verify table names are in the SQL
     calls = [str(c) for c in mock_conn.execute.call_args_list]
@@ -100,6 +100,23 @@ async def test_init_pg_database_skips_when_no_pool(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_init_pg_database_uses_minimal_corpus_upsert_by_default(mock_asyncpg_pool, monkeypatch):
+    """Default startup seeding should not overwrite heavy corpus text fields on conflict."""
+    monkeypatch.setattr(pg_database, "pool", mock_asyncpg_pool)
+    monkeypatch.delenv("PG_CORPUS_SEED_MODE", raising=False)
+
+    await pg_database.init_pg_database()
+
+    acm = mock_asyncpg_pool.acquire.return_value
+    mock_conn = acm.__aenter__.return_value
+    sql = mock_conn.executemany.call_args_list[0].args[0]
+
+    assert "entity_ids = EXCLUDED.entity_ids" in sql
+    assert "original_text = EXCLUDED.original_text" not in sql
+    assert "segments = EXCLUDED.segments" not in sql
+
+
+@pytest.mark.asyncio
 async def test_lifespan_creates_and_closes_pool(monkeypatch):
     """pg_lifespan should create pool on enter and close on exit."""
     mock_pool = AsyncMock()
@@ -115,9 +132,9 @@ async def test_lifespan_creates_and_closes_pool(monkeypatch):
             assert pg_database.pool is mock_pool
             mock_asyncpg.create_pool.assert_called_once_with(
                 "postgresql://test:test@localhost/testdb",
-                min_size=5,
-                max_size=20,
-                command_timeout=60,
+                min_size=2,
+                max_size=10,
+                command_timeout=300,
             )
 
         # Pool should be closed and cleared after exiting

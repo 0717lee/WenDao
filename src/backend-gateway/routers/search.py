@@ -110,6 +110,7 @@ def _normalize_candidate_row(row: Any) -> dict:
             preview = row[2] or ""
             return {
                 "id": str(row[0]),
+                "repo_id": "",
                 "title": row[1] or "",
                 "source_name": row[3] or "",
                 "author": "",
@@ -122,6 +123,7 @@ def _normalize_candidate_row(row: Any) -> dict:
             }
         return {
             "id": "",
+            "repo_id": "",
             "title": "",
             "source_name": "",
             "author": "",
@@ -132,6 +134,22 @@ def _normalize_candidate_row(row: Any) -> dict:
             "translated_text": "",
             "segments": [],
         }
+
+
+async def _load_sqlite_corpus_candidates(limit: int) -> list[dict[str, Any]]:
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT id, repo_id, title, source_name, author, dynasty, category,
+                   original_text, punctuated_text, translated_text, segments, source_type, owner_user_id
+            FROM documents
+            WHERE source_type = 'corpus'
+            ORDER BY COALESCE(updated_at, created_at) DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return [_normalize_candidate_row(row) for row in await cursor.fetchall()]
 
 
 def _normalize_search_text(value: str) -> str:
@@ -318,25 +336,34 @@ def _match_document_location(row: dict[str, Any], query: str) -> dict[str, Any] 
 
 
 async def _load_document_candidates(limit: int = 200, user_id: str | None = None) -> list[dict]:
+    corpus_rows = await _load_sqlite_corpus_candidates(limit)
+
     try:
         async with get_connection() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT id::text AS id, title, source_name, author, dynasty, category, original_text, punctuated_text, translated_text, segments, source_type, owner_user_id::text AS owner_user_id
-                FROM documents
-                WHERE source_type = 'corpus' OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
-                ORDER BY COALESCE(updated_at, created_at) DESC
-                LIMIT $2
-                """,
-                user_id,
-                limit,
-            )
-            return [dict(row) for row in rows]
+            if user_id:
+                rows = await conn.fetch(
+                    """
+                    SELECT id::text AS id, repo_id, title, source_name, author, dynasty, category,
+                           original_text, punctuated_text, translated_text, segments, source_type,
+                           owner_user_id::text AS owner_user_id
+                    FROM documents
+                    WHERE source_type <> 'corpus' AND owner_user_id = $1::uuid
+                    ORDER BY COALESCE(updated_at, created_at) DESC
+                    LIMIT $2
+                    """,
+                    user_id,
+                    limit,
+                )
+                user_rows = [dict(row) for row in rows]
+            else:
+                user_rows = []
+            return [*corpus_rows, *user_rows][:limit]
     except RuntimeError:
         async with get_db() as db:
             cursor = await db.execute(
                 """
-                SELECT id, title, source_name, author, dynasty, category, original_text, punctuated_text, translated_text, segments, source_type, owner_user_id
+                SELECT id, repo_id, title, source_name, author, dynasty, category,
+                       original_text, punctuated_text, translated_text, segments, source_type, owner_user_id
                 FROM documents
                 WHERE source_type = 'corpus' OR (? IS NOT NULL AND owner_user_id = ?)
                 ORDER BY COALESCE(updated_at, created_at) DESC
