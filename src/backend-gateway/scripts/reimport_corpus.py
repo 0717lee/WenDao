@@ -22,7 +22,7 @@ async def main():
             await init_pg_database(seed_mode=seed_mode)
     else:
         print("未发现 DATABASE_URL，连接默认的 SQLite 数据库 ancient_texts.db 并初始化/更新数据...")
-        await init_database()
+        await init_database(seed_mode="refresh")
         
     print("更新完成！所有的语料库文档已经根据 kanripo_corpus.json 重新导入/更新。")
 

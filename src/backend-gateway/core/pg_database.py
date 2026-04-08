@@ -12,7 +12,7 @@ from typing import AsyncGenerator, Optional
 
 import asyncpg
 
-from core.corpus_documents import load_corpus_documents
+from core.corpus_documents import load_corpus_documents, load_corpus_seed_documents_from_sqlite
 
 logger = logging.getLogger(__name__)
 
@@ -510,7 +510,10 @@ async def init_pg_database(seed_mode: str | None = None) -> None:
         if resolved_seed_mode == "none":
             logger.info("[PG] 跳过 corpus 同步，当前模式: %s", resolved_seed_mode)
         else:
-            corpus_documents = load_corpus_documents()
+            if resolved_seed_mode == "minimal":
+                corpus_documents = load_corpus_seed_documents_from_sqlite()
+            else:
+                corpus_documents = load_corpus_documents()
             if corpus_documents:
                 corpus_seed_documents = [
                     _build_pg_corpus_seed_record(item, resolved_seed_mode)

@@ -88,6 +88,28 @@ class TestDatabaseInitialization:
 
         os.remove(test_db)
 
+    @pytest.mark.asyncio
+    async def test_init_skips_refresh_when_corpus_already_exists_in_auto_mode(self, monkeypatch):
+        test_db = "test_ancient_texts.db"
+        if os.path.exists(test_db):
+            os.remove(test_db)
+
+        await init_database(test_db)
+
+        from core import database as database_module
+
+        fail_loader = lambda: (_ for _ in ()).throw(AssertionError("should not reload corpus documents"))
+        monkeypatch.setattr(database_module, "load_corpus_documents", fail_loader)
+
+        await init_database(test_db)
+
+        async with get_db(test_db) as db:
+            cursor = await db.execute("SELECT COUNT(*) FROM documents WHERE source_type = 'corpus'")
+            corpus_count = await cursor.fetchone()
+            assert corpus_count[0] >= 100
+
+        os.remove(test_db)
+
 
 class TestDatabaseOperations:
     """测试2: 异步插入对话记录成功"""
