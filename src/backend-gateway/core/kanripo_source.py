@@ -232,6 +232,13 @@ def build_basic_reading_guide(
     }
 
 
+def normalize_display_title(title: str, converter=None) -> str:
+    cleaned = title.strip()
+    if converter:
+        cleaned = converter.convert(cleaned)
+    return f"《{cleaned}》" if not cleaned.startswith("《") else cleaned
+
+
 def _build_additional_curated_works() -> list[dict[str, object]]:
     converter = get_converter()
     catalog_by_repo = {
@@ -535,13 +542,6 @@ def parse_catalog_title(raw_title: str) -> tuple[str, str | None, str | None]:
     dynasty = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
     author = parts[2].strip() if len(parts) > 2 and parts[2].strip() else None
     return title, dynasty, author
-
-
-def normalize_display_title(title: str, converter=None) -> str:
-    cleaned = title.strip()
-    if converter:
-        cleaned = converter.convert(cleaned)
-    return f"《{cleaned}》" if not cleaned.startswith("《") else cleaned
 
 
 def serialize_json(data: object, output_path: Path) -> None:
