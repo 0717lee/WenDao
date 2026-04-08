@@ -4,6 +4,26 @@ import DashboardHome from '../components/DashboardHome'
 
 function installFetchMock() {
   ;(global.fetch as any).mockImplementation((url: string) => {
+    if (url.includes('/api/v1/documents?limit=12&source_type=corpus')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          documents: [
+            {
+              id: 'corpus-1',
+              title: '《论语》',
+              preview: '从熟悉的小段落开始，更容易进入状态。',
+              has_processed: true,
+              current_paragraph: 0,
+              total_paragraphs: 0,
+              source_type: 'corpus',
+            },
+          ],
+          total: 40,
+        }),
+      })
+    }
+
     if (url.includes('/api/v1/documents?limit=12')) {
       return Promise.resolve({
         ok: true,
@@ -44,26 +64,6 @@ function installFetchMock() {
       })
     }
 
-    if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({
-          documents: [
-            {
-              id: 'sample-1',
-              title: '《论语·学而》',
-              preview: '学习后经常复习实践，不也是快乐的吗？',
-              has_processed: true,
-              current_paragraph: 0,
-              total_paragraphs: 0,
-              source_type: 'sample',
-            },
-          ],
-          total: 1,
-        }),
-      })
-    }
-
     if (url.includes('/api/v1/reader/history')) {
       return Promise.resolve({ ok: true, json: async () => [] })
     }
@@ -90,18 +90,18 @@ describe('DashboardHome', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /先把古籍翻开/i,
+        name: /读不懂古文时/i,
       })
     ).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /先翻开一部经典/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /记得一句，就从这里问起/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /手头有图片，再从这里开始/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /打开推荐内容/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /先解释一句古文/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /先识别图片文字/i })).toBeInTheDocument()
   })
 
   it('routes the first card to open the recommended text', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /先翻开一部经典/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /打开推荐内容/i }))
 
     expect(props.onOpenDocument).toHaveBeenCalledWith('corpus-1')
   })
@@ -109,7 +109,7 @@ describe('DashboardHome', () => {
   it('routes the quote-first card to AI guidance', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /记得一句，就从这里问起/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /先解释一句古文/i }))
 
     expect(props.onAsk).toHaveBeenCalled()
   })
@@ -119,27 +119,8 @@ describe('DashboardHome', () => {
       if (url.includes('/api/v1/documents?limit=12')) {
         return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
       }
-      if (url.includes('/api/v1/documents?limit=8&source_type=corpus')) {
+      if (url.includes('/api/v1/documents?limit=12&source_type=corpus')) {
         return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
-      }
-      if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            documents: [
-              {
-                id: 'sample-1',
-                title: '《论语·学而》',
-                preview: '学习后经常复习实践，不也是快乐的吗？',
-                has_processed: true,
-                current_paragraph: 0,
-                total_paragraphs: 0,
-                source_type: 'sample',
-              },
-            ],
-            total: 1,
-          }),
-        })
       }
       if (url.includes('/api/v1/reader/history')) {
         return Promise.resolve({ ok: true, json: async () => [] })
@@ -149,7 +130,7 @@ describe('DashboardHome', () => {
 
     render(<DashboardHome {...props} />)
 
-    expect(await screen.findByRole('button', { name: /记得一句，就从这里问起/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /先解释一句古文/i })).toBeInTheDocument()
   })
 
   it('routes the lightweight continue and recommendation entries to the right actions', async () => {
@@ -167,7 +148,7 @@ describe('DashboardHome', () => {
   it('routes the image-first card to OCR upload flow', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /手头有图片，再从这里开始/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /先识别图片文字/i }))
 
     await waitFor(() => {
       expect(props.onOpenReaderUpload).toHaveBeenCalled()

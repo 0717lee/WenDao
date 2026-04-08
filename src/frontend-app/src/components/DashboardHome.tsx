@@ -5,7 +5,6 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { API_BASE } from '../lib/api'
-import { getDemoBookshelfDocuments } from '../data/demoDocuments'
 import { authFetchOptions } from '../store/useAuthStore'
 
 interface DashboardHomeProps {
@@ -51,9 +50,7 @@ export default function DashboardHome({
   const [corpusTotal, setCorpusTotal] = useState(0)
   const [documentsTotal, setDocumentsTotal] = useState(0)
   const [corpusDocuments, setCorpusDocuments] = useState<BookshelfItem[]>([])
-  const [sampleDocuments, setSampleDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
-  const [usingDemoSamples, setUsingDemoSamples] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -69,10 +66,9 @@ export default function DashboardHome({
         }
       }
 
-      const [docsData, corpusData, sampleData, historyData] = await Promise.all([
+      const [docsData, corpusData, historyData] = await Promise.all([
         loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [], total: 0 }),
-        loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=corpus`, { documents: [], total: 0 }),
-        loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, { documents: [], total: 0 }),
+        loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=12&source_type=corpus`, { documents: [], total: 0 }),
         loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
       ])
 
@@ -80,15 +76,10 @@ export default function DashboardHome({
 
       const allDocuments = Array.isArray(docsData.documents) ? docsData.documents : []
       const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
-      const builtInSamples = Array.isArray(sampleData.documents) ? sampleData.documents : []
-      const demoSamples = getDemoBookshelfDocuments()
-      const resolvedSamples = builtInSamples.length > 0 ? builtInSamples : demoSamples
 
       setCorpusDocuments(corpusList)
       setCorpusTotal(corpusData.total || corpusList.length)
       setDocumentsTotal(docsData.total || allDocuments.length)
-      setSampleDocuments(resolvedSamples)
-      setUsingDemoSamples(builtInSamples.length === 0)
       setHistory(Array.isArray(historyData) ? historyData : [])
     }
 
@@ -99,9 +90,8 @@ export default function DashboardHome({
   }, [])
 
   const firstCorpus = corpusDocuments[0]
-  const firstSample = sampleDocuments[0]
   const latestHistoryDocumentId = history[0]?.id ?? null
-  const recommendedStart = firstCorpus ?? firstSample ?? null
+  const recommendedStart = firstCorpus ?? null
 
   const openRecommendedStart = () => {
     if (recommendedStart) {
@@ -126,27 +116,27 @@ export default function DashboardHome({
   const heroEntryWays = [
     {
       key: 'read',
-      eyebrow: '开卷入古',
-      title: recommendedStart ? '先翻开一部经典' : '先去阅读页看看',
-      description: '第一次来时，不用想太多，先打开一篇能直接读的内容。',
+      eyebrow: '直接阅读',
+      title: recommendedStart ? '打开推荐内容' : '前往阅读页挑选',
+      description: '适合先读一篇时使用。',
       action: openRecommendedStart,
       accent: 'var(--gf-gugong-red)',
       accentSoft: 'rgba(140,26,17,0.08)',
     },
     {
       key: 'ask',
-      eyebrow: '随句入门',
-      title: '记得一句，就从这里问起',
-      description: '只要你记得一句原文，或知道哪里没懂，就先问一句。',
+      eyebrow: '解释一句',
+      title: '先解释一句古文',
+      description: '适合已经记得一句原文时使用。',
       action: () => onAsk(askFromSentencePrompt),
       accent: '#7b5b44',
       accentSoft: 'rgba(123,91,68,0.08)',
     },
     {
       key: 'scan',
-      eyebrow: '拍页即读',
-      title: '手头有图片，再从这里开始',
-      description: '影印页、截图、扫描图，都可以先转成文字再慢慢读。',
+      eyebrow: '上传图片',
+      title: '先识别图片文字',
+      description: '适合手头只有图片时使用。',
       action: onOpenReaderUpload,
       accent: 'var(--gf-gold)',
       accentSoft: 'rgba(201,160,99,0.12)',
@@ -193,10 +183,10 @@ export default function DashboardHome({
                   style={{ backgroundColor: 'rgba(140,26,17,0.09)', color: 'var(--gf-gugong-red)' }}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  开卷导读
+                  开始使用
                 </span>
                 <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
-                  先读一篇，再慢慢读懂
+                  先选一种开始方式
                 </div>
               </div>
 
@@ -205,19 +195,19 @@ export default function DashboardHome({
                   className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  先把古籍翻开，
+                  读不懂古文时，
                   <br className="hidden md:block" />
-                  让一句一句都慢慢明白
+                  可以从这里开始
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  不用先研究功能。先读一篇、问一句，或者上传一页图片，系统会把下一步尽量收得很简单。
+                  可以直接阅读一篇内容、解释一句古文，或上传图片识别。先选一种最适合当前情况的方式即可。
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>先读一篇</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>记得一句就问</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>有图再上传</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>直接阅读</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>解释一句</span>
+                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>上传图片</span>
               </div>
             </div>
 
@@ -232,7 +222,7 @@ export default function DashboardHome({
             >
               <div className="mb-5 flex items-center gap-2 text-sm" style={{ color: 'var(--gf-text)' }}>
                 <BookOpen className="h-4 w-4" />
-                第一次来，可以先从这里开始
+                请选择开始方式
               </div>
               <div className="space-y-4">
                 {heroEntryWays.map((item, index) => (
@@ -280,7 +270,7 @@ export default function DashboardHome({
                 继续上次阅读
               </h3>
               <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                如果你不是第一次来，最省力的方式就是从上次停下的地方接着读。
+                如果之前读过，可以直接从上次停下的地方继续。
               </p>
             </div>
 
@@ -299,7 +289,7 @@ export default function DashboardHome({
                 {history[0]?.title || '还没有阅读记录'}
               </div>
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                {history[0] ? `最近阅读：${formatTimeLabel(history[0].last_read_at)}` : '第一次来时，也可以先从右侧卡片里的推荐起点开始。'}
+                {history[0] ? `最近阅读：${formatTimeLabel(history[0].last_read_at)}` : '第一次使用时，也可以先打开推荐内容。'}
               </div>
               <button
                 onClick={continueReadingAction}
@@ -318,10 +308,10 @@ export default function DashboardHome({
           >
             <div className="mb-4">
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                从推荐篇目开始
+                还不知道读什么
               </h3>
               <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                如果你还没决定读什么，就先从一篇适合起步的内容开始。
+                不知道选哪篇时，可以先从推荐内容开始。
               </p>
             </div>
 
@@ -330,26 +320,21 @@ export default function DashboardHome({
               style={{ backgroundColor: 'rgba(248,244,233,0.92)', border: '1px solid rgba(201,160,99,0.16)' }}
             >
               <div className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                推荐起点
+                先读这个
               </div>
               <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
                 {recommendedStart?.title || '先去阅读页挑一篇'}
               </div>
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
-                {recommendedStart?.preview || '如果你还没有明确目标，推荐先从一篇短一点、容易起读的内容开始。'}
+                {recommendedStart?.preview || '如果暂时没有明确目标，建议先从篇幅较短、容易进入的内容开始。'}
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
                   古籍库 {corpusTotal}
                 </span>
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                  可读文档 {documentsTotal}
+                  现在能读 {documentsTotal}
                 </span>
-                {usingDemoSamples && (
-                  <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                    离线样例可体验
-                  </span>
-                )}
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button

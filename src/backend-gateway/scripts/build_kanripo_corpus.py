@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -29,6 +30,7 @@ from core.kanripo_source import (
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT_PATH = REPO_ROOT / "src" / "backend-gateway" / "data" / "kanripo_corpus.json"
 DEFAULT_ENV_PATH = REPO_ROOT / "src" / "backend-gateway" / ".env"
+DEFAULT_CHUNK_SIZE = 10
 
 
 async def prewarm_translation_cache(
@@ -82,6 +84,7 @@ async def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--with-translation-cache", action="store_true", help="Prebuild recommended chapter translations for curated classics.")
     parser.add_argument("--translation-segments", type=int, default=3)
+    parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
     args = parser.parse_args()
 
     translator_agent = TranslatorAgent() if args.with_translation_cache else None
@@ -103,8 +106,21 @@ async def main() -> int:
             failures.append((str(work["repo_id"]), str(exc)))
             print(f"[WARN] {work['repo_id']} -> {work['title']} skipped: {exc}")
 
-    serialize_json(records, args.output)
-    print(f"[DONE] Wrote {len(records)} corpus documents to {args.output}")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    for existing_part in args.output.parent.glob(f"{args.output.stem}.part*.json"):
+        existing_part.unlink(missing_ok=True)
+    args.output.unlink(missing_ok=True)
+
+    chunk_size = max(1, int(args.chunk_size))
+    total_chunks = (len(records) + chunk_size - 1) // chunk_size
+    for chunk_index in range(total_chunks):
+        chunk = records[chunk_index * chunk_size:(chunk_index + 1) * chunk_size]
+        chunk_path = args.output.parent / f"{args.output.stem}.part{chunk_index + 1:02d}.json"
+        chunk_path.write_text(
+            json.dumps(chunk, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
+    print(f"[DONE] Wrote {len(records)} corpus documents into {total_chunks} chunk file(s) under {args.output.parent}")
     if failures:
         print(f"[WARN] Skipped {len(failures)} works during rebuild")
         for repo_id, message in failures:

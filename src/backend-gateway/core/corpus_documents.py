@@ -17,25 +17,29 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "kanripo_corpus.json"
+DATA_GLOB = "kanripo_corpus.part*.json"
 
 
 @lru_cache(maxsize=1)
 def load_corpus_documents() -> list[dict[str, Any]]:
     """Return corpus documents if a local snapshot exists."""
-    if not DATA_PATH.exists():
-        logger.warning("[CorpusLoader] kanripo_corpus.json not found at %s", DATA_PATH)
+    data_files = sorted(DATA_PATH.parent.glob(DATA_GLOB))
+    if not data_files and DATA_PATH.exists():
+        data_files = [DATA_PATH]
+    if not data_files:
+        logger.warning("[CorpusLoader] kanripo corpus snapshot not found under %s", DATA_PATH.parent)
         return []
 
     try:
-        payload = json.loads(DATA_PATH.read_text(encoding="utf-8"))
+        payload: list[dict[str, Any]] = []
+        for data_file in data_files:
+            file_payload = json.loads(data_file.read_text(encoding="utf-8"))
+            if not isinstance(file_payload, list):
+                logger.warning("[CorpusLoader] %s is not a list, got %s", data_file, type(file_payload).__name__)
+                continue
+            payload.extend(item for item in file_payload if isinstance(item, dict))
     except Exception as exc:
-        logger.error("[CorpusLoader] Failed to parse kanripo_corpus.json: %s", exc)
+        logger.error("[CorpusLoader] Failed to parse corpus snapshot: %s", exc)
         return []
-
-    if not isinstance(payload, list):
-        logger.warning("[CorpusLoader] kanripo_corpus.json is not a list, got %s", type(payload).__name__)
-        return []
-
-    docs = [item for item in payload if isinstance(item, dict)]
-    logger.info("[CorpusLoader] Loaded %d corpus documents from %s", len(docs), DATA_PATH)
-    return docs
+    logger.info("[CorpusLoader] Loaded %d corpus documents from %d file(s)", len(payload), len(data_files))
+    return payload

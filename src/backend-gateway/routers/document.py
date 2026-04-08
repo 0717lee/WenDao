@@ -103,7 +103,7 @@ def _normalize_document_payload(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _is_public_document(row: dict[str, Any] | None) -> bool:
-    return bool(row and row.get("source_type") in {"corpus", "sample"})
+    return bool(row and row.get("source_type") == "corpus")
 
 
 def _can_access_document(row: dict[str, Any] | None, user_id: str | None) -> bool:
@@ -291,7 +291,7 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
 async def _list_documents(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
     """Return bookshelf-ready document metadata ordered by most recently updated."""
     where_clause = (
-        "WHERE (d.source_type IN ('corpus', 'sample') OR ($2::uuid IS NOT NULL AND d.owner_user_id = $2::uuid))"
+        "WHERE (d.source_type = 'corpus' OR ($2::uuid IS NOT NULL AND d.owner_user_id = $2::uuid))"
     )
     if source_type:
         where_clause += " AND d.source_type = $3"
@@ -342,8 +342,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
                 {where_clause}
                 ORDER BY CASE
                     WHEN d.source_type = 'corpus' THEN 0
-                    WHEN d.source_type = 'sample' THEN 1
-                    ELSE 2
+                    ELSE 1
                 END, COALESCE(d.updated_at, d.created_at) DESC
                 LIMIT $1
                 """
@@ -407,12 +406,11 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
             {where_clause_sqlite}
             ORDER BY CASE
                 WHEN d.source_type = 'corpus' THEN 0
-                WHEN d.source_type = 'sample' THEN 1
-                ELSE 2
+                ELSE 1
             END, COALESCE(d.updated_at, d.created_at) DESC
             LIMIT ?
             """
-        where_clause_sqlite = "WHERE (d.source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND d.owner_user_id = ?))"
+        where_clause_sqlite = "WHERE (d.source_type = 'corpus' OR (? IS NOT NULL AND d.owner_user_id = ?))"
         if source_type:
             where_clause_sqlite += " AND d.source_type = ?"
         cursor = await db.execute(
@@ -426,7 +424,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
 async def _count_documents(source_type: str | None = None, user_id: str | None = None) -> int:
     """Return total count of documents ignoring limit and offset."""
     where_clause = (
-        "WHERE (source_type IN ('corpus', 'sample') OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid))"
+        "WHERE (source_type = 'corpus' OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid))"
     )
     if source_type:
         where_clause += " AND source_type = $2"
@@ -440,7 +438,7 @@ async def _count_documents(source_type: str | None = None, user_id: str | None =
         pass
 
     async with get_db() as db:
-        where_clause_sqlite = "WHERE (source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND owner_user_id = ?))"
+        where_clause_sqlite = "WHERE (source_type = 'corpus' OR (? IS NOT NULL AND owner_user_id = ?))"
         if source_type:
             where_clause_sqlite += " AND source_type = ?"
         
@@ -889,7 +887,7 @@ async def _resolve_citation_reference(title: str, source: str, excerpt: str = ""
                 """
                 SELECT id::text AS id, title, original_text, punctuated_text, translated_text, source_type, owner_user_id::text AS owner_user_id
                 FROM documents
-                WHERE source_type IN ('corpus', 'sample') OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
+                WHERE source_type = 'corpus' OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
                 ORDER BY COALESCE(updated_at, created_at) DESC
                 LIMIT $2
                 """
@@ -904,7 +902,7 @@ async def _resolve_citation_reference(title: str, source: str, excerpt: str = ""
                 """
                 SELECT id, title, original_text, punctuated_text, translated_text, source_type, owner_user_id
                 FROM documents
-                WHERE source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND owner_user_id = ?)
+                WHERE source_type = 'corpus' OR (? IS NOT NULL AND owner_user_id = ?)
                 ORDER BY COALESCE(updated_at, created_at) DESC
                 LIMIT ?
                 """
@@ -1092,6 +1090,8 @@ async def list_documents(
     _user: dict = Depends(require_auth),
 ):
     """List documents for the bookshelf/home views."""
+    if not isinstance(source_type, str):
+        source_type = None
     user_id = _extract_user_id(_user)
     documents = await _list_documents(limit=limit, source_type=source_type, user_id=user_id)
     total = await _count_documents(source_type=source_type, user_id=user_id)

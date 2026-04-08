@@ -10,7 +10,6 @@ import { authFetchOptions } from '../store/useAuthStore'
 import { useGraphStore } from '../store/useGraphStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 import type { ReasoningStep } from './ReasoningTimeline'
-import { buildDemoChatResponse, resolveDemoCitation, getDemoDocumentById, toReaderDocument } from '../data/demoDocuments'
 
 // Default reasoning steps template
 const INITIAL_REASONING_STEPS: ReasoningStep[] = [
@@ -140,19 +139,6 @@ export function ChatInterface() {
                 }
             } catch (error) {
                 console.error('Citation resolution failed:', error)
-            }
-
-            const demoMatch = resolveDemoCitation(citation)
-            if (demoMatch) {
-                const demoDocument = getDemoDocumentById(demoMatch.documentId)
-                if (demoDocument) {
-                    setDocument(toReaderDocument(demoDocument))
-                    setUploadStatus('done')
-                    setPendingAnchorText(demoMatch.anchorText)
-                    setReaderReturnTab('chat')
-                    setActiveTab('reader')
-                    return
-                }
             }
 
             queueSearchQuery(`${citation.title} ${citation.source}`)
@@ -430,45 +416,6 @@ export function ChatInterface() {
             timestamp: Date.now(),
         })
 
-        const applyDemoFallback = () => {
-            const fallback = buildDemoChatResponse(userMessage.content)
-            const fallbackActions: AnswerContextAction[] = []
-            if (fallback.citations[0]) {
-                fallbackActions.push({
-                    id: 'demo-open-citation',
-                    label: '定位原文',
-                    kind: 'reader',
-                    citation: fallback.citations[0],
-                })
-            }
-            fallbackActions.push({
-                id: 'demo-follow-chat',
-                label: '继续追问',
-                kind: 'chat',
-                prompt: `请继续围绕“${userMessage.content}”做更白话的讲解。`,
-            })
-            const demoReasoning: ReasoningStep[] = [
-                { step: 'retrieval', label: '检索体验样例', status: 'complete', duration: 0.02, model: '离线演示', fallback: true },
-                { step: 'entity_extraction', label: '抽取关联实体', status: 'complete', duration: 0.01, model: '离线演示', fallback: true },
-                { step: 'knowledge_linking', label: '知识关联推理', status: 'complete', duration: 0.01, model: '离线演示', fallback: true },
-                { step: 'generation', label: '生成通俗解读', status: 'complete', duration: 0.02, model: '离线演示', fallback: true },
-            ]
-
-            updateLastMessageReasoning(demoReasoning)
-            updateLastMessageCitations(fallback.citations)
-            updateLastMessageAnswerContext({
-                trustLabel: '离线演示',
-                trustPoints: ['当前回答来自离线体验样例，建议上线环境核对真实引文。'],
-                citationCount: fallback.citations.length,
-                relatedEntityCount: 0,
-                primaryCitation: fallback.citations[0],
-                suggestedActions: fallbackActions,
-            })
-            updateLastMessage(fallback.content)
-            setLoading(false)
-            setProgress('')
-        }
-
         try {
             const response = await fetch(`${API_BASE}/api/v1/chat`, {
                 method: 'POST',
@@ -586,7 +533,32 @@ export function ChatInterface() {
             flushStreamBuffer(true)
         } catch (error) {
             console.error('Failed to send message:', error)
-            applyDemoFallback()
+            const failedActions: AnswerContextAction[] = [
+                {
+                    id: 'retry-chat',
+                    label: '重新提问',
+                    kind: 'chat',
+                    prompt: userMessage.content,
+                },
+                {
+                    id: 'switch-search',
+                    label: '转到原文检索',
+                    kind: 'search',
+                    query: userMessage.content,
+                },
+            ]
+            updateLastMessageReasoning([])
+            updateLastMessageCitations([])
+            updateLastMessageAnswerContext({
+                trustLabel: '未完成',
+                trustPoints: ['当前问答服务暂时不可用，请稍后重试，或先改用原文检索。'],
+                citationCount: 0,
+                relatedEntityCount: 0,
+                suggestedActions: failedActions,
+            })
+            updateLastMessage('当前问答服务暂时不可用，请稍后重试，或先改用原文检索。')
+            setLoading(false)
+            setProgress('')
         }
     }
 

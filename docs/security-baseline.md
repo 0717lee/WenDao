@@ -58,7 +58,7 @@
 
 当前规则：
 
-- `source_type in {'corpus', 'sample'}` 的文档视为公共文档。
+- `source_type == 'corpus'` 的文档视为公共文档。
 - `source_type == 'user'` 的文档必须匹配 `owner_user_id == 当前用户` 才可访问。
 - 文档详情、推荐、引用定位、搜索候选都必须复用这套规则。
 

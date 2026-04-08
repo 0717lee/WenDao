@@ -162,7 +162,7 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('shows fallback actions when network request cannot reach the search service', async () => {
+  it('shows service error when network request cannot reach the search service', async () => {
     (global.fetch as any).mockRejectedValueOnce(new Error('Failed to fetch'));
 
     render(<SearchPanel {...props} />);
@@ -172,8 +172,7 @@ describe('SearchPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/离线体验样例结果/i)).toBeInTheDocument();
-      expect(screen.getByText('体验样例 · 《论语·学而》')).toBeInTheDocument();
+      expect(screen.getByText(/检索服务暂时不可用/i)).toBeInTheDocument();
     });
   });
 

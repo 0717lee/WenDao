@@ -48,16 +48,10 @@ class TestDatabaseInitialization:
             assert result is not None
 
             cursor = await db.execute(
-                "SELECT COUNT(*) FROM documents WHERE source_type = 'sample'"
-            )
-            sample_count = await cursor.fetchone()
-            assert sample_count[0] >= 5
-
-            cursor = await db.execute(
                 "SELECT COUNT(*) FROM documents WHERE source_type = 'corpus'"
             )
             corpus_count = await cursor.fetchone()
-            assert corpus_count[0] >= 1
+            assert corpus_count[0] >= 100
 
             cursor = await db.execute("PRAGMA table_info(documents)")
             columns = {row[1] for row in await cursor.fetchall()}
@@ -139,7 +133,7 @@ class TestUserScopedBackfill:
         await init_database(test_db)
 
         async with get_db(test_db) as db:
-            cursor = await db.execute("SELECT id FROM documents WHERE source_type = 'sample' LIMIT 1")
+            cursor = await db.execute("SELECT id FROM documents WHERE source_type = 'corpus' LIMIT 1")
             row = await cursor.fetchone()
             document_id = row["id"]
 

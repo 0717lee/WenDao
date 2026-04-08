@@ -97,12 +97,12 @@ def _build_segment_summary(title: str, text: str, metadata: dict[str, Any]) -> s
     keyword_text = "、".join(keywords) if keywords else title
 
     if focus == "人物与事件":
-        return f"这一段先看 {keyword_text} 的来龙去脉，再从“{excerpt}”这一句入手，更容易抓住情节推进和人物关系。"
+        return f"这一段先看 {keyword_text}，再从“{excerpt}”这一句进入，更容易理清人物和事件。"
     if focus == "意象与情感":
-        return f"这一段适合先抓 {keyword_text} 这些意象或情绪线索，从“{excerpt}”开始读，先感受画面，再回头琢磨字句。"
+        return f"这一段先看 {keyword_text}，从“{excerpt}”开始读，先把画面和情绪读出来。"
     if focus == "概念与论证":
-        return f"这一段建议先盯住 {keyword_text} 这些核心词，再对照“{excerpt}”去看作者是怎么展开论述的。"
-    return f"这一段先抓 {keyword_text} 的主线，再从“{excerpt}”这一句切入，先读懂大意，再细看上下文。"
+        return f"这一段先看 {keyword_text} 这些关键词，再结合“{excerpt}”理解这一段在讲什么。"
+    return f"这一段先看 {keyword_text}，再从“{excerpt}”这一句进入，先读懂大意。"
 
 
 def enrich_segments(

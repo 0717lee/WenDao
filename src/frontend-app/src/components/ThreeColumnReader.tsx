@@ -463,12 +463,12 @@ export function ThreeColumnReader() {
         </div>
       ) : (
         <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
-          先顺着原文往下读，遇到不懂的地方再选一句细看，不用一上来就把整篇都讲完。
+          可以先顺着原文往下读，遇到不懂的地方再选一句细看。
         </div>
       )}
       {currentDocument.readingTip && (
         <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
-          起读建议：{currentDocument.readingTip}
+          阅读建议：{currentDocument.readingTip}
         </div>
       )}
       {recommendedChapters.length > 0 && (
@@ -479,7 +479,7 @@ export function ThreeColumnReader() {
               className="rounded-full px-3 py-1 text-[11px]"
               style={{ backgroundColor: 'rgba(201,160,99,0.14)', color: 'var(--gf-gold)' }}
             >
-              先从这里读起：{title}
+              建议先读：{title}
             </span>
           ))}
         </div>

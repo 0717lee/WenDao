@@ -13,7 +13,6 @@ from typing import AsyncGenerator, Optional
 import asyncpg
 
 from core.corpus_documents import load_corpus_documents
-from core.sample_documents import SAMPLE_DOCUMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -457,84 +456,15 @@ async def init_pg_database() -> None:
             ADD COLUMN IF NOT EXISTS email TEXT UNIQUE
         """)
 
-        await conn.executemany(
-            """
-            INSERT INTO documents (
-                id, title, author, dynasty, category, source_name, source_url,
-                repo_id,
-                chapter_titles, chapter_count, featured_excerpt,
-                difficulty, guide_summary, reading_tip, recommended_chapters,
-                segment_guides, segments, translation_cache, translation_status,
-                original_text, punctuated_text, translated_text,
-                ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
-            ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20, $21, $22, $23, $24, $25, $26::jsonb, $27, $28::uuid)
-            ON CONFLICT (id) DO UPDATE SET
-                title = EXCLUDED.title,
-                repo_id = EXCLUDED.repo_id,
-                author = EXCLUDED.author,
-                dynasty = EXCLUDED.dynasty,
-                category = EXCLUDED.category,
-                source_name = EXCLUDED.source_name,
-                source_url = EXCLUDED.source_url,
-                chapter_titles = EXCLUDED.chapter_titles,
-                chapter_count = EXCLUDED.chapter_count,
-                featured_excerpt = EXCLUDED.featured_excerpt,
-                difficulty = EXCLUDED.difficulty,
-                guide_summary = EXCLUDED.guide_summary,
-                reading_tip = EXCLUDED.reading_tip,
-                recommended_chapters = EXCLUDED.recommended_chapters,
-                segment_guides = EXCLUDED.segment_guides,
-                segments = EXCLUDED.segments,
-                translation_cache = EXCLUDED.translation_cache,
-                translation_status = EXCLUDED.translation_status,
-                original_text = EXCLUDED.original_text,
-                punctuated_text = EXCLUDED.punctuated_text,
-                translated_text = EXCLUDED.translated_text,
-                ocr_confidence = EXCLUDED.ocr_confidence,
-                image_data = EXCLUDED.image_data,
-                status = EXCLUDED.status,
-                entity_ids = EXCLUDED.entity_ids,
-                source_type = EXCLUDED.source_type,
-                owner_user_id = EXCLUDED.owner_user_id,
-                updated_at = NOW()
-            """,
-            [
-                (
-                    item["id"],
-                    item["title"],
-                    item.get("author"),
-                    item.get("dynasty"),
-                    item.get("category"),
-                    "WenDao",
-                    None,
-                    item.get("repo_id"),
-                    "[]",
-                    0,
-                    None,
-                    None,
-                    None,
-                    None,
-                    "[]",
-                    "[]",
-                    "[]",
-                    "[]",
-                    "none",
-                    item["original_text"],
-                    item["punctuated_text"],
-                    item["translated_text"],
-                    1.0,
-                    None,
-                    "done",
-                    json.dumps(item["entity_ids"], ensure_ascii=False),
-                    item["source_type"],
-                    None,
-                )
-                for item in SAMPLE_DOCUMENTS
-            ],
-        )
+        await conn.execute("DELETE FROM documents WHERE source_type = 'sample'")
 
         corpus_documents = load_corpus_documents()
         if corpus_documents:
+            corpus_ids = [str(item["id"]) for item in corpus_documents]
+            await conn.execute(
+                "DELETE FROM documents WHERE source_type = 'corpus' AND NOT (id::text = ANY($1::text[]))",
+                corpus_ids,
+            )
             batch_size = 2
             logger.info("[PG] Seeding %d corpus documents in ultra-resilient mode (batch_size=%d)...", len(corpus_documents), batch_size)
             
@@ -616,10 +546,11 @@ async def init_pg_database() -> None:
                     logger.error("[PG] Failed to seed batch %d-%d (Will retry next batch): %s", i, min(i+batch_size, len(corpus_documents)), exc)
                     await asyncio.sleep(2) # 发生错误时进入冷却
         else:
+            await conn.execute("DELETE FROM documents WHERE source_type = 'corpus'")
             logger.warning("[PG] No corpus documents to seed (load_corpus_documents returned empty)")
 
         # 最后的回填操作也应该重新获取连接，避免前面的副作用导致连接不可用
         async with pool.acquire() as final_conn:
             await _maybe_backfill_user_scoped_tables_pg(final_conn)
 
-    logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes, study_sessions, sample docs, corpus docs)")
+    logger.info("PostgreSQL tables initialized (documents, reading_history, favorite_folders, favorites, users, wordbook_entries, document_notes, study_sessions, corpus docs)")

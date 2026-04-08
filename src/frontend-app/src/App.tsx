@@ -8,7 +8,6 @@ import { useGraphStore } from './store/useGraphStore';
 import { authFetchOptions, useAuthStore } from './store/useAuthStore';
 import { useStore } from './store/useStore';
 import { API_BASE } from './lib/api';
-import { getDemoDocumentById, toReaderDocument } from './data/demoDocuments';
 
 const DashboardHome = lazy(() => import('./components/DashboardHome'));
 const ChatInterface = lazy(() => import('./components/ChatInterface').then((m) => ({ default: m.ChatInterface })));
@@ -119,29 +118,21 @@ function App() {
 
     const openDocument = useCallback(
         async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
-            let nextDocument: Document | null = null;
             try {
                 const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions());
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
-                nextDocument = buildReaderDocument(data);
-            } catch (error) {
-                const demoDocument = getDemoDocumentById(documentId);
-                if (demoDocument) {
-                    nextDocument = toReaderDocument(demoDocument);
-                } else {
-                    console.error('Failed to open document:', error);
-                    return;
+                const nextDocument = buildReaderDocument(data);
+                setDocument(nextDocument);
+                setUploadStatus(nextDocument.punctuatedText ? 'done' : 'idle');
+                if (options?.readerPanel) {
+                    setPendingReaderPanel(options.readerPanel);
                 }
+                setReaderReturnTab(activeTab);
+                setActiveTab('reader');
+            } catch (error) {
+                console.error('Failed to open document:', error);
             }
-
-            setDocument(nextDocument);
-            setUploadStatus(nextDocument.punctuatedText ? 'done' : 'idle');
-            if (options?.readerPanel) {
-                setPendingReaderPanel(options.readerPanel);
-            }
-            setReaderReturnTab(activeTab);
-            setActiveTab('reader');
         },
         [activeTab, buildReaderDocument, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
     );
@@ -181,12 +172,7 @@ function App() {
                 const data = await response.json();
                 toggleComparisonDocument(buildReaderDocument(data));
             } catch (error) {
-                const demoDocument = getDemoDocumentById(documentId);
-                if (demoDocument) {
-                    toggleComparisonDocument(toReaderDocument(demoDocument));
-                } else {
-                    console.error('Failed to add document to comparison:', error);
-                }
+                console.error('Failed to add document to comparison:', error);
             }
         },
         [buildReaderDocument, comparisonDocuments, toggleComparisonDocument]

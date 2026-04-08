@@ -12,7 +12,6 @@ from typing import AsyncGenerator
 import aiosqlite
 
 from core.corpus_documents import load_corpus_documents
-from core.sample_documents import SAMPLE_DOCUMENTS
 
 logger = logging.getLogger(__name__)
 
@@ -420,84 +419,16 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
             )
         """)
 
-        await db.executemany(
-            """
-            INSERT INTO documents (
-                id, title, author, dynasty, category, source_name, source_url,
-                repo_id,
-                chapter_titles, chapter_count, featured_excerpt,
-                difficulty, guide_summary, reading_tip, recommended_chapters,
-                segment_guides, segments, translation_cache, translation_status,
-                original_text, punctuated_text, translated_text,
-                ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                title = excluded.title,
-                repo_id = excluded.repo_id,
-                author = excluded.author,
-                dynasty = excluded.dynasty,
-                category = excluded.category,
-                source_name = excluded.source_name,
-                source_url = excluded.source_url,
-                chapter_titles = excluded.chapter_titles,
-                chapter_count = excluded.chapter_count,
-                featured_excerpt = excluded.featured_excerpt,
-                difficulty = excluded.difficulty,
-                guide_summary = excluded.guide_summary,
-                reading_tip = excluded.reading_tip,
-                recommended_chapters = excluded.recommended_chapters,
-                segment_guides = excluded.segment_guides,
-                segments = excluded.segments,
-                translation_cache = excluded.translation_cache,
-                translation_status = excluded.translation_status,
-                original_text = excluded.original_text,
-                punctuated_text = excluded.punctuated_text,
-                translated_text = excluded.translated_text,
-                ocr_confidence = excluded.ocr_confidence,
-                image_data = excluded.image_data,
-                status = excluded.status,
-                entity_ids = excluded.entity_ids,
-                source_type = excluded.source_type,
-                owner_user_id = excluded.owner_user_id,
-                updated_at = CURRENT_TIMESTAMP
-            """,
-            [
-                (
-                    item["id"],
-                    item["title"],
-                    item.get("author"),
-                    item.get("dynasty"),
-                    item.get("category"),
-                    "WenDao",
-                    None,
-                    item.get("repo_id"),
-                    "[]",
-                    0,
-                    None,
-                    None,
-                    None,
-                    None,
-                    "[]",
-                    "[]",
-                    "[]",
-                    "[]",
-                    "none",
-                    item["original_text"],
-                    item["punctuated_text"],
-                    item["translated_text"],
-                    1.0,
-                    None,
-                    "done",
-                    json.dumps(item["entity_ids"], ensure_ascii=False),
-                    item["source_type"],
-                    None,
-                )
-                for item in SAMPLE_DOCUMENTS
-            ],
-        )
+        await db.execute("DELETE FROM documents WHERE source_type = 'sample'")
 
         corpus_documents = load_corpus_documents()
         if corpus_documents:
+            corpus_ids = [str(item["id"]) for item in corpus_documents]
+            placeholders = ",".join("?" for _ in corpus_ids)
+            await db.execute(
+                f"DELETE FROM documents WHERE source_type = 'corpus' AND id NOT IN ({placeholders})",
+                corpus_ids,
+            )
             await db.executemany(
                 """
                 INSERT INTO documents (
@@ -573,6 +504,8 @@ async def init_database(db_path: str = "ancient_texts.db") -> None:
                     for item in corpus_documents
                 ],
             )
+        else:
+            await db.execute("DELETE FROM documents WHERE source_type = 'corpus'")
 
         await _maybe_backfill_user_scoped_tables(db)
         await db.commit()

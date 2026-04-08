@@ -161,7 +161,7 @@ describe('Chat Integration E2E', () => {
         }, { timeout: 3000 })
     })
 
-    it('测试5: 后端不可用时切换到离线演示解读', async () => {
+    it('测试5: 后端不可用时显示在线服务失败提示', async () => {
         ;(global.fetch as any).mockImplementation((url: string) => {
             if (typeof url === 'string' && url.includes('/api/v1/chat')) {
                 return Promise.reject(new Error('Failed to fetch'))
@@ -181,8 +181,7 @@ describe('Chat Integration E2E', () => {
         fireEvent.click(screen.getByRole('button', { name: '发送' }))
 
         await waitFor(() => {
-            expect(screen.getByText(/离线演示解读/)).toBeInTheDocument()
-            expect(screen.getAllByText(/体验样例 · 《论语·学而》/).length).toBeGreaterThan(0)
+            expect(screen.getByText(/当前问答服务暂时不可用/)).toBeInTheDocument()
         })
     })
 })

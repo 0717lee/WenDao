@@ -56,7 +56,7 @@ def _extract_user_id(user: Any) -> str | None:
 
 def _can_access_candidate(row: dict[str, Any], user_id: str | None) -> bool:
     source_type = row.get("source_type")
-    if source_type in {"corpus", "sample", None, ""}:
+    if source_type in {"corpus", None, ""}:
         return True
     return bool(user_id and row.get("owner_user_id") == user_id)
 
@@ -194,8 +194,6 @@ def _default_source_label(row: dict[str, Any]) -> str:
     source_type = row.get("source_type") or ""
     if source_type == "corpus":
         return "古籍库"
-    if source_type == "sample":
-        return "精选导读"
     return "我的文档"
 
 
@@ -326,7 +324,7 @@ async def _load_document_candidates(limit: int = 200, user_id: str | None = None
                 """
                 SELECT id::text AS id, title, source_name, author, dynasty, category, original_text, punctuated_text, translated_text, segments, source_type, owner_user_id::text AS owner_user_id
                 FROM documents
-                WHERE source_type IN ('corpus', 'sample') OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
+                WHERE source_type = 'corpus' OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)
                 ORDER BY COALESCE(updated_at, created_at) DESC
                 LIMIT $2
                 """,
@@ -340,7 +338,7 @@ async def _load_document_candidates(limit: int = 200, user_id: str | None = None
                 """
                 SELECT id, title, source_name, author, dynasty, category, original_text, punctuated_text, translated_text, segments, source_type, owner_user_id
                 FROM documents
-                WHERE source_type IN ('corpus', 'sample') OR (? IS NOT NULL AND owner_user_id = ?)
+                WHERE source_type = 'corpus' OR (? IS NOT NULL AND owner_user_id = ?)
                 ORDER BY COALESCE(updated_at, created_at) DESC
                 LIMIT ?
                 """,

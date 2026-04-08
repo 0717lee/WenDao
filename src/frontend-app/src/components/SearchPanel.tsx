@@ -6,7 +6,6 @@ import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
 import { authFetchOptions } from '../store/useAuthStore';
-import { searchDemoDocuments } from '../data/demoDocuments';
 
 interface SearchResult {
   id: string;
@@ -73,7 +72,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [demoNotice, setDemoNotice] = useState<string | null>(null);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const consumeSearchQuery = useGraphStore((state) => state.consumeSearchQuery);
   const setActiveTab = useGraphStore((state) => state.setActiveTab);
@@ -98,7 +96,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
     setLoading(true);
     setError(null);
-    setDemoNotice(null);
 
     try {
       const response = await fetch(
@@ -115,18 +112,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       setResults(data.results);
     } catch (err) {
       const message = err instanceof Error ? err.message : '搜索服务暂时不可用';
-      const fallbackResults = searchDemoDocuments(nextQuery);
-      if (fallbackResults.length > 0 && message.toLowerCase().includes('fetch')) {
-        setResults(fallbackResults);
-        setDemoNotice('检索服务暂时不可用，当前展示的是离线体验样例结果。');
-      } else {
-        setError(
-          message.includes('Failed to fetch')
-            ? '检索服务暂时不可用，请稍后重试，或先回到阅读页继续阅读。'
-            : message
-        );
-        setResults([]);
-      }
+      setError(
+        message.includes('Failed to fetch')
+          ? '检索服务暂时不可用，请稍后重试，或先回到阅读页继续阅读。'
+          : message
+      );
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -271,7 +262,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            若一时找不到，不必反复换词，转去 AI 问答通常更省力。
+            如果暂时找不到，可以改去 AI 问答继续提问。
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -330,12 +321,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               </button>
             </div>
           )}
-        </div>
-      )}
-
-      {demoNotice && (
-        <div className="mx-4 md:mx-6 mt-4 p-3 rounded-[22px] text-sm" style={{ backgroundColor: 'rgba(201,160,99,0.10)', border: '1px solid rgba(201,160,99,0.20)', color: 'rgba(26,30,35,0.62)' }}>
-          {demoNotice}
         </div>
       )}
 

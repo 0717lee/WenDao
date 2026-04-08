@@ -255,7 +255,7 @@ class TestBookshelfEndpoints:
 
         with patch("routers.document._list_documents", new=AsyncMock(return_value=[
             {"id": "doc-1", "title": "论语节选", "status": "done", "preview": "学而时习之"},
-        ])):
+        ])), patch("routers.document._count_documents", new=AsyncMock(return_value=1)):
             result = await list_documents(limit=10, _user={"sub": "user-1"})
 
         assert result["total"] == 1

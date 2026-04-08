@@ -15,13 +15,13 @@ describe('BookshelfPanel', () => {
     ;(global.fetch as any).mockReset()
   })
 
-  it('uses local demo bookshelf when document API is unavailable', async () => {
+  it('shows no fallback corpus item when document API is unavailable', async () => {
     ;(global.fetch as any).mockRejectedValue(new Error('network down'))
 
     render(<BookshelfPanel {...props} />)
 
     expect(
-      await screen.findByText((content) => content.includes('体验样例 · 《论语·学而》'))
+      await screen.findByText((content) => content.includes('这里提供可直接阅读的内容，适合第一次使用时开始。'))
     ).toBeInTheDocument()
   })
 
@@ -71,10 +71,6 @@ describe('BookshelfPanel', () => {
         })
       }
 
-      if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
-        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
-      }
-
       if (url.includes('/api/v1/reader/history')) {
         return Promise.resolve({ ok: true, json: async () => [] })
       }
@@ -89,7 +85,7 @@ describe('BookshelfPanel', () => {
     render(<BookshelfPanel {...props} />)
 
     expect(
-      await screen.findByText((content) => content.includes('还没有阅读记录时，可以先从右侧的精选篇目起读。'))
+      await screen.findByText((content) => content.includes('还没有阅读记录时，可以先打开下面的推荐内容。'))
     ).toBeInTheDocument()
     expect(screen.queryByText(/最近阅读：/)).not.toBeInTheDocument()
   })
@@ -119,10 +115,6 @@ describe('BookshelfPanel', () => {
       }
 
       if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
-        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
-      }
-
-      if (url.includes('/api/v1/documents?limit=8&source_type=sample')) {
         return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
       }
 

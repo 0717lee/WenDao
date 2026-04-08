@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { ArrowRight, BookMarked, BookOpen, Clock3, LibraryBig, Loader2, ScanText, Search, Upload } from 'lucide-react'
 import { API_BASE } from '../lib/api'
-import { getDemoBookshelfDocuments } from '../data/demoDocuments'
 import { authFetchOptions } from '../store/useAuthStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 import { useGraphStore } from '../store/useGraphStore'
@@ -63,7 +62,6 @@ const FAMILY_LABELS: Record<string, string> = {
 }
 
 function progressLabel(item: BookshelfItem): string {
-  if (item.source_type === 'sample') return '样例全文'
   if (!item.total_paragraphs) return item.has_processed ? '已经整理好，可以直接开始读' : '还在继续处理'
   return `读到 ${item.current_paragraph}/${item.total_paragraphs}`
 }
@@ -82,11 +80,9 @@ export default function BookshelfPanel({
   onOpenCompare,
 }: BookshelfPanelProps) {
   const [corpusDocuments, setCorpusDocuments] = useState<BookshelfItem[]>([])
-  const [sampleDocuments, setSampleDocuments] = useState<BookshelfItem[]>([])
   const [userDocuments, setUserDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [usingDemoSamples, setUsingDemoSamples] = useState(false)
   const [selectedCorpusCategory, setSelectedCorpusCategory] = useState('全部')
   const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([])
   const [catalogTotal, setCatalogTotal] = useState(0)
@@ -111,25 +107,20 @@ export default function BookshelfPanel({
     async function load(): Promise<void> {
       setLoading(true)
       try {
-        const [documentsResponse, corpusResponse, sampleResponse, historyResponse] = await Promise.all([
+        const [documentsResponse, corpusResponse, historyResponse] = await Promise.all([
           fetch(`${API_BASE}/api/v1/documents?limit=100`, authFetchOptions()).catch(() => null),
           fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=corpus`, authFetchOptions()).catch(() => null),
-          fetch(`${API_BASE}/api/v1/documents?limit=8&source_type=sample`, authFetchOptions()).catch(() => null),
           fetch(`${API_BASE}/api/v1/reader/history`, authFetchOptions()).catch(() => null),
         ])
 
         const documentsData = documentsResponse?.ok ? await documentsResponse.json() : { documents: [] }
         const corpusData = corpusResponse?.ok ? await corpusResponse.json() : { documents: [] }
-        const sampleData = sampleResponse?.ok ? await sampleResponse.json() : { documents: [] }
         const historyData = historyResponse?.ok ? await historyResponse.json() : []
 
         if (cancelled) return
 
         const allDocuments = Array.isArray(documentsData.documents) ? documentsData.documents : []
         const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
-        const sampleList = Array.isArray(sampleData.documents) && sampleData.documents.length > 0
-          ? sampleData.documents
-          : getDemoBookshelfDocuments()
 
         setCorpusDocuments(corpusList)
         
@@ -138,12 +129,7 @@ export default function BookshelfPanel({
         
         const allTotal = documentsData.total || allDocuments.length
         const totalCorpus = corpusData.total || corpusList.length
-        const totalSample = sampleData.total || sampleList.length
-        // The total number of ALL documents minus samples and corpus equals user documents.
-        setUserTotal(Math.max(0, allTotal - totalCorpus - totalSample))
-
-        setSampleDocuments(sampleList)
-        setUsingDemoSamples(!Array.isArray(sampleData.documents) || sampleData.documents.length === 0)
+        setUserTotal(Math.max(0, allTotal - totalCorpus))
         setHistory(Array.isArray(historyData) ? historyData : [])
       } finally {
         if (!cancelled) setLoading(false)
@@ -175,8 +161,8 @@ export default function BookshelfPanel({
   const secondaryContinueItems = primaryContinueItem ? continueReadingItems.slice(1) : continueReadingItems
 
   const recommendedStart = useMemo(() => {
-    return corpusDocuments[0] ?? sampleDocuments[0] ?? null
-  }, [corpusDocuments, sampleDocuments])
+    return corpusDocuments[0] ?? null
+  }, [corpusDocuments])
 
   const scrollToSection = (target: { current: HTMLDivElement | null }) => {
     target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -209,9 +195,8 @@ export default function BookshelfPanel({
 
   const featuredCorpusDocuments = useMemo(() => {
     const preferredList = filteredCorpusDocuments.length > 0 ? filteredCorpusDocuments : corpusDocuments
-    if (preferredList.length > 0) return preferredList.slice(0, 4)
-    return sampleDocuments.slice(0, 4)
-  }, [corpusDocuments, filteredCorpusDocuments, sampleDocuments])
+    return preferredList.slice(0, 4)
+  }, [corpusDocuments, filteredCorpusDocuments])
 
   const secondaryFeaturedDocuments = useMemo(() => {
     if (!recommendedStart) return featuredCorpusDocuments
@@ -417,11 +402,11 @@ export default function BookshelfPanel({
                     <div>最近读到：{formatTimeLabel(primaryContinueItem.last_read_at)}</div>
                   </div>
                 ) : (
-                  '还没有阅读记录时，可以先从右侧的精选篇目起读。'
+                  '还没有阅读记录时，可以先打开下面的推荐内容。'
                 )}
               </div>
               <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
-                {primaryContinueItem ? '继续阅读' : '前往起读'}
+                {primaryContinueItem ? '继续阅读' : '开始阅读'}
                 <ArrowRight className="h-4 w-4" />
               </div>
             </button>
@@ -433,12 +418,12 @@ export default function BookshelfPanel({
             >
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                  推荐起读
+                  推荐阅读
                 </span>
                 <LibraryBig className="h-4 w-4" style={{ color: 'var(--gf-gugong-red)' }} />
               </div>
               <div className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                先读推荐篇目
+                打开推荐内容
               </div>
               <div className="mt-2 min-h-[4.25rem] text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
                 {recommendedStart ? (
@@ -447,11 +432,11 @@ export default function BookshelfPanel({
                     <div className="line-clamp-2">{recommendedStart.preview}</div>
                   </div>
                 ) : (
-                  '这里整理了一批可直接起读的篇目，适合第一次进入时打开。'
+                  '这里提供可直接阅读的内容，适合第一次使用时开始。'
                 )}
               </div>
               <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
-                {recommendedStart ? '打开此篇' : '前往篇目'}
+                {recommendedStart ? '打开此篇' : '查看内容'}
                 <ArrowRight className="h-4 w-4" />
               </div>
             </button>
@@ -527,7 +512,7 @@ export default function BookshelfPanel({
                     最近读过
                   </h3>
                   <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    除了刚才那篇，这里还有你最近翻过的内容。
+                    以下是你最近读过的内容。
                   </p>
                 </div>
               </div>
@@ -563,10 +548,10 @@ export default function BookshelfPanel({
             >
               <div className="mb-4">
                 <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  初次起读提示
+                  开始阅读
                 </h3>
                 <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  第一次来时，不必先研究全部功能。先从右侧的精选篇目起读，遇到看不懂的地方，再点一句请 AI 讲解就好。
+                  第一次使用时，可以先打开推荐内容；遇到不懂的地方，再逐句查看解释。
                 </p>
               </div>
               <button
@@ -574,7 +559,7 @@ export default function BookshelfPanel({
                 className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                 style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
               >
-                去看精选篇目
+                查看推荐内容
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -591,7 +576,7 @@ export default function BookshelfPanel({
                   精选篇目
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  这里放着已经整理好的文章，适合直接翻开开始读。
+                  这些内容已经整理好，可以直接开始阅读。
                 </p>
               </div>
               <label className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
@@ -610,12 +595,6 @@ export default function BookshelfPanel({
                 </select>
               </label>
             </div>
-
-            {corpusDocuments.length === 0 && usingDemoSamples && !loading && (
-              <div className="mb-3 rounded-[22px] px-4 py-3 text-sm leading-6" style={{ backgroundColor: 'rgba(140,26,17,0.06)', border: '1px solid rgba(140,26,17,0.10)', color: 'rgba(26,30,35,0.56)' }}>
-                你现在看到的是本地体验样例，主要阅读流程依然可以完整体验。
-              </div>
-            )}
 
             <div className="grid gap-3">
               {(secondaryFeaturedDocuments.length > 0 ? secondaryFeaturedDocuments : featuredCorpusDocuments).map((doc) => (
@@ -642,7 +621,7 @@ export default function BookshelfPanel({
                           color: doc.source_type === 'corpus' ? 'var(--gf-gold)' : 'var(--gf-gugong-red)',
                         }}
                       >
-                        {doc.source_type === 'corpus' ? '精选篇目' : '体验样例'}
+                        {doc.source_type === 'corpus' ? '精选篇目' : '示例'}
                       </span>
                     </div>
                   </div>
@@ -695,7 +674,7 @@ export default function BookshelfPanel({
                   更多篇目
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  如果上面没有你想读的，可以从这里找别的，再加到阅读页。
+                  如果这些内容里没有你想读的，可以继续搜索并加入阅读。
                 </p>
                 </div>
                 <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
@@ -784,7 +763,7 @@ export default function BookshelfPanel({
                   我的上传
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  你自己上传和整理过的文档，都放在这里。
+                  你上传并整理过的内容会显示在这里。
                 </p>
               </div>
               <span className="text-sm" style={{ color: 'rgba(26,30,35,0.42)' }}>
@@ -800,7 +779,7 @@ export default function BookshelfPanel({
               <div className="rounded-[24px] p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.72)' }}>
                 <BookMarked className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.22)' }} />
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  你还没有上传文档。可以先从古籍库开始；有影印页时再回来上传。
+                  你还没有上传内容。可以先阅读现成内容，需要时再上传图片。
                 </p>
               </div>
             ) : (
@@ -876,7 +855,7 @@ export default function BookshelfPanel({
                 图片识读与整理
               </h3>
               <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                手头有影印页、扫描图或馆藏图片时，就从这里开始。
+                手头有影印页、扫描图或馆藏图片时，可以在这里开始识别。
               </p>
             </div>
 
@@ -893,7 +872,7 @@ export default function BookshelfPanel({
               <input {...getInputProps()} />
               <Upload className="mx-auto mb-4 h-12 w-12" style={{ color: 'rgba(26,30,35,0.22)' }} />
               <div className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                {uploadStatus === 'uploading' ? '正在上传图片' : isDragActive ? '松开后开始识别' : '拖拽图片到这里，或点击上传'}
+                {uploadStatus === 'uploading' ? '正在上传图片' : isDragActive ? '松开后开始识别' : '拖拽图片到此处，或点击上传'}
               </div>
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
                 支持 JPG、PNG、TIFF。上传后会依次识别文字、补标点，再生成白话。
@@ -907,7 +886,7 @@ export default function BookshelfPanel({
             )}
 
             <div className="mt-4 rounded-[22px] px-4 py-4 text-sm leading-7" style={{ backgroundColor: 'rgba(255,255,255,0.66)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.54)' }}>
-              这种情况下最适合用它：
+              适合这些情况：
               <br />
               1. 手头只有扫描图、影印页或馆藏图片。
               <br />
