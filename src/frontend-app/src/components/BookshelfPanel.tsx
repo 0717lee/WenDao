@@ -6,6 +6,9 @@ import { authFetchOptions } from '../store/useAuthStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 import { useGraphStore } from '../store/useGraphStore'
 
+const BOOKSHELF_WARM_RETRY_MAX = 4
+const BOOKSHELF_WARM_RETRY_DELAY_MS = 900
+
 interface BookshelfItem {
   id: string
   title: string
@@ -107,30 +110,44 @@ export default function BookshelfPanel({
     async function load(): Promise<void> {
       setLoading(true)
       try {
-        const [documentsResponse, corpusResponse, historyResponse] = await Promise.all([
-          fetch(`${API_BASE}/api/v1/documents?limit=100`, authFetchOptions()).catch(() => null),
-          fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=corpus`, authFetchOptions()).catch(() => null),
-          fetch(`${API_BASE}/api/v1/reader/history`, authFetchOptions()).catch(() => null),
-        ])
+        for (let attempt = 0; attempt <= BOOKSHELF_WARM_RETRY_MAX; attempt += 1) {
+          const [documentsResponse, corpusResponse, historyResponse] = await Promise.all([
+            fetch(`${API_BASE}/api/v1/documents?limit=100`, authFetchOptions()).catch(() => null),
+            fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=corpus`, authFetchOptions()).catch(() => null),
+            fetch(`${API_BASE}/api/v1/reader/history`, authFetchOptions()).catch(() => null),
+          ])
 
-        const documentsData = documentsResponse?.ok ? await documentsResponse.json() : { documents: [] }
-        const corpusData = corpusResponse?.ok ? await corpusResponse.json() : { documents: [] }
-        const historyData = historyResponse?.ok ? await historyResponse.json() : []
+          const documentsData = documentsResponse?.ok ? await documentsResponse.json() : { documents: [] }
+          const corpusData = corpusResponse?.ok ? await corpusResponse.json() : { documents: [] }
+          const historyData = historyResponse?.ok ? await historyResponse.json() : []
 
-        if (cancelled) return
+          if (cancelled) return
 
-        const allDocuments = Array.isArray(documentsData.documents) ? documentsData.documents : []
-        const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
+          const allDocuments = Array.isArray(documentsData.documents) ? documentsData.documents : []
+          const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
+          const totalCorpus = Math.max(Number(corpusData.total) || 0, corpusList.length)
+          const allTotal = Math.max(Number(documentsData.total) || 0, allDocuments.length)
+          const shouldRetry =
+            Boolean(corpusResponse?.ok) &&
+            totalCorpus === 0 &&
+            corpusList.length === 0 &&
+            allTotal === 0 &&
+            (!Array.isArray(historyData) || historyData.length === 0) &&
+            attempt < BOOKSHELF_WARM_RETRY_MAX
 
-        setCorpusDocuments(corpusList)
-        
-        const userDocs = allDocuments.filter((item: BookshelfItem) => item.source_type === 'user')
-        setUserDocuments(userDocs)
-        
-        const allTotal = documentsData.total || allDocuments.length
-        const totalCorpus = corpusData.total || corpusList.length
-        setUserTotal(Math.max(0, allTotal - totalCorpus))
-        setHistory(Array.isArray(historyData) ? historyData : [])
+          if (shouldRetry) {
+            await new Promise((resolve) => setTimeout(resolve, BOOKSHELF_WARM_RETRY_DELAY_MS))
+            continue
+          }
+
+          setCorpusDocuments(corpusList)
+
+          const userDocs = allDocuments.filter((item: BookshelfItem) => item.source_type === 'user')
+          setUserDocuments(userDocs)
+          setUserTotal(Math.max(0, allTotal - totalCorpus))
+          setHistory(Array.isArray(historyData) ? historyData : [])
+          break
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -149,7 +166,7 @@ export default function BookshelfPanel({
 
     setShowMoreOptions(true)
     window.setTimeout(() => {
-      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      uploadSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }, 30)
   }, [consumeReaderHubSection])
 
@@ -165,18 +182,18 @@ export default function BookshelfPanel({
   }, [corpusDocuments])
 
   const scrollToSection = (target: { current: HTMLDivElement | null }) => {
-    target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    target.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   const openMoreAndScroll = (target: { current: HTMLDivElement | null }) => {
     if (!showMoreOptions) {
       setShowMoreOptions(true)
       window.setTimeout(() => {
-        target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        target.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       }, 30)
       return
     }
-    target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    target.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   const corpusCategories = useMemo(() => {
@@ -465,29 +482,8 @@ export default function BookshelfPanel({
             </button>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              onClick={() => scrollToSection(corpusSectionRef)}
-              className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
-            >
-              精选篇目
-            </button>
-            <button
-              onClick={() => openMoreAndScroll(userDocumentsRef)}
-              className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
-            >
-              我的上传
-            </button>
-            <button
-              onClick={() => openMoreAndScroll(uploadSectionRef)}
-              className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
-            >
-              图片识读
-            </button>
-            {comparedDocumentIds.length > 0 && (
+          {comparedDocumentIds.length > 0 && (
+            <div className="mt-5 flex flex-wrap gap-2">
               <button
                 onClick={onOpenCompare}
                 className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
@@ -495,8 +491,8 @@ export default function BookshelfPanel({
               >
                 对照阅读
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
@@ -597,45 +593,61 @@ export default function BookshelfPanel({
             </div>
 
             <div className="grid gap-3">
-              {(secondaryFeaturedDocuments.length > 0 ? secondaryFeaturedDocuments : featuredCorpusDocuments).map((doc) => (
-                <button
-                  key={doc.id}
-                  onClick={() => onOpenDocument(doc.id)}
-                  className="rounded-[22px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
+              {loading ? (
+                <div
+                  className="rounded-[22px] px-4 py-8 text-center text-sm"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)', color: 'rgba(26,30,35,0.45)' }}
                 >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                      {doc.title}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {doc.difficulty && (
-                        <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}>
-                          {doc.difficulty}
-                        </span>
-                      )}
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[11px]"
-                        style={{
-                          backgroundColor: doc.source_type === 'corpus' ? 'rgba(201,160,99,0.14)' : 'rgba(140,26,17,0.08)',
-                          color: doc.source_type === 'corpus' ? 'var(--gf-gold)' : 'var(--gf-gugong-red)',
-                        }}
-                      >
-                        {doc.source_type === 'corpus' ? '精选篇目' : '示例'}
+                  古籍库正在准备中，马上就能开始阅读。
+                </div>
+              ) : (secondaryFeaturedDocuments.length > 0 ? secondaryFeaturedDocuments : featuredCorpusDocuments).length === 0 ? (
+                <div
+                  className="rounded-[22px] px-4 py-8 text-center text-sm"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)', color: 'rgba(26,30,35,0.45)' }}
+                >
+                  还没有可展示的精选篇目，请稍后再试或刷新页面。
+                </div>
+              ) : (
+                (secondaryFeaturedDocuments.length > 0 ? secondaryFeaturedDocuments : featuredCorpusDocuments).map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => onOpenDocument(doc.id)}
+                    className="rounded-[22px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                        {doc.title}
                       </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {doc.difficulty && (
+                          <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}>
+                            {doc.difficulty}
+                          </span>
+                        )}
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[11px]"
+                          style={{
+                            backgroundColor: doc.source_type === 'corpus' ? 'rgba(201,160,99,0.14)' : 'rgba(140,26,17,0.08)',
+                            color: doc.source_type === 'corpus' ? 'var(--gf-gold)' : 'var(--gf-gugong-red)',
+                          }}
+                        >
+                          {doc.source_type === 'corpus' ? '精选篇目' : '示例'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  {renderMetaLine(doc)}
-                  {doc.guide_summary && (
-                    <div className="mb-2 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
-                      {doc.guide_summary}
+                    {renderMetaLine(doc)}
+                    {doc.guide_summary && (
+                      <div className="mb-2 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                        {doc.guide_summary}
+                      </div>
+                    )}
+                    <div className="line-clamp-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
+                      {doc.preview || '翻开后就能对照原文、标点和白话。'}
                     </div>
-                  )}
-                  <div className="line-clamp-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                    {doc.preview || '翻开后就能对照原文、标点和白话。'}
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </section>

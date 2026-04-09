@@ -1,5 +1,5 @@
 import { Send, Paperclip, Mic, Loader2 } from 'lucide-react'
-import React, { KeyboardEvent } from 'react'
+import React, { KeyboardEvent, useRef } from 'react'
 
 interface MessageInputProps {
     value: string
@@ -22,7 +22,18 @@ export function MessageInput({
     isRecording = false,
     isTranscribing = false,
 }: MessageInputProps) {
+    const isComposingRef = useRef(false)
+
     const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+        const nativeEvent = e.nativeEvent as KeyboardEvent<HTMLTextAreaElement>['nativeEvent'] & {
+            isComposing?: boolean
+            keyCode?: number
+        }
+
+        if (nativeEvent.isComposing || nativeEvent.keyCode === 229 || isComposingRef.current) {
+            return
+        }
+
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
             if (value.trim() && !disabled) {
@@ -53,6 +64,12 @@ export function MessageInput({
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onCompositionStart={() => {
+                        isComposingRef.current = true
+                    }}
+                    onCompositionEnd={() => {
+                        isComposingRef.current = false
+                    }}
                     placeholder="输入一句原文，或提问人物、典故、概念"
                     disabled={disabled}
                     className="gf-input flex-1 resize-none rounded-xl px-4 py-2.5 disabled:opacity-50"

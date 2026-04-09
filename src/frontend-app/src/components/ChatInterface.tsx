@@ -614,9 +614,6 @@ export function ChatInterface() {
                             ))}
                         </div>
 
-                        <div className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                            Enter 发送，Shift + Enter 换行。
-                        </div>
                     </div>
                 </div>
             )}

@@ -96,6 +96,9 @@ describe('DashboardHome', () => {
     expect(await screen.findByRole('button', { name: /打开推荐内容/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /先解释一句古文/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /先识别图片文字/i })).toBeInTheDocument()
+    expect(screen.getAllByText('直接阅读')).toHaveLength(1)
+    expect(screen.getAllByText('解释一句')).toHaveLength(1)
+    expect(screen.getAllByText('上传图片')).toHaveLength(1)
   })
 
   it('routes the first card to open the recommended text', async () => {
@@ -117,10 +120,10 @@ describe('DashboardHome', () => {
   it('keeps the primary onboarding cards available when one dashboard request fails', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
       if (url.includes('/api/v1/documents?limit=12')) {
-        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+        return Promise.resolve({ ok: false, json: async () => ({ documents: [], total: 0 }) })
       }
       if (url.includes('/api/v1/documents?limit=12&source_type=corpus')) {
-        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+        return Promise.resolve({ ok: false, json: async () => ({ documents: [], total: 0 }) })
       }
       if (url.includes('/api/v1/reader/history')) {
         return Promise.resolve({ ok: true, json: async () => [] })
@@ -153,5 +156,70 @@ describe('DashboardHome', () => {
     await waitFor(() => {
       expect(props.onOpenReaderUpload).toHaveBeenCalled()
     })
+  })
+
+  it('shows a warmup placeholder instead of flashing zero corpus totals', async () => {
+    let corpusAttempt = 0
+    let documentAttempt = 0
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=12&source_type=corpus')) {
+        corpusAttempt += 1
+        return Promise.resolve({
+          ok: true,
+          json: async () =>
+            corpusAttempt === 1
+              ? { documents: [], total: 0 }
+              : {
+                  documents: [
+                    {
+                      id: 'corpus-1',
+                      title: '《论语》',
+                      preview: '从熟悉的小段落开始，更容易进入状态。',
+                      has_processed: true,
+                      current_paragraph: 0,
+                      total_paragraphs: 0,
+                      source_type: 'corpus',
+                    },
+                  ],
+                  total: 100,
+                },
+        })
+      }
+
+      if (url.includes('/api/v1/documents?limit=12')) {
+        documentAttempt += 1
+        return Promise.resolve({
+          ok: true,
+          json: async () =>
+            documentAttempt === 1
+              ? { documents: [], total: 0 }
+              : {
+                  documents: [
+                    {
+                      id: 'corpus-1',
+                      title: '《论语》',
+                      preview: '从熟悉的小段落开始，更容易进入状态。',
+                      has_processed: true,
+                      current_paragraph: 0,
+                      total_paragraphs: 0,
+                      source_type: 'corpus',
+                    },
+                  ],
+                  total: 100,
+                },
+        })
+      }
+
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [] }) })
+    })
+
+    render(<DashboardHome {...props} />)
+
+    expect(screen.getByText(/古籍库 准备中/i)).toBeInTheDocument()
+    expect(screen.getByText(/现在能读 准备中/i)).toBeInTheDocument()
   })
 })

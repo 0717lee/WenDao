@@ -39,6 +39,7 @@ describe('ChatInterface', () => {
     expect(screen.getByRole('heading', { name: '从一句原文问起' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '转到原文检索' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '“学而时习之，不亦说乎？”到底在讲什么？' })).toBeInTheDocument()
+    expect(screen.getAllByText(/Enter 发送，Shift \+ Enter 换行。/)).toHaveLength(1)
   })
 
   it('prefills the composer from draft message state', () => {

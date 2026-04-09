@@ -7,6 +7,9 @@ import {
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
 
+const DASHBOARD_WARM_RETRY_MAX = 4
+const DASHBOARD_WARM_RETRY_DELAY_MS = 900
+
 interface DashboardHomeProps {
   onOpenDocument: (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => void
   onAsk: (prompt: string) => void
@@ -47,26 +50,27 @@ export default function DashboardHome({
   onOpenReaderHub,
   onOpenReaderUpload,
 }: DashboardHomeProps) {
-  const [corpusTotal, setCorpusTotal] = useState(0)
-  const [documentsTotal, setDocumentsTotal] = useState(0)
+  const [corpusTotal, setCorpusTotal] = useState<number | null>(null)
+  const [documentsTotal, setDocumentsTotal] = useState<number | null>(null)
   const [corpusDocuments, setCorpusDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
 
   useEffect(() => {
     let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
 
-    async function load() {
-      const loadJson = async <T,>(url: string, fallback: T): Promise<T> => {
+    async function load(attempt = 0) {
+      const loadJson = async <T,>(url: string, fallback: T): Promise<{ ok: boolean; data: T }> => {
         try {
           const response = await fetch(url, authFetchOptions())
-          if (!response.ok) return fallback
-          return (await response.json()) as T
+          if (!response.ok) return { ok: false, data: fallback }
+          return { ok: true, data: (await response.json()) as T }
         } catch {
-          return fallback
+          return { ok: false, data: fallback }
         }
       }
 
-      const [docsData, corpusData, historyData] = await Promise.all([
+      const [docsSnapshot, corpusSnapshot, historySnapshot] = await Promise.all([
         loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=12`, { documents: [], total: 0 }),
         loadJson<{ documents: BookshelfItem[], total?: number }>(`${API_BASE}/api/v1/documents?limit=12&source_type=corpus`, { documents: [], total: 0 }),
         loadJson<HistoryItem[]>(`${API_BASE}/api/v1/reader/history`, []),
@@ -74,24 +78,45 @@ export default function DashboardHome({
 
       if (cancelled) return
 
+      const docsData = docsSnapshot.data
+      const corpusData = corpusSnapshot.data
+      const historyData = historySnapshot.data
       const allDocuments = Array.isArray(docsData.documents) ? docsData.documents : []
       const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
+      const nextCorpusTotal = Math.max(Number(corpusData.total) || 0, corpusList.length)
+      const nextDocumentsTotal = Math.max(Number(docsData.total) || 0, allDocuments.length)
+      const shouldRetry =
+        corpusSnapshot.ok &&
+        nextCorpusTotal === 0 &&
+        corpusList.length === 0 &&
+        attempt < DASHBOARD_WARM_RETRY_MAX
 
-      setCorpusDocuments(corpusList)
-      setCorpusTotal(corpusData.total || corpusList.length)
-      setDocumentsTotal(docsData.total || allDocuments.length)
-      setHistory(Array.isArray(historyData) ? historyData : [])
+      if (shouldRetry) {
+        retryTimer = setTimeout(() => {
+          if (!cancelled) {
+            void load(attempt + 1)
+          }
+        }, DASHBOARD_WARM_RETRY_DELAY_MS)
+      } else {
+        setCorpusDocuments(corpusList)
+        setCorpusTotal(nextCorpusTotal)
+        setDocumentsTotal(nextDocumentsTotal)
+        setHistory(Array.isArray(historyData) ? historyData : [])
+      }
     }
 
-    load()
+    void load()
     return () => {
       cancelled = true
+      if (retryTimer) clearTimeout(retryTimer)
     }
   }, [])
 
   const firstCorpus = corpusDocuments[0]
   const latestHistoryDocumentId = history[0]?.id ?? null
   const recommendedStart = firstCorpus ?? null
+  const corpusCountLabel = corpusTotal === null ? '准备中' : corpusTotal
+  const documentsCountLabel = documentsTotal === null ? '准备中' : documentsTotal
 
   const openRecommendedStart = () => {
     if (recommendedStart) {
@@ -204,11 +229,6 @@ export default function DashboardHome({
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.52)' }}>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>直接阅读</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>解释一句</span>
-                <span className="rounded-full px-3 py-1.5" style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}>上传图片</span>
-              </div>
             </div>
 
             <div
@@ -229,7 +249,7 @@ export default function DashboardHome({
                   <button
                     key={item.key}
                     onClick={item.action}
-                    className="group flex w-full items-start gap-4 rounded-[24px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    className="group relative flex w-full items-start gap-4 rounded-[24px] px-4 py-4 pr-12 text-left transition-all duration-300 hover:-translate-y-0.5"
                     style={{
                       backgroundColor: item.accentSoft,
                       border: '1px solid rgba(26,30,35,0.05)',
@@ -241,7 +261,7 @@ export default function DashboardHome({
                     >
                       {index + 1}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="text-[11px] tracking-[0.24em]" style={{ color: item.accent }}>
                         {item.eyebrow}
                       </div>
@@ -252,7 +272,10 @@ export default function DashboardHome({
                         {item.description}
                       </div>
                     </div>
-                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" style={{ color: item.accent }} />
+                    <ArrowRight
+                      className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5"
+                      style={{ color: item.accent }}
+                    />
                   </button>
                 ))}
               </div>
@@ -330,10 +353,10 @@ export default function DashboardHome({
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                  古籍库 {corpusTotal}
+                  古籍库 {corpusCountLabel}
                 </span>
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                  现在能读 {documentsTotal}
+                  现在能读 {documentsCountLabel}
                 </span>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">

@@ -142,4 +142,28 @@ describe('BookshelfPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /^对照阅读$/ }))
     expect(props.onOpenCompare).toHaveBeenCalled()
   })
+
+  it('does not render the duplicate section jump pills anymore', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=100')) {
+        return Promise.resolve({ ok: false, json: async () => ({ documents: [], total: 0 }) })
+      }
+      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+        return Promise.resolve({ ok: false, json: async () => ({ documents: [], total: 0 }) })
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      if (url.includes('/api/v1/documents/catalog?')) {
+        return Promise.resolve({ ok: true, json: async () => ({ entries: [], total: 0 }) })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+
+    expect(screen.queryByRole('button', { name: /^精选篇目$/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^我的上传$/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^图片识读$/ })).not.toBeInTheDocument()
+  })
 })
