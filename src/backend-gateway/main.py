@@ -46,6 +46,10 @@ def _track_background_task(app: FastAPI, task: asyncio.Task[None]) -> None:
 
     task.add_done_callback(_clear_task_reference)
 
+
+def _resolve_pg_seed_mode(corpus_count: int) -> str | None:
+    return "none" if corpus_count == 0 else None
+
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
     """Combined lifespan: SQLite + PostgreSQL initialization."""
@@ -77,20 +81,26 @@ async def combined_lifespan(app: FastAPI):
     logger.info("SQLite数据库基础结构初始化完成")
 
     corpus_count = await count_corpus_documents()
+    needs_sqlite_corpus_sync = corpus_count == 0
     if corpus_count > 0:
         logger.info("SQLite 已存在 %d 条 corpus 文档，启动阶段跳过后台同步", corpus_count)
     else:
-        logger.warning("SQLite 当前无 corpus 文档，改为后台分批同步，避免阻塞服务启动")
-        _track_background_task(app, asyncio.create_task(_sync_sqlite_corpus_in_background()))
+        logger.warning("SQLite 当前无 corpus 文档，将在服务就绪后后台分批同步，避免阻塞服务启动")
+
+    pg_seed_mode = _resolve_pg_seed_mode(corpus_count)
 
     # 2. PostgreSQL (Phase 2) — optional, graceful degradation
     try:
         async with pg_lifespan():
-            await init_pg_database()
+            await init_pg_database(seed_mode=pg_seed_mode)
             logger.info("PostgreSQL初始化完成")
+            if needs_sqlite_corpus_sync:
+                _track_background_task(app, asyncio.create_task(_sync_sqlite_corpus_in_background()))
             yield
     except Exception as e:
         logger.warning(f"PostgreSQL初始化失败，继续使用SQLite: {e}")
+        if needs_sqlite_corpus_sync:
+            _track_background_task(app, asyncio.create_task(_sync_sqlite_corpus_in_background()))
         yield
     finally:
         sync_task: asyncio.Task[None] | None = getattr(app.state, "sqlite_corpus_sync_task", None)
