@@ -45,7 +45,7 @@ export function MessageInput({
     return (
         <div className="border-t px-4 py-3" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.5)' }}>
             <div className="mb-2 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                可直接贴一句原文，或提一个问题。Enter 发送，Shift + Enter 换行。
+                贴一句原文，或直接提问。Enter 发送，Shift + Enter 换行。
             </div>
             <div className="flex items-end gap-2">
                 {/* Paperclip image attach button */}
@@ -70,7 +70,7 @@ export function MessageInput({
                     onCompositionEnd={() => {
                         isComposingRef.current = false
                     }}
-                    placeholder="输入一句原文，或提问人物、典故、概念"
+                    placeholder="贴一句原文，或提问人物、典故、概念"
                     disabled={disabled}
                     className="gf-input flex-1 resize-none rounded-xl px-4 py-2.5 disabled:opacity-50"
                     style={{

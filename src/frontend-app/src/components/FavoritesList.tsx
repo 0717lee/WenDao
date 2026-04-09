@@ -105,14 +105,14 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
             文章收藏
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            这里保存整篇文章；字词释义请去“字词记录”。
+            这里收整篇文章；查过的字词请去“字词记录”。
           </p>
         </div>
         <div
           className="mb-3 rounded-2xl px-3 py-3 text-sm leading-7"
           style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}
         >
-          在阅读页点“收藏此篇”后，文章会先进入默认分组；需要时再回来整理即可。
+          在阅读页点“收藏此篇”后，文章会先进入默认分组；需要时再回来整理。
         </div>
         <div className="flex gap-2">
           <input
@@ -120,7 +120,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-            placeholder="新建分组..."
+            placeholder="新建一个分组"
             className="flex-1 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-shadow"
             style={{
               backgroundColor: 'rgba(255,255,255,0.7)',
@@ -149,9 +149,9 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
             style={{ backgroundColor: 'rgba(255,255,255,0.6)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
             <Folder className="w-14 h-14 mx-auto mb-4" style={{ color: 'rgba(26,30,35,0.25)' }} />
-            <p className="mb-2" style={{ color: 'var(--gf-text)' }}>还没有收藏内容</p>
+            <p className="mb-2" style={{ color: 'var(--gf-text)' }}>还没有收藏的文章</p>
             <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              先去阅读页点“收藏此篇”，这里就会出现文章。
+              先去阅读页点“收藏此篇”，这里就会出现内容。
             </p>
           </div>
         ) : (
@@ -190,7 +190,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
                         </div>
                       ) : docs.length === 0 ? (
                         <div className="p-3 text-sm" style={{ color: 'rgba(26,30,35,0.3)' }}>
-                          这个分组里还没有文章
+                          这个分组里还没有收藏的文章
                         </div>
                       ) : (
                         docs.map((doc) => (

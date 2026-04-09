@@ -20,9 +20,9 @@ const INITIAL_REASONING_STEPS: ReasoningStep[] = [
 ]
 
 const QUICK_CHAT_PROMPTS = [
-    '“学而时习之，不亦说乎？”到底在讲什么？',
-    '孔子和孟子的思想有什么联系？',
-    '请解释“逍遥游”里鲲鹏的寓意。',
+    '帮我解释这句：“学而时习之，不亦说乎？”',
+    '我想从孔子和孟子的关系问起',
+    '我想问“逍遥游”里鲲鹏的寓意',
 ]
 
 export function ChatInterface() {
@@ -588,7 +588,7 @@ export function ChatInterface() {
                                     从一句原文问起
                                 </h2>
                                 <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                                    不知道怎样检索也没关系。最稳妥的方式，是直接贴一句原文或提一个问题。
+                                    不知道怎么开口也没关系。贴一句原文，或直接提一个问题，都可以开始。
                                 </p>
                             </div>
                             <button

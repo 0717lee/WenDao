@@ -15,7 +15,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText('输入一句原文，或提问人物、典故、概念')
+    const textarea = screen.getByPlaceholderText('贴一句原文，或提问人物、典故、概念')
 
     fireEvent.keyDown(textarea, { key: 'Enter' })
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true })
@@ -35,7 +35,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const textarea = screen.getByPlaceholderText('输入一句原文，或提问人物、典故、概念')
+    const textarea = screen.getByPlaceholderText('贴一句原文，或提问人物、典故、概念')
 
     fireEvent.compositionStart(textarea)
     const composingEnter = createEvent.keyDown(textarea, { key: 'Enter' })

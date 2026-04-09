@@ -7,7 +7,7 @@ import { useDocumentStore } from '../store/useDocumentStore';
 global.fetch = vi.fn();
 
 describe('SearchPanel', () => {
-  const searchPlaceholder = /输入一句原文，或搜索人物、典故、概念/i;
+  const searchPlaceholder = /贴一句原文，或搜人物、典故、概念/i;
   const props = {
     onOpenDocument: vi.fn(),
     onAsk: vi.fn(),

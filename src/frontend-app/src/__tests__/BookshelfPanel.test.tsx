@@ -21,7 +21,7 @@ describe('BookshelfPanel', () => {
     render(<BookshelfPanel {...props} />)
 
     expect(
-      await screen.findByText((content) => content.includes('这里提供可直接阅读的内容，适合第一次使用时开始。'))
+      await screen.findByText((content) => content.includes('这里会放整理好的内容，适合第一次使用时开始。'))
     ).toBeInTheDocument()
   })
 

@@ -189,10 +189,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
             原文检索
           </div>
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-            查找原句、人物与典故
+            查一句原文，或找一个人物、典故
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            若一时想不清怎样检索，可直接转去 AI 问答。
+            一时想不好怎么搜，也可以先去 AI 问答，把问题直接说出来。
           </p>
         </div>
 
@@ -204,7 +204,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="输入一句原文，或搜索人物、典故、概念..."
+              placeholder="贴一句原文，或搜人物、典故、概念"
               className="gf-input w-full px-4 py-3 pl-10 rounded-[22px] text-sm"
               style={{
                 color: 'var(--gf-text)',
@@ -221,7 +221,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                搜索中
+                正在检索
               </>
             ) : (
               <>
@@ -235,7 +235,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         {/* Search Mode Selection */}
         <div className="grid gap-2 md:grid-cols-3">
           {[
-            { value: 'FULLTEXT' as SearchMode, label: '原句检索', desc: '记得几个关键字时' },
+            { value: 'FULLTEXT' as SearchMode, label: '原句检索', desc: '记得原句时' },
             { value: 'VECTOR' as SearchMode, label: '大意检索', desc: '只记得大意时' },
             { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '拿不准时选这个' },
           ].map(opt => (
@@ -262,7 +262,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            如果暂时找不到，可以改去 AI 问答继续提问。
+            一时找不到，也可以转去 AI 问答继续问。
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -329,7 +329,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         {results.length === 0 && !loading && !error && !query && (
           <div className="text-center mt-20 opacity-35">
             <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>输入一句原文，或输入你记得的人物、典故，开始检索</p>
+            <p style={{ color: 'var(--gf-text)' }}>贴一句原文，或输入你记得的人物、典故，开始检索。</p>
           </div>
         )}
 
@@ -337,10 +337,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           <div className="text-center mt-20 opacity-45">
             <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
             <p className="mb-3" style={{ color: 'var(--gf-text)' }}>
-              没找到“{query}”相关内容
+              没找到和“{query}”直接相关的内容
             </p>
             <p className="text-sm mb-4" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              试试人物名、典故名，或输入更完整的原句。
+              可以换成人物名、典故名，或把原句写得更完整一些。
             </p>
             <div className="flex justify-center flex-wrap gap-2">
               {suggestedQueries.map((item) => (

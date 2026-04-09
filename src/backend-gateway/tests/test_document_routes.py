@@ -123,3 +123,61 @@ class TestDocumentRouterPaths:
         assert document["original_text"] == "学而时习之不亦说乎"
         assert document["punctuated_text"] == "学而时习之，不亦说乎？"
         assert document["segments"][0]["title"] == "学而"
+
+    @pytest.mark.asyncio
+    async def test_list_documents_merges_sqlite_corpus_with_pg_user_docs(self):
+        from routers import document as document_router
+
+        pg_conn = AsyncMock()
+        pg_conn.fetch = AsyncMock(return_value=[
+            {
+                "id": "user-doc-1",
+                "title": "我的上传",
+                "source_type": "user",
+                "preview": "上传内容摘要",
+                "status": "done",
+                "current_paragraph": 0,
+                "total_paragraphs": 0,
+                "has_processed": True,
+                "has_note": False,
+            }
+        ])
+        pg_ctx = MagicMock()
+        pg_ctx.__aenter__ = AsyncMock(return_value=pg_conn)
+        pg_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.document._list_documents_sqlite", new=AsyncMock(return_value=[
+            {
+                "id": "corpus-1",
+                "title": "《论语》",
+                "source_type": "corpus",
+                "preview": "学而时习之",
+                "status": "done",
+                "current_paragraph": 0,
+                "total_paragraphs": 0,
+                "has_processed": True,
+                "has_note": False,
+            }
+        ])), patch("routers.document.get_connection", return_value=pg_ctx):
+            documents = await document_router._list_documents(limit=10, user_id="user-1")
+
+        assert [doc["id"] for doc in documents] == ["corpus-1", "user-doc-1"]
+
+    @pytest.mark.asyncio
+    async def test_count_documents_includes_sqlite_corpus_when_pg_is_available(self):
+        from routers import document as document_router
+
+        pg_conn = AsyncMock()
+        pg_conn.fetchval = AsyncMock(return_value=2)
+        pg_ctx = MagicMock()
+        pg_ctx.__aenter__ = AsyncMock(return_value=pg_conn)
+        pg_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        async def fake_count_sqlite(source_type=None, user_id=None):
+            return 100 if source_type == "corpus" else 0
+
+        with patch("routers.document._count_documents_sqlite", new=AsyncMock(side_effect=fake_count_sqlite)), \
+             patch("routers.document.get_connection", return_value=pg_ctx):
+            total = await document_router._count_documents(user_id="user-1")
+
+        assert total == 102

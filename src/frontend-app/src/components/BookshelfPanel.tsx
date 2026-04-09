@@ -393,7 +393,7 @@ export default function BookshelfPanel({
               然后顺着读下去
             </h2>
             <p className="max-w-3xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.6)' }}>
-              如果你已经读过，就回到上次停下的地方；如果是第一次来，可以从一篇整理好的内容开始；若手头只有影印页，也可以先做图片识读。
+              如果你已经读过，就回到上次停下的地方；如果是第一次来，可以先从推荐内容开始；如果手头只有图片，就先识读成文。
             </p>
           </div>
 
@@ -449,7 +449,7 @@ export default function BookshelfPanel({
                     <div className="line-clamp-2">{recommendedStart.preview}</div>
                   </div>
                 ) : (
-                  '这里提供可直接阅读的内容，适合第一次使用时开始。'
+                  '这里会放整理好的内容，适合第一次使用时开始。'
                 )}
               </div>
               <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
@@ -495,7 +495,7 @@ export default function BookshelfPanel({
           )}
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+        <section className="grid items-start gap-5 xl:grid-cols-[1.08fr_0.92fr]">
           {secondaryContinueItems.length > 0 ? (
             <div
               ref={continueReadingRef}
@@ -572,7 +572,7 @@ export default function BookshelfPanel({
                   精选篇目
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  这些内容已经整理好，可以直接开始阅读。
+                  这些内容已经整理好，可以直接开始读。
                 </p>
               </div>
               <label className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
@@ -666,7 +666,7 @@ export default function BookshelfPanel({
                 更多来源与工具
               </h3>
               <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                想继续扩展阅读时，再来看更多篇目、我的上传和图片识读。
+                想继续往下读时，再来看更多目录、我的上传和图片识读。
               </p>
             </div>
             <span className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
@@ -686,7 +686,7 @@ export default function BookshelfPanel({
                   更多篇目
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  如果这些内容里没有你想读的，可以继续搜索并加入阅读。
+                  如果这里没有你想读的，可以继续搜索，再加入阅读。
                 </p>
                 </div>
                 <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
@@ -771,13 +771,13 @@ export default function BookshelfPanel({
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  我的上传
-                </h3>
-                <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  你上传并整理过的内容会显示在这里。
-                </p>
-              </div>
+              <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
+                我的上传
+              </h3>
+              <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                你上传并整理过的内容，会显示在这里。
+              </p>
+            </div>
               <span className="text-sm" style={{ color: 'rgba(26,30,35,0.42)' }}>
                 {loading ? '加载中...' : `${userTotal} 份文档`}
               </span>
@@ -867,7 +867,7 @@ export default function BookshelfPanel({
                 图片识读与整理
               </h3>
               <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                手头有影印页、扫描图或馆藏图片时，可以在这里开始识别。
+                手头有影印页、扫描图或馆藏图片时，可以先在这里识读成文。
               </p>
             </div>
 
@@ -887,7 +887,7 @@ export default function BookshelfPanel({
                 {uploadStatus === 'uploading' ? '正在上传图片' : isDragActive ? '松开后开始识别' : '拖拽图片到此处，或点击上传'}
               </div>
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                支持 JPG、PNG、TIFF。上传后会依次识别文字、补标点，再生成白话。
+                支持 JPG、PNG、TIFF。上传后会先识别文字，再继续整理和阅读。
               </div>
             </div>
 

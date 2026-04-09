@@ -94,10 +94,10 @@ describe('DashboardHome', () => {
       })
     ).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /打开推荐内容/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /先解释一句古文/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /先识别图片文字/i })).toBeInTheDocument()
-    expect(screen.getAllByText('直接阅读')).toHaveLength(1)
-    expect(screen.getAllByText('解释一句')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /先问一句原文/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /先识读图片/i })).toBeInTheDocument()
+    expect(screen.getAllByText('推荐阅读')).toHaveLength(1)
+    expect(screen.getAllByText('问一句')).toHaveLength(1)
     expect(screen.getAllByText('上传图片')).toHaveLength(1)
   })
 
@@ -112,7 +112,7 @@ describe('DashboardHome', () => {
   it('routes the quote-first card to AI guidance', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /先解释一句古文/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /先问一句原文/i }))
 
     expect(props.onAsk).toHaveBeenCalled()
   })
@@ -133,7 +133,7 @@ describe('DashboardHome', () => {
 
     render(<DashboardHome {...props} />)
 
-    expect(await screen.findByRole('button', { name: /先解释一句古文/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /先问一句原文/i })).toBeInTheDocument()
   })
 
   it('routes the lightweight continue and recommendation entries to the right actions', async () => {
@@ -151,7 +151,7 @@ describe('DashboardHome', () => {
   it('routes the image-first card to OCR upload flow', async () => {
     render(<DashboardHome {...props} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: /先识别图片文字/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /先识读图片/i }))
 
     await waitFor(() => {
       expect(props.onOpenReaderUpload).toHaveBeenCalled()
@@ -219,7 +219,7 @@ describe('DashboardHome', () => {
 
     render(<DashboardHome {...props} />)
 
-    expect(screen.getByText(/古籍库 准备中/i)).toBeInTheDocument()
-    expect(screen.getByText(/现在能读 准备中/i)).toBeInTheDocument()
+    expect(screen.getByText(/古籍库中 准备中/i)).toBeInTheDocument()
+    expect(screen.getByText(/当前可读 准备中/i)).toBeInTheDocument()
   })
 })

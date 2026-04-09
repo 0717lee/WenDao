@@ -323,74 +323,7 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
         return await _get_document(row["id"])
 
 
-async def _list_documents(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
-    """Return bookshelf-ready document metadata ordered by most recently updated."""
-    where_clause = (
-        "WHERE (d.source_type = 'corpus' OR ($2::uuid IS NOT NULL AND d.owner_user_id = $2::uuid))"
-    )
-    if source_type:
-        where_clause += " AND d.source_type = $3"
-    try:
-        async with get_connection() as conn:
-            sql = f"""
-                SELECT
-                    d.id::text AS id,
-                    d.title,
-                    d.repo_id,
-                    d.author,
-                    d.dynasty,
-                    d.category,
-                    d.source_name,
-                    d.source_url,
-                    d.chapter_count,
-                    d.difficulty,
-                    d.guide_summary,
-                    d.translation_status,
-                    d.status,
-                    d.source_type,
-                    d.owner_user_id::text AS owner_user_id,
-                    d.created_at,
-                    d.updated_at,
-                    LEFT(COALESCE(NULLIF(d.featured_excerpt, ''), NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 140) AS preview,
-                    COALESCE(h.current_paragraph, 0) AS current_paragraph,
-                    COALESCE(h.total_paragraphs, 0) AS total_paragraphs,
-                    CASE
-                        WHEN d.punctuated_text IS NOT NULL AND d.punctuated_text <> '' THEN TRUE
-                        ELSE FALSE
-                    END AS has_processed,
-                    CASE
-                        WHEN n.note_text IS NOT NULL AND n.note_text <> '' THEN TRUE
-                        ELSE FALSE
-                    END AS has_note
-                FROM documents d
-                LEFT JOIN LATERAL (
-                    SELECT current_paragraph, total_paragraphs
-                    FROM user_reading_history
-                    WHERE document_id = d.id
-                      AND user_id = $2::uuid
-                    ORDER BY last_read_at DESC
-                    LIMIT 1
-                ) h ON TRUE
-                LEFT JOIN user_document_notes n
-                  ON n.document_id = d.id
-                 AND n.user_id = $2::uuid
-                {where_clause}
-                ORDER BY CASE
-                    WHEN d.source_type = 'corpus' THEN 0
-                    ELSE 1
-                END, COALESCE(d.updated_at, d.created_at) DESC
-                LIMIT $1
-                """
-            rows = await conn.fetch(
-                sql,
-                limit,
-                user_id,
-                source_type,
-            ) if source_type else await conn.fetch(sql, limit, user_id)
-            return [dict(row) for row in rows]
-    except RuntimeError:
-        pass
-
+async def _list_documents_sqlite(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
     async with get_db() as db:
         sql = """
             SELECT
@@ -456,10 +389,113 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
         return [dict(row) for row in rows]
 
 
+async def _count_documents_sqlite(source_type: str | None = None, user_id: str | None = None) -> int:
+    async with get_db() as db:
+        where_clause_sqlite = "WHERE (source_type = 'corpus' OR (? IS NOT NULL AND owner_user_id = ?))"
+        if source_type:
+            where_clause_sqlite += " AND source_type = ?"
+
+        sql = f"SELECT COUNT(*) as c FROM documents {where_clause_sqlite}"
+        cursor = await db.execute(
+            sql,
+            (user_id, user_id, source_type) if source_type else (user_id, user_id)
+        )
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+
+async def _list_documents(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
+    """Return bookshelf-ready document metadata ordered by most recently updated."""
+    if source_type == "corpus":
+        return await _list_documents_sqlite(limit=limit, source_type=source_type, user_id=user_id)
+
+    if source_type is None:
+        corpus_documents = await _list_documents_sqlite(limit=limit, source_type="corpus", user_id=user_id)
+        remaining_limit = max(limit - len(corpus_documents), 0)
+    else:
+        corpus_documents = []
+        remaining_limit = limit
+
+    where_clause = (
+        "WHERE ($2::uuid IS NOT NULL AND d.owner_user_id = $2::uuid)"
+    )
+    if source_type:
+        where_clause += " AND d.source_type = $3"
+    try:
+        if remaining_limit <= 0:
+            return corpus_documents[:limit]
+
+        async with get_connection() as conn:
+            sql = f"""
+                SELECT
+                    d.id::text AS id,
+                    d.title,
+                    d.repo_id,
+                    d.author,
+                    d.dynasty,
+                    d.category,
+                    d.source_name,
+                    d.source_url,
+                    d.chapter_count,
+                    d.difficulty,
+                    d.guide_summary,
+                    d.translation_status,
+                    d.status,
+                    d.source_type,
+                    d.owner_user_id::text AS owner_user_id,
+                    d.created_at,
+                    d.updated_at,
+                    LEFT(COALESCE(NULLIF(d.featured_excerpt, ''), NULLIF(d.translated_text, ''), NULLIF(d.punctuated_text, ''), d.original_text), 140) AS preview,
+                    COALESCE(h.current_paragraph, 0) AS current_paragraph,
+                    COALESCE(h.total_paragraphs, 0) AS total_paragraphs,
+                    CASE
+                        WHEN d.punctuated_text IS NOT NULL AND d.punctuated_text <> '' THEN TRUE
+                        ELSE FALSE
+                    END AS has_processed,
+                    CASE
+                        WHEN n.note_text IS NOT NULL AND n.note_text <> '' THEN TRUE
+                        ELSE FALSE
+                    END AS has_note
+                FROM documents d
+                LEFT JOIN LATERAL (
+                    SELECT current_paragraph, total_paragraphs
+                    FROM user_reading_history
+                    WHERE document_id = d.id
+                      AND user_id = $2::uuid
+                    ORDER BY last_read_at DESC
+                    LIMIT 1
+                ) h ON TRUE
+                LEFT JOIN user_document_notes n
+                  ON n.document_id = d.id
+                 AND n.user_id = $2::uuid
+                {where_clause}
+                ORDER BY COALESCE(d.updated_at, d.created_at) DESC
+                LIMIT $1
+                """
+            rows = await conn.fetch(
+                sql,
+                remaining_limit,
+                user_id,
+                source_type,
+            ) if source_type else await conn.fetch(sql, remaining_limit, user_id)
+            pg_documents = [dict(row) for row in rows]
+            if source_type is None:
+                return [*corpus_documents, *pg_documents][:limit]
+            return pg_documents
+    except RuntimeError:
+        pass
+
+    return await _list_documents_sqlite(limit=limit, source_type=source_type, user_id=user_id)
+
+
 async def _count_documents(source_type: str | None = None, user_id: str | None = None) -> int:
     """Return total count of documents ignoring limit and offset."""
+    if source_type == "corpus":
+        return await _count_documents_sqlite(source_type=source_type, user_id=user_id)
+
+    sqlite_corpus_count = await _count_documents_sqlite(source_type="corpus", user_id=user_id) if source_type is None else 0
     where_clause = (
-        "WHERE (source_type = 'corpus' OR ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid))"
+        "WHERE ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)"
     )
     if source_type:
         where_clause += " AND source_type = $2"
@@ -468,22 +504,11 @@ async def _count_documents(source_type: str | None = None, user_id: str | None =
         async with get_connection() as conn:
             sql = f"SELECT COUNT(*) FROM documents {where_clause}"
             val = await conn.fetchval(sql, user_id, source_type) if source_type else await conn.fetchval(sql, user_id)
-            return int(val)
+            return sqlite_corpus_count + int(val)
     except RuntimeError:
         pass
 
-    async with get_db() as db:
-        where_clause_sqlite = "WHERE (source_type = 'corpus' OR (? IS NOT NULL AND owner_user_id = ?))"
-        if source_type:
-            where_clause_sqlite += " AND source_type = ?"
-        
-        sql = f"SELECT COUNT(*) as c FROM documents {where_clause_sqlite}"
-        cursor = await db.execute(
-            sql,
-            (user_id, user_id, source_type) if source_type else (user_id, user_id)
-        )
-        row = await cursor.fetchone()
-        return int(row["c"]) if row else 0
+    return await _count_documents_sqlite(source_type=source_type, user_id=user_id)
 
 
 async def _upsert_document_record(record: dict[str, Any]) -> None:

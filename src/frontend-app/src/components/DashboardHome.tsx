@@ -141,18 +141,18 @@ export default function DashboardHome({
   const heroEntryWays = [
     {
       key: 'read',
-      eyebrow: '直接阅读',
-      title: recommendedStart ? '打开推荐内容' : '前往阅读页挑选',
-      description: '适合先读一篇时使用。',
+      eyebrow: '推荐阅读',
+      title: recommendedStart ? '先打开推荐内容' : '先去阅读页挑一篇',
+      description: '第一次来时，先从一篇整理好的内容开始。',
       action: openRecommendedStart,
       accent: 'var(--gf-gugong-red)',
       accentSoft: 'rgba(140,26,17,0.08)',
     },
     {
       key: 'ask',
-      eyebrow: '解释一句',
-      title: '先解释一句古文',
-      description: '适合已经记得一句原文时使用。',
+      eyebrow: '问一句',
+      title: '先问一句原文',
+      description: '记得一句原文时，从这里最容易开始。',
       action: () => onAsk(askFromSentencePrompt),
       accent: '#7b5b44',
       accentSoft: 'rgba(123,91,68,0.08)',
@@ -160,8 +160,8 @@ export default function DashboardHome({
     {
       key: 'scan',
       eyebrow: '上传图片',
-      title: '先识别图片文字',
-      description: '适合手头只有图片时使用。',
+      title: '先识读图片',
+      description: '手头只有影印页或扫描图时，从这里开始。',
       action: onOpenReaderUpload,
       accent: 'var(--gf-gold)',
       accentSoft: 'rgba(201,160,99,0.12)',
@@ -225,7 +225,7 @@ export default function DashboardHome({
                   可以从这里开始
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  可以直接阅读一篇内容、解释一句古文，或上传图片识别。先选一种最适合当前情况的方式即可。
+                  可以先读一篇整理好的内容，也可以先问一句原文；如果手头只有图片，就先把它识读成文。
                 </p>
               </div>
 
@@ -262,7 +262,7 @@ export default function DashboardHome({
                       {index + 1}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[11px] tracking-[0.24em]" style={{ color: item.accent }}>
+              <div className="text-[11px] tracking-[0.24em]" style={{ color: item.accent }}>
                         {item.eyebrow}
                       </div>
                       <div className="mt-1 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
@@ -283,7 +283,7 @@ export default function DashboardHome({
           </div>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-2">
+        <section className="grid items-start gap-5 lg:grid-cols-2">
           <div
             className="rounded-[28px] p-4 md:p-5"
             style={{ backgroundColor: 'rgba(255,255,255,0.68)', border: '1px solid rgba(26,30,35,0.06)' }}
@@ -334,7 +334,7 @@ export default function DashboardHome({
                 还不知道读什么
               </h3>
               <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                不知道选哪篇时，可以先从推荐内容开始。
+                还没想好先读哪篇时，可以先从推荐内容开始。
               </p>
             </div>
 
@@ -353,10 +353,10 @@ export default function DashboardHome({
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                  古籍库 {corpusCountLabel}
+                  古籍库中 {corpusCountLabel}
                 </span>
                 <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                  现在能读 {documentsCountLabel}
+                  当前可读 {documentsCountLabel}
                 </span>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
@@ -373,7 +373,7 @@ export default function DashboardHome({
                   className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
                   style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.62)', border: '1px solid rgba(26,30,35,0.08)' }}
                 >
-                  去阅读页自己挑
+                  去阅读页挑一篇
                 </button>
               </div>
             </div>
