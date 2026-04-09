@@ -120,7 +120,7 @@
 - 智谱 AI
 - Moonshot Kimi
 - 讯飞 ASR/TTS
-- 百度 OCR
+- OCR 识别服务
 
 ## 5. 当前仍建议继续加固的方向
 

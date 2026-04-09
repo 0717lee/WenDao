@@ -21,12 +21,12 @@ WenDao 是一个帮助普通人“真正读懂”古籍的 AI 阅读工具。它
 
 - **真实古籍仓库**：内置基于 Kanripo 整理的 100 部公共版权古籍，全部按“完整文本 + 基础导读”统一入库
 - **片段问答与问题检索**：支持从人物、概念、典故或一句原文切入理解古籍内容
-- **OCR 古籍识别**：支持竖排文字上传识别（百度 OCR + PaddleOCR 降级链）
+- **OCR 古籍识别**：支持竖排文字上传识别（OCR 识别服务 + PaddleOCR 降级链）
 - **三栏对照阅读**：原文 / 标点文 / 白话翻译并列展示，移动端 Tab 自适应
 - **AI 逐句精讲**：在阅读中点击一句古文，获取句义拆解、典故补充与继续追问建议
 - **RAG 智能对话**：基于向量检索的古籍知识问答，引用原文片段
 - **多模态增强**：图片辅助分析、古风诗词生成配图、语音交互
-- **7 款 AI 工具 / 4 家供应商**：智谱 AI、Moonshot Kimi、讯飞 ASR/TTS、FAISS+Embedding
+- **多类智能能力协同**：问答、释义、语音、向量检索等能力按场景组合使用
 
 ### 当前产品主链路
 
@@ -84,7 +84,7 @@ cp src/frontend-app/.env.example src/frontend-app/.env
 # ZHIPUAI_API_KEY     — 智谱 AI（Embedding / GLM-4 / CogView / GLM-4V）
 # MOONSHOT_API_KEY    — Moonshot Kimi（RAG 知识问答）
 # IFLYTEK_*           — 讯飞 ASR/TTS 语音服务
-# BAIDU_OCR_*         — 百度 OCR 文字识别
+# BAIDU_OCR_*         — OCR 识别服务凭据（当前实现）
 # DATABASE_URL        — PostgreSQL 连接串（可选，降级到 SQLite）
 #
 # 编辑前端 .env：
