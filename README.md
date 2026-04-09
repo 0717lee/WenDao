@@ -58,6 +58,7 @@ WenDao 是一个帮助普通人“真正读懂”古籍的 AI 阅读工具。它
 - 后端：`https://api.example.com`
 
 这是当前正式配置，不是误指向；若继续保持现状，请在前端部署环境里持续把 `VITE_API_URL` 设为该 Railway 域名。
+首次进入前端需要先注册或登录，当前默认不提供游客模式。
 
 ## 快速开始
 
@@ -87,11 +88,11 @@ cp src/frontend-app/.env.example src/frontend-app/.env
 # DATABASE_URL        — PostgreSQL 连接串（可选，降级到 SQLite）
 #
 # 编辑前端 .env：
-# VITE_API_URL        — 后端 REST API 地址
-# VITE_WS_URL         — 后端 WebSocket 地址
+# VITE_API_URL        — 后端 REST / SSE API 地址
 ```
 
 如果前端和后端分开部署，务必把 `VITE_API_URL` 指向真实后端域名；本地开发默认使用 `http://localhost:8000`。
+当前前端不再单独使用 `VITE_WS_URL`；聊天、OCR 流式处理、逐句精讲等能力都复用 `VITE_API_URL`。
 
 当前线上配置可直接写为：
 
@@ -144,18 +145,22 @@ cd ../backend-gateway
 │   │   │   │   ├── ThreeColumnReader.tsx   # 三栏阅读器（含目录导航面板）
 │   │   │   │   ├── OCRPreview.tsx          # OCR 预览编辑
 │   │   │   │   ├── ReaderTocPanel.tsx      # 目录导航面板
-│   │   │   │   ├── ReaderExplainPanel.tsx  # 逐句精盘面
+│   │   │   │   ├── ReaderExplainPanel.tsx  # 逐句精讲面板
+│   │   │   │   ├── ReaderNotesPanel.tsx    # 阅读笔记与收藏操作
+│   │   │   │   ├── StudyCardsPanel.tsx     # 学习卡片
 │   │   │   │   ├── WordPopover.tsx         # 字词释义弹窗
 │   │   │   │   ├── FavoritesList.tsx       # 收藏夹
 │   │   │   │   └── WordbookPanel.tsx       # 字词本
+│   │   │   ├── lib/               # API 与业务辅助
 │   │   │   ├── store/             # Zustand 状态管理
-│   │   │   └── hooks/             # 自定义 Hooks
+│   │   │   └── utils/             # 阅读器文本工具
 │   │   └── package.json
 │   │
 │   └── backend-gateway/           # FastAPI 后端
 │       ├── agents/                # AI Agent 模块
 │       │   ├── rag.py             # RAG 知识检索
 │       │   ├── ocr.py             # OCR 识别
+│       │   ├── sentence_explainer.py # 逐句精讲
 │       │   ├── translator.py      # 断句标点翻译
 │       │   ├── word_explainer.py  # 字词释义
 │       │   ├── speech.py          # 讯飞 ASR/TTS

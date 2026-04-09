@@ -101,8 +101,8 @@ def _build_segment_summary(title: str, text: str, metadata: dict[str, Any]) -> s
     if focus == "意象与情感":
         return f"这一段先看 {keyword_text}，从“{excerpt}”开始读，先把画面和情绪读出来。"
     if focus == "概念与论证":
-        return f"这一段先看 {keyword_text} 这些关键词，再结合“{excerpt}”理解这一段在讲什么。"
-    return f"这一段先看 {keyword_text}，再从“{excerpt}”这一句进入，先读懂大意。"
+        return f"这一段先看 {keyword_text} 这些核心词，再结合“{excerpt}”理解这一段的论述主线。"
+    return f"这一段先看 {keyword_text} 这些核心词，再从“{excerpt}”这一句进入，先抓住这一段的主线。"
 
 
 def enrich_segments(
