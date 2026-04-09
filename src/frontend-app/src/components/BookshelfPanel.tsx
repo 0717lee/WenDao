@@ -8,6 +8,12 @@ import { useGraphStore } from '../store/useGraphStore'
 
 const BOOKSHELF_WARM_RETRY_MAX = 4
 const BOOKSHELF_WARM_RETRY_DELAY_MS = 900
+const CATALOG_PAGE_SIZE = 36
+const DIFFICULTY_RANK: Record<string, number> = {
+  入门: 0,
+  进阶: 1,
+  挑战: 2,
+}
 
 interface BookshelfItem {
   id: string
@@ -76,6 +82,63 @@ function formatTimeLabel(value?: string): string {
   return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
 }
 
+function rankDocumentForStart(doc: BookshelfItem, index: number) {
+  return {
+    doc,
+    index,
+    difficultyRank: DIFFICULTY_RANK[doc.difficulty || ''] ?? 99,
+    chapterRank: doc.chapter_count ?? Number.MAX_SAFE_INTEGER,
+  }
+}
+
+function pickFeaturedCorpusDocuments(
+  documents: BookshelfItem[],
+  selectedCategory: string,
+  maxItems = 4,
+): BookshelfItem[] {
+  const scoped = selectedCategory === '全部'
+    ? documents
+    : documents.filter((item) => item.category === selectedCategory)
+
+  if (scoped.length <= maxItems) return scoped
+
+  const ordered = scoped
+    .map((doc, index) => rankDocumentForStart(doc, index))
+    .sort((left, right) => {
+      if (left.difficultyRank !== right.difficultyRank) {
+        return left.difficultyRank - right.difficultyRank
+      }
+      if (left.chapterRank !== right.chapterRank) {
+        return left.chapterRank - right.chapterRank
+      }
+      return left.index - right.index
+    })
+    .map((item) => item.doc)
+
+  if (selectedCategory !== '全部') {
+    return ordered.slice(0, maxItems)
+  }
+
+  const featured: BookshelfItem[] = []
+  const seenCategories = new Set<string>()
+
+  for (const doc of ordered) {
+    const categoryKey = doc.category || `__${doc.id}`
+    if (seenCategories.has(categoryKey)) continue
+    seenCategories.add(categoryKey)
+    featured.push(doc)
+    if (featured.length >= maxItems) return featured
+  }
+
+  for (const doc of ordered) {
+    if (featured.some((item) => item.id === doc.id)) continue
+    featured.push(doc)
+    if (featured.length >= maxItems) break
+  }
+
+  return featured
+}
+
 export default function BookshelfPanel({
   onOpenDocument,
   onToggleCompare,
@@ -86,6 +149,7 @@ export default function BookshelfPanel({
   const [userDocuments, setUserDocuments] = useState<BookshelfItem[]>([])
   const [history, setHistory] = useState<HistoryItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [userDocumentsLoading, setUserDocumentsLoading] = useState(false)
   const [selectedCorpusCategory, setSelectedCorpusCategory] = useState('全部')
   const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([])
   const [catalogTotal, setCatalogTotal] = useState(0)
@@ -97,6 +161,7 @@ export default function BookshelfPanel({
   const [uploadErrorMessage, setUploadErrorMessage] = useState('')
   const [panelNotice, setPanelNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null)
   const [showMoreOptions, setShowMoreOptions] = useState(false)
+  const [moreOptionsLoaded, setMoreOptionsLoaded] = useState(false)
   const { setDocument, setUploadStatus, uploadStatus } = useDocumentStore()
   const consumeReaderHubSection = useGraphStore((state) => state.consumeReaderHubSection)
   const continueReadingRef = useRef<HTMLDivElement | null>(null)
@@ -111,27 +176,22 @@ export default function BookshelfPanel({
       setLoading(true)
       try {
         for (let attempt = 0; attempt <= BOOKSHELF_WARM_RETRY_MAX; attempt += 1) {
-          const [documentsResponse, corpusResponse, historyResponse] = await Promise.all([
-            fetch(`${API_BASE}/api/v1/documents?limit=100`, authFetchOptions()).catch(() => null),
+          const [corpusResponse, historyResponse] = await Promise.all([
             fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=corpus`, authFetchOptions()).catch(() => null),
             fetch(`${API_BASE}/api/v1/reader/history`, authFetchOptions()).catch(() => null),
           ])
 
-          const documentsData = documentsResponse?.ok ? await documentsResponse.json() : { documents: [] }
           const corpusData = corpusResponse?.ok ? await corpusResponse.json() : { documents: [] }
           const historyData = historyResponse?.ok ? await historyResponse.json() : []
 
           if (cancelled) return
 
-          const allDocuments = Array.isArray(documentsData.documents) ? documentsData.documents : []
           const corpusList = Array.isArray(corpusData.documents) ? corpusData.documents : []
           const totalCorpus = Math.max(Number(corpusData.total) || 0, corpusList.length)
-          const allTotal = Math.max(Number(documentsData.total) || 0, allDocuments.length)
           const shouldRetry =
             Boolean(corpusResponse?.ok) &&
             totalCorpus === 0 &&
             corpusList.length === 0 &&
-            allTotal === 0 &&
             (!Array.isArray(historyData) || historyData.length === 0) &&
             attempt < BOOKSHELF_WARM_RETRY_MAX
 
@@ -141,10 +201,6 @@ export default function BookshelfPanel({
           }
 
           setCorpusDocuments(corpusList)
-
-          const userDocs = allDocuments.filter((item: BookshelfItem) => item.source_type === 'user')
-          setUserDocuments(userDocs)
-          setUserTotal(Math.max(0, allTotal - totalCorpus))
           setHistory(Array.isArray(historyData) ? historyData : [])
           break
         }
@@ -159,6 +215,35 @@ export default function BookshelfPanel({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!showMoreOptions || moreOptionsLoaded) return
+
+    let cancelled = false
+
+    async function loadMoreOptions() {
+      setUserDocumentsLoading(true)
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=user`, authFetchOptions()).catch(() => null)
+        const data = response?.ok ? await response.json() : { documents: [], total: 0 }
+
+        if (cancelled) return
+
+        const userDocs = Array.isArray(data.documents) ? data.documents : []
+        setUserDocuments(userDocs)
+        setUserTotal(Math.max(Number(data.total) || 0, userDocs.length))
+        setMoreOptionsLoaded(true)
+      } finally {
+        if (!cancelled) setUserDocumentsLoading(false)
+      }
+    }
+
+    void loadMoreOptions()
+
+    return () => {
+      cancelled = true
+    }
+  }, [moreOptionsLoaded, showMoreOptions])
 
   useEffect(() => {
     const nextSection = consumeReaderHubSection()
@@ -178,8 +263,8 @@ export default function BookshelfPanel({
   const secondaryContinueItems = primaryContinueItem ? continueReadingItems.slice(1) : continueReadingItems
 
   const recommendedStart = useMemo(() => {
-    return corpusDocuments[0] ?? null
-  }, [corpusDocuments])
+    return pickFeaturedCorpusDocuments(corpusDocuments, selectedCorpusCategory, 4)[0] ?? null
+  }, [corpusDocuments, selectedCorpusCategory])
 
   const scrollToSection = (target: { current: HTMLDivElement | null }) => {
     target.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -205,15 +290,9 @@ export default function BookshelfPanel({
     return ['全部', ...Array.from(items)]
   }, [corpusDocuments])
 
-  const filteredCorpusDocuments = useMemo(() => {
-    if (selectedCorpusCategory === '全部') return corpusDocuments
-    return corpusDocuments.filter((item) => item.category === selectedCorpusCategory)
-  }, [corpusDocuments, selectedCorpusCategory])
-
   const featuredCorpusDocuments = useMemo(() => {
-    const preferredList = filteredCorpusDocuments.length > 0 ? filteredCorpusDocuments : corpusDocuments
-    return preferredList.slice(0, 4)
-  }, [corpusDocuments, filteredCorpusDocuments])
+    return pickFeaturedCorpusDocuments(corpusDocuments, selectedCorpusCategory, 4)
+  }, [corpusDocuments, selectedCorpusCategory])
 
   const secondaryFeaturedDocuments = useMemo(() => {
     if (!recommendedStart) return featuredCorpusDocuments
@@ -233,12 +312,14 @@ export default function BookshelfPanel({
   const catalogFamilies = ['全部', '经部', '史部', '子部', '集部', '道部', '佛部']
 
   useEffect(() => {
+    if (!showMoreOptions) return
+
     let cancelled = false
-        const timer = setTimeout(async () => {
-          setCatalogLoading(true)
-          try {
+    const timer = setTimeout(async () => {
+      setCatalogLoading(true)
+      try {
         const params = new URLSearchParams({
-          limit: '60',
+          limit: String(CATALOG_PAGE_SIZE),
           primary_only: 'true',
         })
         if (catalogQuery.trim()) params.set('q', catalogQuery.trim())
@@ -264,7 +345,7 @@ export default function BookshelfPanel({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [catalogQuery, selectedCatalogFamily])
+  }, [catalogQuery, selectedCatalogFamily, showMoreOptions])
 
   useEffect(() => {
     if (!panelNotice) return
@@ -495,8 +576,8 @@ export default function BookshelfPanel({
           )}
         </section>
 
-        <section className="grid items-stretch gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-          {secondaryContinueItems.length > 0 ? (
+        <section className={`grid items-stretch gap-5 ${secondaryContinueItems.length > 0 ? 'xl:grid-cols-[0.82fr_1.18fr]' : ''}`}>
+          {secondaryContinueItems.length > 0 && (
             <div
               ref={continueReadingRef}
               className="h-full rounded-[28px] p-5"
@@ -536,29 +617,6 @@ export default function BookshelfPanel({
                 ))}
               </div>
             </div>
-          ) : (
-            <div
-              ref={continueReadingRef}
-              className="h-full rounded-[28px] p-5 flex flex-col justify-between"
-              style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
-            >
-              <div className="mb-4">
-                <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-                  开始阅读
-                </h3>
-                <p className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  第一次使用时，可以先打开推荐内容；遇到不懂的地方，再逐句查看解释。
-                </p>
-              </div>
-              <button
-                onClick={() => scrollToSection(corpusSectionRef)}
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 hover:-translate-y-0.5"
-                style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-              >
-                查看推荐内容
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
           )}
 
           <div
@@ -572,7 +630,9 @@ export default function BookshelfPanel({
                   精选篇目
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  这些内容已经整理好，可以直接开始读。
+                  {selectedCorpusCategory === '全部'
+                    ? '默认按易读度和门类分散挑选，避免都挤在同一类。'
+                    : '切到具体门类后，这里只展示该类里更适合先读的内容。'}
                 </p>
               </div>
               <label className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
@@ -779,11 +839,15 @@ export default function BookshelfPanel({
               </p>
             </div>
               <span className="text-sm" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                {loading ? '正在整理中...' : `${userTotal} 份文档`}
+                {!showMoreOptions
+                  ? '展开后加载'
+                  : userDocumentsLoading
+                    ? '正在整理中...'
+                    : `${userTotal} 份文档`}
               </span>
             </div>
 
-            {loading ? (
+            {userDocumentsLoading ? (
               <div className="rounded-[24px] p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.42)' }}>
                 正在整理你的内容...
               </div>

@@ -31,7 +31,7 @@ const TAB_ICONS: Record<string, string> = {
 
 type AuthPage = 'login' | 'register';
 
-function TabLoader() {
+function TabLoader({ label = '正在准备页面...' }: { label?: string }) {
     return (
         <div className="flex h-full items-center justify-center" style={{ backgroundColor: 'var(--gf-bg)' }}>
             <div className="flex flex-col items-center gap-3">
@@ -39,9 +39,7 @@ function TabLoader() {
                     className="h-10 w-10 rounded-full border-2 animate-spin"
                     style={{ borderColor: 'rgba(140,26,17,0.15)', borderTopColor: 'var(--gf-gugong-red)' }}
                 />
-                <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    正在准备页面...
-                </span>
+                <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>{label}</span>
             </div>
         </div>
     );
@@ -55,6 +53,7 @@ function App() {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [authPage, setAuthPage] = useState<AuthPage>('login');
     const [authChecking, setAuthChecking] = useState(true);
+    const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
 
     const buildReaderDocument = useCallback((data: any): Document => ({
         id: data.id,
@@ -118,6 +117,10 @@ function App() {
 
     const openDocument = useCallback(
         async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
+            setOpeningDocumentId(documentId);
+            clearCurrentDocument();
+            setReaderReturnTab(activeTab);
+            setActiveTab('reader');
             try {
                 const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions());
                 if (!response.ok) throw new Error('load failed');
@@ -128,13 +131,13 @@ function App() {
                 if (options?.readerPanel) {
                     setPendingReaderPanel(options.readerPanel);
                 }
-                setReaderReturnTab(activeTab);
-                setActiveTab('reader');
             } catch (error) {
                 console.error('Failed to open document:', error);
+            } finally {
+                setOpeningDocumentId(null);
             }
         },
-        [activeTab, buildReaderDocument, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
+        [activeTab, buildReaderDocument, clearCurrentDocument, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
     );
 
     const jumpToChat = useCallback(
@@ -204,6 +207,9 @@ function App() {
             case 'search':
                 return <SearchPanel onOpenDocument={openDocument} onAsk={jumpToChat} />;
             case 'reader':
+                if (openingDocumentId) {
+                    return <TabLoader label="正在打开古籍..." />;
+                }
                 if (getReaderView() === 'hub') {
                     return (
                         <BookshelfPanel

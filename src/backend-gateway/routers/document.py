@@ -30,7 +30,7 @@ from core.document_segments import (
     pick_translation_segments,
 )
 from core.kanripo_catalog import load_kanripo_catalog
-from core.kanripo_source import build_repo_record
+from core.kanripo_source import CURATED_WORKS, build_repo_record
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
@@ -169,6 +169,53 @@ def _ensure_document_access(row: dict[str, Any] | None, user_id: str | None) -> 
     return row or {}
 
 
+def _infer_catalog_family_from_category(category: str | None) -> str | None:
+    normalized = (category or "").strip()
+    if not normalized:
+        return None
+    if normalized in {"经学典籍", "四书"}:
+        return "经部"
+    if normalized == "史书":
+        return "史部"
+    if normalized in {"儒家", "兵家", "法家", "杂家", "政论", "理学", "墨家", "子部典籍", "笔记", "笔记小说", "艺术", "心学", "志怪"}:
+        return "子部"
+    if normalized in {"文学总集", "辞赋", "文学理论", "词曲", "古文选本", "文论"}:
+        return "集部"
+    if normalized == "道家":
+        return "道部"
+    if normalized == "佛学":
+        return "佛部"
+    return None
+
+
+def _build_curated_catalog_entries(imported_by_repo_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for item in CURATED_WORKS:
+        repo_id = str(item.get("repo_id") or "")
+        imported = imported_by_repo_id.get(repo_id)
+        category = imported.get("category") if imported else item.get("category")
+        title = imported.get("title") if imported else item.get("title")
+        author = imported.get("author") if imported else item.get("author")
+        dynasty = imported.get("dynasty") if imported else item.get("dynasty")
+        family = item.get("family") or _infer_catalog_family_from_category(str(category or ""))
+        entries.append(
+            {
+                "repo_id": repo_id,
+                "title": title,
+                "author": author,
+                "dynasty": dynasty,
+                "family": family,
+                "section": item.get("section"),
+                "category": category,
+                "is_primary_text": True,
+                "source_backend": "curated",
+                "imported": bool(imported),
+                "imported_document_id": imported.get("document_id") if imported else None,
+            }
+        )
+    return entries
+
+
 class DocumentTextUpdateRequest(BaseModel):
     """Update manually corrected OCR text before further processing."""
     text: str = Field(..., min_length=1, max_length=50000)
@@ -281,8 +328,9 @@ async def _get_document(document_id: str) -> dict | None:
                 """,
                 document_id,
             )
-            normalized = _normalize_document_payload(dict(row)) if row else None
-            return await _hydrate_public_document(normalized)
+            if row:
+                normalized = _normalize_document_payload(dict(row))
+                return await _hydrate_public_document(normalized)
     except RuntimeError:
         pass
 
@@ -301,26 +349,13 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
                 """,
                 repo_id,
             )
-            if not row:
-                return None
-            return await _get_document(row["id"])
+            if row:
+                return await _get_document(row["id"])
     except RuntimeError:
         pass
 
-    async with get_db() as db:
-        cursor = await db.execute(
-            """
-            SELECT id
-            FROM documents
-            WHERE repo_id = ?
-            LIMIT 1
-            """,
-            (repo_id,),
-        )
-        row = await cursor.fetchone()
-        if not row:
-            return None
-        return await _get_document(row["id"])
+    sqlite_row = await _get_sqlite_document_row(repo_id=repo_id)
+    return await _hydrate_public_document(sqlite_row)
 
 
 async def _list_documents_sqlite(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
@@ -673,15 +708,18 @@ async def _list_catalog_entries(
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
-    entries = load_kanripo_catalog()
+    entries = _build_curated_catalog_entries({}) if primary_only else load_kanripo_catalog()
     query_text = query.strip().lower()
 
     imported_rows = await _list_documents(limit=5000)
     imported_by_repo_id = {
-        item.get("repo_id"): {"document_id": item.get("id"), "title": item.get("title")}
+        item.get("repo_id"): item
         for item in imported_rows
         if item.get("repo_id")
     }
+
+    if primary_only:
+        entries = _build_curated_catalog_entries(imported_by_repo_id)
 
     def matches(entry: dict[str, Any]) -> bool:
         if primary_only and not entry.get("is_primary_text"):
@@ -693,7 +731,7 @@ async def _list_catalog_entries(
         if query_text:
             haystack = " ".join(
                 str(entry.get(key) or "")
-                for key in ("title", "author", "dynasty", "family", "section")
+                for key in ("title", "author", "dynasty", "family", "section", "category")
             ).lower()
             if query_text not in haystack:
                 return False
@@ -707,11 +745,11 @@ async def _list_catalog_entries(
         filtered.append({
             **entry,
             "imported": bool(imported),
-            "imported_document_id": imported["document_id"] if imported else None,
+            "imported_document_id": imported.get("id") if imported else None,
         })
 
     wikisource_entries: list[dict[str, Any]] = []
-    if not section and (not family or family == "维基文库"):
+    if not primary_only and not section and (not family or family == "维基文库"):
         try:
             for entry in await asyncio.to_thread(search_wikisource_catalog, query, min(limit, 12)):
                 imported = imported_by_repo_id.get(entry["repo_id"])
@@ -719,7 +757,7 @@ async def _list_catalog_entries(
                     {
                         **entry,
                         "imported": bool(imported),
-                        "imported_document_id": imported["document_id"] if imported else None,
+                        "imported_document_id": imported.get("id") if imported else None,
                     }
                 )
         except Exception as exc:
