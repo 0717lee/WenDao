@@ -120,8 +120,8 @@ describe('ThreeColumnReader', () => {
 
     // Should render the layout with placeholder text for empty columns
     expect(screen.getByText('原文')).toBeTruthy()
-    expect(screen.getByText('这篇内容还没有标点文')).toBeTruthy()
-    expect(screen.getByText('这里还没有白话解读')).toBeTruthy()
+    expect(screen.getByText('这篇内容还没整理出标点文')).toBeTruthy()
+    expect(screen.getByText('这篇内容还没有白话解读')).toBeTruthy()
   })
 
   it('switches tabs on mobile viewport', async () => {
@@ -206,7 +206,7 @@ describe('ThreeColumnReader', () => {
 
     fireEvent.click(screen.getByText('学而时习之'))
 
-    expect(container.textContent).toContain('当前已选')
+    expect(container.textContent).toContain('当前选中')
     expect(screen.queryByText('当前句子')).toBeNull()
     expect(screen.getByRole('button', { name: /讲解此句/ })).not.toBeDisabled()
 
@@ -253,7 +253,7 @@ describe('WordPopover', () => {
     const { WordPopover } = await import('../components/WordPopover')
     render(<WordPopover word="test" onClose={() => {}} position={{ x: 100, y: 200 }} />)
 
-    expect(screen.getByText('正在查找释义...')).toBeTruthy()
+    expect(screen.getByText('正在查找这个词的释义...')).toBeTruthy()
   })
 
   it('calls onClose when close button is clicked', async () => {

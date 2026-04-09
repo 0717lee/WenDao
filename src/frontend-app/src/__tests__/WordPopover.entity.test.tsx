@@ -63,7 +63,7 @@ describe('WordPopover', () => {
     render(<WordPopover {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getByText('无法取到这个词的释义，请换一个词再试')).toBeTruthy()
+      expect(screen.getByText('现在还没取到这个词的释义，请换一个词再试。')).toBeTruthy()
     })
   })
 })

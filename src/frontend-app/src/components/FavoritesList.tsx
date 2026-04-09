@@ -186,7 +186,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
                       {!docs ? (
                         <div className="p-3 text-sm flex items-center gap-2" style={{ color: 'rgba(26,30,35,0.4)' }}>
                           <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(26,30,35,0.1)', borderTopColor: 'var(--gf-gugong-red)' }} />
-                          正在载入...
+                          正在打开这个分组...
                         </div>
                       ) : docs.length === 0 ? (
                         <div className="p-3 text-sm" style={{ color: 'rgba(26,30,35,0.3)' }}>

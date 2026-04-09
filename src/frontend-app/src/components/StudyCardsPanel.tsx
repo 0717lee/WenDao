@@ -150,7 +150,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
 
       {loading ? (
         <div className="rounded-2xl p-6 text-center text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)' }}>
-          正在生成复习卡片...
+          正在准备复习卡...
         </div>
       ) : current ? (
         <div className="space-y-4">
@@ -194,7 +194,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
               className="rounded-xl px-4 py-2 text-sm disabled:opacity-60"
               style={{ backgroundColor: 'rgba(60,138,81,0.12)', color: '#3c8a51' }}
             >
-              {saving ? '保存中...' : '我已掌握'}
+              {saving ? '正在保存...' : '我已掌握'}
             </button>
             <button
               onClick={() => handleCardResult('review')}
@@ -228,7 +228,7 @@ export function StudyCardsPanel({ documentId }: StudyCardsPanelProps) {
         </div>
       ) : (
         <div className="rounded-2xl p-6 text-center text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.45)' }}>
-          当前文档还无法生成复习卡片。
+          这篇内容暂时还不能生成复习卡。
         </div>
       )}
     </div>

@@ -22,7 +22,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
             setUsername('')
             setPassword('')
         } catch (err: any) {
-            setError(err.message || '登录失败，请检查账号和密码后重试')
+            setError(err.message || '登录没有成功，请检查账号和密码后再试一次')
         } finally {
             setLoading(false)
         }
@@ -52,7 +52,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        登录后即可同步阅读进度、字词收藏和学习记录
+                        登录后就能接着读、同步收藏，也能保留字词记录
                     </p>
                 </div>
 
@@ -68,7 +68,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                             </label>
                             <input
                                 type="text"
-                                placeholder="请输入用户名"
+                                placeholder="输入用户名"
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
                                 autoComplete="username"
@@ -88,7 +88,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="请输入密码"
+                                    placeholder="输入密码"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     autoComplete="current-password"
@@ -136,7 +136,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                                 fontWeight: 500,
                             }}
                         >
-                            {loading ? '登录中...' : '登录'}
+                            {loading ? '正在登录...' : '登录'}
                         </button>
                     </form>
 
@@ -147,7 +147,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                             className="text-xs hover:underline transition-colors"
                             style={{ color: '#ab1f22' }}
                         >
-                            还没有账号？立即注册
+                            还没有账号？先去注册
                         </button>
                     </div>
                 </div>
@@ -155,7 +155,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        一页古籍，一段新知
+                        从一句古文开始，慢慢读进去
                     </p>
                 </div>
             </div>

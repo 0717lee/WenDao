@@ -86,7 +86,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   const handleSearch = async (forcedQuery?: string) => {
     const nextQuery = (forcedQuery ?? query).trim();
     if (!nextQuery) {
-      setError('请输入搜索关键词');
+      setError('先输入一句原文，或一个人物、典故。');
       return;
     }
 
@@ -114,7 +114,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       const message = err instanceof Error ? err.message : '搜索服务暂时不可用';
       setError(
         message.includes('Failed to fetch')
-          ? '检索服务暂时不可用，请稍后重试，或先回到阅读页继续阅读。'
+          ? '检索服务暂时不可用，请稍后再试，或先回到阅读页继续读。'
           : message
       );
       setResults([]);
@@ -340,7 +340,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               没找到和“{query}”直接相关的内容
             </p>
             <p className="text-sm mb-4" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              可以换成人物名、典故名，或把原句写得更完整一些。
+              可以试试人物名、典故名，或把原句写得更完整一点。
             </p>
             <div className="flex justify-center flex-wrap gap-2">
               {suggestedQueries.map((item) => (
@@ -472,7 +472,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                 </div>
                 {!selectedResult.document_id && (
                   <p className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    这条结果目前只是一段索引片段，还不能直接打开全文；你可以继续追问。
+                    这条结果目前只是一段索引片段，还不能直接打开全文；你可以先继续追问。
                   </p>
                 )}
               </div>

@@ -198,7 +198,7 @@ export function ReaderExplainPanel({
           </div>
           <p className="mt-1 text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
             {chapterTitle ? `${chapterTitle} · ` : ''}
-            先选中一句，再点“讲解此句”，这里会分步展开解析。
+            先在原文里点一句，再点“讲解此句”，这里会按顺序拆开讲。
           </p>
         </div>
       </div>
@@ -219,7 +219,7 @@ export function ReaderExplainPanel({
 
       {loading && !hasContent && !error && (
         <div className="mt-4 rounded-2xl px-4 py-4 text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.52)' }}>
-          正在分步生成逐句精讲...
+          正在一句一句拆开讲...
         </div>
       )}
 
@@ -316,7 +316,7 @@ export function ReaderExplainPanel({
             style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
           >
             <MessageSquareQuote className="h-4 w-4" />
-            带着这句继续追问
+            带着这句接着问
           </button>
         </div>
       )}

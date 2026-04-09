@@ -21,7 +21,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
         setError('')
 
         if (password !== confirmPassword) {
-            setError('两次输入的密码不一致')
+            setError('两次输入的密码不一致，请再检查一遍')
             return
         }
 
@@ -33,7 +33,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             setPassword('')
             setConfirmPassword('')
         } catch (err: any) {
-            setError(err.message || '注册失败，请稍后重试')
+            setError(err.message || '注册没有成功，请稍后再试一次')
         } finally {
             setLoading(false)
         }
@@ -69,7 +69,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                         古籍智解
                     </h1>
                     <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        注册后即可保存阅读进度、字词收藏和学习记录
+                        注册后就能保存阅读进度、文章收藏和字词记录
                     </p>
                 </div>
 
@@ -104,7 +104,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             </label>
                             <input
                                 type="email"
-                                placeholder="用于找回密码"
+                                placeholder="用于找回账号"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
                                 autoComplete="email"
@@ -161,7 +161,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             <div className="relative">
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
-                                    placeholder="请再次输入密码"
+                                    placeholder="再输入一次密码"
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
                                     autoComplete="new-password"
@@ -209,7 +209,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                 fontWeight: 500,
                             }}
                         >
-                            {loading ? '注册中...' : '注册'}
+                            {loading ? '正在注册...' : '注册'}
                         </button>
                     </form>
 
@@ -220,7 +220,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             className="text-xs hover:underline transition-colors"
                             style={{ color: '#ab1f22' }}
                         >
-                            已有账号？立即登录
+                            已有账号？直接登录
                         </button>
                     </div>
                 </div>
@@ -228,7 +228,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
                     <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        从一句古文开始，把阅读一点点积累下来
+                        从一句古文开始，把阅读慢慢积累下来
                     </p>
                 </div>
             </div>

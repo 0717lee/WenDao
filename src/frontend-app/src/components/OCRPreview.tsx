@@ -24,7 +24,7 @@ export function OCRPreview() {
     if (!currentDocument) return;
 
     setUploadStatus('processing');
-    setProcessProgress('正在补标点、整理语句...');
+    setProcessProgress('正在补标点并整理内容...');
 
     try {
       const saveResponse = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/text`, {
@@ -42,7 +42,7 @@ export function OCRPreview() {
 
       eventSource.addEventListener('progress', (e) => {
         const data = JSON.parse(e.data);
-        setProcessProgress(data.status || data.message || '正在继续整理文本...');
+        setProcessProgress(data.status || data.message || '正在继续整理内容...');
       });
 
       eventSource.addEventListener('done', (e) => {
@@ -62,14 +62,14 @@ export function OCRPreview() {
       eventSource.addEventListener('error', (e) => {
         console.error('SSE error:', e);
         setUploadStatus('error');
-        setProcessProgress('整理没有完成，请稍后再试');
+        setProcessProgress('整理没有完成，请稍后再试一次');
         eventSource.close();
         eventSourceRef.current = null;
       });
     } catch (error) {
       console.error('Process error:', error);
       setUploadStatus('error');
-      setProcessProgress('整理没有完成，请稍后再试');
+      setProcessProgress('整理没有完成，请稍后再试一次');
     }
   };
 
@@ -104,7 +104,7 @@ export function OCRPreview() {
           </div>
           <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先看一眼识别结果，再继续处理</h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            如果识别得不太对，可以直接改。确认后再点按钮，系统会继续补标点并生成白话。
+            如果识别得不太对，可以先直接改。确认后再继续整理，系统会补标点并生成白话。
           </p>
         </div>
 
@@ -128,7 +128,7 @@ export function OCRPreview() {
                   className="max-w-full max-h-full object-contain"
                 />
               ) : (
-                <p style={{ color: 'rgba(26,30,35,0.3)' }}>当前没有可预览的图片</p>
+                <p style={{ color: 'rgba(26,30,35,0.3)' }}>这里暂时没有可预览的图片</p>
               )}
             </div>
           </div>
@@ -169,7 +169,7 @@ export function OCRPreview() {
                 color: 'var(--gf-text)',
                 '--tw-ring-color': 'rgba(140,26,17,0.2)',
               } as React.CSSProperties}
-              placeholder="OCR 识别的文本将显示在这里..."
+              placeholder="识别出的文字会先显示在这里，确认后再继续整理"
               disabled={uploadStatus === 'processing'}
             />
 
@@ -190,10 +190,10 @@ export function OCRPreview() {
                 {uploadStatus === 'processing' ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    正在继续处理
+                    正在继续整理
                   </>
                 ) : (
-                  '继续整理本文'
+                  '继续整理这篇内容'
                 )}
               </button>
             </div>

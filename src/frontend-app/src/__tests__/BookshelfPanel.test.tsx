@@ -85,7 +85,7 @@ describe('BookshelfPanel', () => {
     render(<BookshelfPanel {...props} />)
 
     expect(
-      await screen.findByText((content) => content.includes('还没有阅读记录时，可以先打开下面的推荐内容。'))
+      await screen.findByText((content) => content.includes('还没有阅读记录时，可以先打开推荐内容。'))
     ).toBeInTheDocument()
     expect(screen.queryByText(/最近阅读：/)).not.toBeInTheDocument()
   })

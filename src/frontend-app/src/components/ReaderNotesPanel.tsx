@@ -60,9 +60,9 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
         body: JSON.stringify({ note_text: noteText }),
       })
       if (!response.ok) throw new Error('save failed')
-      showMessage('笔记已保存')
+      showMessage('笔记已经保存')
     } catch {
-      showMessage('笔记没有保存成功，请稍后再试')
+      showMessage('笔记没保存成功，请稍后再试一次')
     } finally {
       setSaving(false)
     }
@@ -73,9 +73,9 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       const folder = await addDocumentToFavorites(documentId, folders)
       const nextPrimaryFolder = await ensureDefaultFavoriteFolder([folder, ...folders])
       setFolders((prev) => (prev.some((item) => item.id === nextPrimaryFolder.id) ? prev : [nextPrimaryFolder, ...prev]))
-      showMessage(`已收藏到 ${folder.name}`)
+      showMessage(`已经收藏到 ${folder.name}`)
     } catch {
-      showMessage('收藏未成功，请稍后再试')
+      showMessage('收藏没有成功，请稍后再试一次')
     }
   }
 
@@ -91,7 +91,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
             阅读笔记
           </div>
           <p className="mt-1 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            为《{documentTitle}》记录自己的理解、疑问或课堂笔记。
+            为《{documentTitle}》记下自己的理解、疑问，或课堂笔记。
           </p>
         </div>
         <button
@@ -100,14 +100,14 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
           style={{ color: 'var(--gf-gold)', border: '1px solid rgba(201,160,99,0.2)' }}
         >
           <Star className="h-3.5 w-3.5" />
-          收藏此篇
+          收藏这篇
         </button>
       </div>
 
       <textarea
         value={noteText}
         onChange={(e) => setNoteText(e.target.value)}
-        placeholder="记下你的理解、疑问，或稍后想继续追问的内容..."
+        placeholder="记下你的理解、疑问，或稍后还想继续追问的地方"
         className="min-h-[180px] w-full rounded-2xl px-4 py-3 text-sm leading-7 focus:outline-none focus:ring-2"
         style={{
           backgroundColor: 'rgba(255,255,255,0.8)',
@@ -129,7 +129,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
           style={{ backgroundColor: 'var(--gf-gugong-red)' }}
         >
           <Save className="h-4 w-4" />
-          {saving ? '保存中...' : '保存笔记'}
+          {saving ? '正在保存...' : '保存笔记'}
         </button>
       </div>
 

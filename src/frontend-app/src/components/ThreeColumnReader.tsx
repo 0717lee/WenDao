@@ -192,8 +192,8 @@ export function ThreeColumnReader() {
     toggleComparisonDocument(currentDocument);
     setReaderNotice(
       isCompared
-        ? { tone: 'info', message: '已从对照阅读中移出本文。' }
-        : { tone: 'success', message: '已加入对照阅读，可在“对照阅读”页查看。' }
+        ? { tone: 'info', message: '这篇已经从对照阅读里移出。' }
+        : { tone: 'success', message: '这篇已经加入对照阅读，去“对照阅读”页就能看到。' }
     );
   };
 
@@ -202,9 +202,9 @@ export function ThreeColumnReader() {
     setFavoriteSaving(true);
     try {
       const folder = await addDocumentToFavorites(currentDocument.id);
-      setReaderNotice({ tone: 'success', message: `已收藏到 ${folder.name}。去“收藏”页就能看到。` });
+      setReaderNotice({ tone: 'success', message: `这篇已经收藏到 ${folder.name}，去“文章收藏”里就能看到。` });
     } catch {
-      setReaderNotice({ tone: 'error', message: '收藏失败，请稍后再试。' });
+      setReaderNotice({ tone: 'error', message: '收藏没有成功，请稍后再试一次。' });
     } finally {
       setFavoriteSaving(false);
     }
@@ -213,7 +213,7 @@ export function ThreeColumnReader() {
   const clearSentenceSelection = () => {
     setSelectedSentence(null);
     setSelectedChapterTitle(null);
-    setReaderNotice({ tone: 'info', message: '继续顺着原文往下读，遇到卡住的地方再点一句。' });
+    setReaderNotice({ tone: 'info', message: '继续顺着原文往下读，卡住时再点一句。' });
   };
 
   const handleTocSelect = (entry: { title: string; displayTitle?: string; excerpt?: string; summary?: string }) => {
@@ -390,7 +390,7 @@ export function ThreeColumnReader() {
       )
     }
 
-    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这里还没有白话解读</p>
+    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没有白话解读</p>
   }
 
   const generateTranslationCache = async () => {
@@ -415,7 +415,7 @@ export function ThreeColumnReader() {
         })
       }
     } catch {
-      setTranslationError('白话解读暂未生成，请稍后再试')
+      setTranslationError('白话解读还没生成出来，请稍后再试一次')
     } finally {
       setTranslationGenerating(false)
     }
@@ -463,12 +463,12 @@ export function ThreeColumnReader() {
         </div>
       ) : (
         <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
-          可以先顺着原文往下读，遇到不懂的地方再选一句细看。
+          可以先顺着原文往下读，卡住时再点一句细看。
         </div>
       )}
       {currentDocument.readingTip && (
         <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
-          阅读建议：{currentDocument.readingTip}
+          可以先这样读：{currentDocument.readingTip}
         </div>
       )}
       {recommendedChapters.length > 0 && (
@@ -488,7 +488,7 @@ export function ThreeColumnReader() {
         className="mt-3 rounded-[18px] px-3 py-3 text-xs leading-7"
         style={{ backgroundColor: 'rgba(244,241,225,0.72)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.55)' }}
       >
-        这一页默认先让你安静读原文：读到疑难处再点一句；需要时再讲解此句、查词或收藏本文，不会一下子出现过多操作。
+        这一页默认先让你顺着原文往下读：卡住时再点一句、查词，或收藏这篇，不会一下子出现太多操作。
       </div>
       {selectedSentenceText && (
         <div
@@ -496,7 +496,7 @@ export function ThreeColumnReader() {
           style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.05)' }}
         >
           <div className="mb-1 text-[11px] tracking-[0.22em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            当前已选
+            当前选中
           </div>
           <div className="line-clamp-2 text-sm leading-7" style={{ color: 'var(--gf-text)' }}>
             {selectedSentenceText}
@@ -520,7 +520,7 @@ export function ThreeColumnReader() {
           style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
         >
           <BookPlus className="mr-1 inline h-3.5 w-3.5" />
-          {favoriteSaving ? '正在收藏' : '收藏本文'}
+          {favoriteSaving ? '正在收藏...' : '收藏这篇'}
         </button>
         <button
           onClick={clearSentenceSelection}
@@ -532,9 +532,9 @@ export function ThreeColumnReader() {
       </div>
       <div
         className="mt-2 rounded-[16px] px-3 py-2 text-xs leading-6"
-        style={{ backgroundColor: 'rgba(255,255,255,0.66)', color: 'rgba(26,30,35,0.46)', border: '1px solid rgba(26,30,35,0.05)' }}
+          style={{ backgroundColor: 'rgba(255,255,255,0.66)', color: 'rgba(26,30,35,0.46)', border: '1px solid rgba(26,30,35,0.05)' }}
       >
-        查词提示：在原文里拖选一个词，系统会弹出查词卡，并可加入字词记录。
+        查词提示：在原文里拖选一个词，系统会弹出查词卡，也能顺手加入字词记录。
       </div>
       {readerNotice && (
         <div
@@ -584,21 +584,21 @@ export function ThreeColumnReader() {
             className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
           >
-            全文讲解
+            整篇讲解
           </button>
           <button
             onClick={() => openReaderCompanion('allusion')}
             className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
           >
-            人物典故
+            查人物典故
           </button>
           <button
             onClick={() => openReaderCompanion('study')}
             className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
           >
-            复习卡片
+            生成复习卡
           </button>
           <button
             onClick={() => setAppTab('wordbook')}
@@ -614,7 +614,7 @@ export function ThreeColumnReader() {
               style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
             >
               {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {translationCache.length > 0 ? '继续生成白话' : '生成白话'}
+              {translationCache.length > 0 ? '继续生成白话解读' : '生成白话解读'}
             </button>
           )}
         </div>
@@ -640,7 +640,7 @@ export function ThreeColumnReader() {
               返回
             </button>
             <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-              {isSample ? currentDocument.title : (progressSyncError ? '阅读记录暂未同步' : (documentMeta || currentDocument.title))}
+              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.title))}
             </span>
           </div>
           <div className="flex gap-2">
@@ -688,7 +688,7 @@ export function ThreeColumnReader() {
         >
           <div className="mb-4">{renderReaderGuideCard()}</div>
           {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original'))}
-          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没有标点文</p>)}
+          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>)}
           {activeReaderTab === 'translated' && renderColumn('白话解读', renderTranslatedParagraphs())}
         </div>
 
@@ -744,7 +744,7 @@ export function ThreeColumnReader() {
                 {currentDocument.title}
               </div>
               <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.42)' }}>
-                {progressSyncError ? '阅读记录暂未同步' : (documentMeta || currentDocument.sourceName || '阅读记录会自动保存')}
+                {progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.sourceName || '阅读进度会自动保存')}
               </div>
             </div>
           </div>
@@ -789,7 +789,7 @@ export function ThreeColumnReader() {
             '标点文',
             currentDocument.punctuatedText
               ? renderInteractiveParagraphs('punctuated')
-              : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没有标点文</p>
+              : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>
           )}
         </motion.div>
 

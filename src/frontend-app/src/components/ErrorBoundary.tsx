@@ -45,17 +45,17 @@ export class ErrorBoundary extends Component<Props, State> {
                 <ShieldAlert className="h-8 w-8 text-[var(--gf-gugong-red)]" />
             </div>
             <h2 className="text-2xl font-medium mb-3 text-[var(--gf-text)]" style={{ fontFamily: '"ZCOOL XiaoWei", serif' }}>
-              加载遇到小状况
+              页面加载出了点小问题
             </h2>
             <p className="text-sm leading-relaxed text-[rgba(26,30,35,0.55)] mb-8">
-              系统遇到一点意外状况。点击下方按钮，重新加载后再继续使用。
+              先重新加载一下页面，通常就能继续使用。
             </p>
             <button
               onClick={this.handleReset}
               className="rounded-2xl px-8 py-3.5 text-sm font-medium text-white transition-all hover:-translate-y-0.5"
               style={{ backgroundColor: 'var(--gf-gugong-red)', boxShadow: '0 12px 24px rgba(140,26,17,0.22)' }}
             >
-              重新加载系统
+              重新加载页面
             </button>
           </div>
         </div>

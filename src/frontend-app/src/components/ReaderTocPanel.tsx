@@ -19,13 +19,13 @@ export function ReaderTocPanel({ entries, selectedTitle, onSelect }: ReaderTocPa
           目录导航
         </div>
         <p className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-          按章节快速跳读，适合答辩演示和课堂查阅。
+          按章节快速跳读，适合查找原段落或课堂演示时使用。
         </p>
       </div>
 
       {entries.length === 0 ? (
         <div className="rounded-2xl px-4 py-4 text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.45)' }}>
-          当前文档还没有可用目录。
+          这篇内容暂时还没有可用目录。
         </div>
       ) : (
         <div className="space-y-2">

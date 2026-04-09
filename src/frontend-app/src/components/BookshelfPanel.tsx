@@ -289,7 +289,7 @@ export default function BookshelfPanel({
       clearTimeout(timer)
       if (!response.ok) {
         const err = await response.json().catch(() => null)
-        setPanelNotice({ tone: 'error', message: err?.detail || '加入阅读失败，请稍后重试。' })
+        setPanelNotice({ tone: 'error', message: err?.detail || '加入阅读没有成功，请稍后再试一次。' })
         return
       }
       const data = await response.json()
@@ -302,15 +302,15 @@ export default function BookshelfPanel({
               : item
           )
         )
-        setPanelNotice({ tone: 'success', message: `《${entry.title}》已加入阅读，正在为你打开。` })
+        setPanelNotice({ tone: 'success', message: `《${entry.title}》已加入阅读，马上为你打开。` })
         onOpenDocument(documentId)
       }
     } catch (e: any) {
       clearTimeout(timer)
       if (e.name === 'AbortError') {
-        setPanelNotice({ tone: 'error', message: '加入阅读超时，请检查网络后重试。' })
+        setPanelNotice({ tone: 'error', message: '加入阅读超时了，请检查网络后再试一次。' })
       } else {
-        setPanelNotice({ tone: 'error', message: `加入阅读失败：${e.message || '请稍后重试'}` })
+        setPanelNotice({ tone: 'error', message: `加入阅读没有成功：${e.message || '请稍后再试一次'}` })
       }
     } finally {
       setCatalogImportingId(null)
@@ -348,13 +348,13 @@ export default function BookshelfPanel({
         sourceType: 'user',
       })
       setUploadStatus('done')
-      setPanelNotice({ tone: 'success', message: '图片已识别完成，请先核对文字，再继续整理。' })
+      setPanelNotice({ tone: 'success', message: '图片已经识读完成，先核对文字，再继续整理。' })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed'
       setUploadErrorMessage(
         message.toLowerCase().includes('fetch')
-          ? '识别服务暂时不可用，建议先阅读样例或定位原文。'
-          : '上传失败，请检查图片格式后重试。'
+          ? '识读服务暂时不可用，可以先读现成内容，稍后再试。'
+          : '上传没有成功，请检查图片格式后再试一次。'
       )
       setUploadStatus('error')
     }
@@ -419,7 +419,7 @@ export default function BookshelfPanel({
                     <div>最近读到：{formatTimeLabel(primaryContinueItem.last_read_at)}</div>
                   </div>
                 ) : (
-                  '还没有阅读记录时，可以先打开下面的推荐内容。'
+                  '还没有阅读记录时，可以先打开推荐内容。'
                 )}
               </div>
               <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
@@ -495,11 +495,11 @@ export default function BookshelfPanel({
           )}
         </section>
 
-        <section className="grid items-start gap-5 xl:grid-cols-[1.08fr_0.92fr]">
+        <section className="grid items-stretch gap-5 xl:grid-cols-[1.08fr_0.92fr]">
           {secondaryContinueItems.length > 0 ? (
             <div
               ref={continueReadingRef}
-              className="rounded-[28px] p-5"
+              className="h-full rounded-[28px] p-5"
               style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
             >
               <div className="mb-4 flex items-center justify-between">
@@ -539,7 +539,7 @@ export default function BookshelfPanel({
           ) : (
             <div
               ref={continueReadingRef}
-              className="rounded-[28px] p-5"
+              className="h-full rounded-[28px] p-5 flex flex-col justify-between"
               style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
             >
               <div className="mb-4">
@@ -563,7 +563,7 @@ export default function BookshelfPanel({
 
           <div
             ref={corpusSectionRef}
-            className="rounded-[28px] p-5"
+            className="h-full rounded-[28px] p-5 flex flex-col"
             style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -592,20 +592,20 @@ export default function BookshelfPanel({
               </label>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid flex-1 content-start gap-3">
               {loading ? (
                 <div
                   className="rounded-[22px] px-4 py-8 text-center text-sm"
                   style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)', color: 'rgba(26,30,35,0.45)' }}
                 >
-                  古籍库正在准备中，马上就能开始阅读。
+                  古籍库正在准备中，马上就能开始读。
                 </div>
               ) : (secondaryFeaturedDocuments.length > 0 ? secondaryFeaturedDocuments : featuredCorpusDocuments).length === 0 ? (
                 <div
                   className="rounded-[22px] px-4 py-8 text-center text-sm"
                   style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)', color: 'rgba(26,30,35,0.45)' }}
                 >
-                  还没有可展示的精选篇目，请稍后再试或刷新页面。
+                  这里还没有可展示的精选篇目，请稍后再试，或刷新页面。
                 </div>
               ) : (
                 (secondaryFeaturedDocuments.length > 0 ? secondaryFeaturedDocuments : featuredCorpusDocuments).map((doc) => (
@@ -690,7 +690,7 @@ export default function BookshelfPanel({
                 </p>
                 </div>
                 <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                  当前可浏览 {catalogTotal} 条目录
+                  现在可浏览 {catalogTotal} 条目录
                 </div>
               </div>
 
@@ -725,7 +725,7 @@ export default function BookshelfPanel({
 
           {catalogLoading ? (
             <div className="rounded-[24px] p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.42)' }}>
-              正在找目录...
+              正在找可读篇目...
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -779,19 +779,19 @@ export default function BookshelfPanel({
               </p>
             </div>
               <span className="text-sm" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                {loading ? '加载中...' : `${userTotal} 份文档`}
+                {loading ? '正在整理中...' : `${userTotal} 份文档`}
               </span>
             </div>
 
             {loading ? (
               <div className="rounded-[24px] p-8 text-center text-sm" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.42)' }}>
-                正在整理典籍...
+                正在整理你的内容...
               </div>
             ) : userDocuments.length === 0 ? (
               <div className="rounded-[24px] p-10 text-center" style={{ backgroundColor: 'rgba(255,255,255,0.72)' }}>
                 <BookMarked className="mx-auto mb-3 h-12 w-12" style={{ color: 'rgba(26,30,35,0.22)' }} />
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                  你还没有上传内容。可以先阅读现成内容，需要时再上传图片。
+                  你还没有上传内容。可以先读现成内容，需要时再上传图片。
                 </p>
               </div>
             ) : (
@@ -883,11 +883,11 @@ export default function BookshelfPanel({
             >
               <input {...getInputProps()} />
               <Upload className="mx-auto mb-4 h-12 w-12" style={{ color: 'rgba(26,30,35,0.22)' }} />
-              <div className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
-                {uploadStatus === 'uploading' ? '正在上传图片' : isDragActive ? '松开后开始识别' : '拖拽图片到此处，或点击上传'}
-              </div>
+                <div className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  {uploadStatus === 'uploading' ? '正在上传图片' : isDragActive ? '松开后开始识读' : '拖拽图片到这里，或点击上传'}
+                </div>
               <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.48)' }}>
-                支持 JPG、PNG、TIFF。上传后会先识别文字，再继续整理和阅读。
+                支持 JPG、PNG、TIFF。上传后会先识读文字，再继续整理和阅读。
               </div>
             </div>
 
