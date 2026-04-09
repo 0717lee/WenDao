@@ -1318,7 +1318,14 @@ async def upload_document(request: Request, file: UploadFile = File(...), _user:
     image_bytes = await file.read()
     if len(image_bytes) > MAX_UPLOAD_FILE_SIZE:
         raise HTTPException(status_code=413, detail="图片大小不能超过 5MB")
-    ocr_result = await ocr_agent.recognize(image_bytes)
+    try:
+        ocr_result = await ocr_agent.recognize(image_bytes)
+    except Exception as exc:
+        logger.error("OCR failed during upload: %s", exc, exc_info=True)
+        raise HTTPException(status_code=503, detail="图片识别服务暂时不可用，请稍后重试")
+
+    if not str(ocr_result.get("text") or "").strip():
+        raise HTTPException(status_code=422, detail="未识别到清晰文字，请尝试上传更清晰的图片")
 
     doc_id = str(uuid.uuid4())
     image_data = _make_image_data_url(file.content_type, image_bytes)

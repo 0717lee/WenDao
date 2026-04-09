@@ -51,14 +51,19 @@ class WenDaoEmbeddings(Embeddings):
             self._backends.append("zhipuai")
 
         # 方案 2: fastembed (ONNX Runtime, 无需 PyTorch)
-        try:
-            from fastembed import TextEmbedding
-            self._fastembed_model = TextEmbedding(
-                "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-            )
-            self._backends.append("fastembed")
-        except Exception as e:
-            logger.info(f"[Embedding] fastembed 不可用: {e}")
+        should_probe_fastembed = (
+            self._preferred_backend == "fastembed"
+            or os.getenv("EMBEDDINGS_PROBE_FASTEMBED", "").strip() == "1"
+        )
+        if should_probe_fastembed:
+            try:
+                from fastembed import TextEmbedding
+                self._fastembed_model = TextEmbedding(
+                    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+                )
+                self._backends.append("fastembed")
+            except Exception as e:
+                logger.info(f"[Embedding] fastembed 不可用: {e}")
 
         # 方案 3: HuggingFace 推理 API (需要 Token)
         hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_TOKEN", "")

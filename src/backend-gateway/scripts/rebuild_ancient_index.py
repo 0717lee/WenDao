@@ -7,6 +7,7 @@
 import os
 import sys
 import json
+import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
@@ -20,6 +21,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from core.embeddings import WenDaoEmbeddings
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="重建古籍 FAISS 索引")
+    parser.add_argument(
+        "--backend",
+        default=os.getenv("REBUILD_FAISS_BACKEND", "fastembed"),
+        help="指定重建索引使用的 embedding backend，默认 fastembed",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="如果指定 backend 不可用则直接失败",
+    )
+    return parser.parse_args()
 
 
 def build_ancient_docs():
@@ -130,6 +146,7 @@ def build_ancient_docs():
 
 
 def main():
+    args = parse_args()
     print("=" * 60)
     print("重建古籍FAISS索引")
     print("=" * 60)
@@ -142,8 +159,11 @@ def main():
     # Initialize embeddings
     print("\n[2/3] 初始化Embedding模型...")
     try:
-        embeddings = WenDaoEmbeddings()
-        print("  [OK] Embedding模型初始化成功")
+        embeddings = WenDaoEmbeddings(
+            preferred_backend=args.backend,
+            strict_backend=args.strict or bool(args.backend),
+        )
+        print(f"  [OK] Embedding模型初始化成功，目标后端: {args.backend}，实际后端: {embeddings.active_backend}")
     except Exception as e:
         print(f"  [ERROR] Embedding初始化失败: {e}")
         return 1

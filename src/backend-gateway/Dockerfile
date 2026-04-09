@@ -10,6 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source + data files
 COPY src/backend-gateway/ .
 
+# Rebuild FAISS index during image build so runtime and index metadata both use fastembed.
+RUN python scripts/rebuild_ancient_index.py --backend fastembed --strict
+
 # Make start script executable
 RUN chmod +x start.sh
 

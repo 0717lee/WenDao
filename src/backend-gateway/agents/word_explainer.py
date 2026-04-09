@@ -31,6 +31,108 @@ class WordExplainerAgent:
                 self._rag_agent = None
         return self._rag_agent
 
+    @staticmethod
+    def _strip_code_fences(content: str) -> str:
+        text = (content or "").strip()
+        text = re.sub(r"^```(?:json|JSON)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+        return text.strip()
+
+    @classmethod
+    def _extract_balanced_json(cls, content: str) -> str | None:
+        text = cls._strip_code_fences(content)
+        start = text.find("{")
+        if start == -1:
+            return None
+        depth = 0
+        in_string = False
+        escaped = False
+        for index in range(start, len(text)):
+            char = text[index]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start:index + 1]
+        return None
+
+    @classmethod
+    def _extract_field_with_regex(cls, content: str, field_name: str) -> str:
+        text = cls._strip_code_fences(content)
+        json_key_pattern = re.compile(
+            rf'"{field_name}"\s*:\s*"(?P<value>(?:[^"\\]|\\.)*)"',
+            re.DOTALL,
+        )
+        match = json_key_pattern.search(text)
+        if match:
+            raw_value = match.group("value")
+            try:
+                return json.loads(f'"{raw_value}"').strip()
+            except json.JSONDecodeError:
+                return raw_value.strip()
+
+        label_map = {
+            "meaning": ("meaning", "释义", "含义", "意思"),
+            "allusion": ("allusion", "典故", "来源"),
+        }
+        for raw_line in text.splitlines():
+            line = raw_line.strip().lstrip("-*0123456789.、)） ")
+            if not line:
+                continue
+            for label in label_map.get(field_name, (field_name,)):
+                if line.lower().startswith(f"{label.lower()}:") or line.startswith(f"{label}："):
+                    _, _, value = line.partition(":" if ":" in line else "：")
+                    return value.strip()
+        return ""
+
+    @classmethod
+    def _parse_explanation_payload(cls, content: str) -> dict:
+        cleaned = cls._strip_code_fences(content)
+
+        try:
+            payload = json.loads(cleaned)
+            if isinstance(payload, dict):
+                return {
+                    "meaning": str(payload.get("meaning") or "").strip(),
+                    "allusion": str(payload.get("allusion") or "").strip(),
+                }
+        except json.JSONDecodeError:
+            pass
+
+        balanced = cls._extract_balanced_json(cleaned)
+        if balanced:
+            try:
+                payload = json.loads(balanced)
+                if isinstance(payload, dict):
+                    return {
+                        "meaning": str(payload.get("meaning") or "").strip(),
+                        "allusion": str(payload.get("allusion") or "").strip(),
+                    }
+            except json.JSONDecodeError:
+                pass
+
+        meaning = cls._extract_field_with_regex(cleaned, "meaning")
+        allusion = cls._extract_field_with_regex(cleaned, "allusion")
+        if meaning or allusion:
+            return {"meaning": meaning, "allusion": allusion}
+
+        paragraphs = [line.strip() for line in cleaned.splitlines() if line.strip()]
+        return {
+            "meaning": paragraphs[0] if paragraphs else cleaned,
+            "allusion": paragraphs[1] if len(paragraphs) > 1 else "",
+        }
+
     async def explain_word(self, word: str, context: str = "") -> dict:
         """
         Explain an ancient Chinese word/term.
@@ -51,19 +153,14 @@ class WordExplainerAgent:
             response = await asyncio.to_thread(
                 self.zhipu_client.chat.completions.create,
                 model="glm-4",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": "你只返回 JSON，不要使用 markdown 代码块，也不要补充额外解释。"},
+                    {"role": "user", "content": prompt},
+                ],
                 temperature=0.3,
             )
             content = response.choices[0].message.content
-
-            try:
-                result = json.loads(content)
-            except json.JSONDecodeError:
-                match = re.search(r"\{.*\}", content, re.DOTALL)
-                if match:
-                    result = json.loads(match.group())
-                else:
-                    result = {"meaning": content, "allusion": ""}
+            result = self._parse_explanation_payload(content)
 
             # RAG citations
             citations = []

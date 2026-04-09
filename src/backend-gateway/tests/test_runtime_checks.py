@@ -1,5 +1,6 @@
 import os
 import sys
+import types
 
 import pytest
 
@@ -42,6 +43,28 @@ def test_embeddings_can_pin_backend_to_sklearn(tmp_path):
 
     assert embeddings.active_backend == "sklearn"
     assert "sklearn" in embeddings.available_backends
+
+
+def test_embeddings_can_pin_backend_to_fastembed_when_available(tmp_path, monkeypatch):
+    monkeypatch.delenv("ZHIPUAI_API_KEY", raising=False)
+    monkeypatch.delenv("ZHIPU_API_KEY", raising=False)
+
+    fake_fastembed = types.ModuleType("fastembed")
+
+    class FakeTextEmbedding:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def embed(self, texts):
+            return [[0.0] * 384 for _ in texts]
+
+    fake_fastembed.TextEmbedding = FakeTextEmbedding
+    monkeypatch.setitem(sys.modules, "fastembed", fake_fastembed)
+
+    embeddings = WenDaoEmbeddings(cache_dir=str(tmp_path), preferred_backend="fastembed", strict_backend=True)
+
+    assert embeddings.active_backend == "fastembed"
+    assert "fastembed" in embeddings.available_backends
 
 
 def test_embeddings_strict_backend_raises_when_backend_missing(tmp_path, monkeypatch):

@@ -101,6 +101,36 @@ class TestExplainWordZhipuFails:
         assert result["citations"] == []
 
 
+class TestExplainWordMalformedJson:
+    """Malformed JSON from the model should still be parsed heuristically."""
+
+    @patch("agents.word_explainer.OpenAI")
+    def test_explain_word_malformed_json_recovers_fields(self, mock_openai_cls):
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = (
+            '{\n'
+            '"meaning": "古代建筑中一种独特的支撑构件"\n'
+            '"allusion": "见于《营造法式》卷四"\n'
+            '}'
+        )
+        mock_client = Mock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_openai_cls.return_value = mock_client
+
+        from agents.word_explainer import WordExplainerAgent
+
+        agent = WordExplainerAgent()
+        agent._rag_agent = Mock()
+        agent._rag_agent.query_ancient_text = Mock(return_value={"answer": "", "citations": []})
+
+        import asyncio
+        result = asyncio.run(agent.explain_word("斗拱"))
+
+        assert result["meaning"] == "古代建筑中一种独特的支撑构件"
+        assert "营造法式" in result["allusion"]
+
+
 class TestRagCitationsIncluded:
     """RAG citations are merged into the result"""
 

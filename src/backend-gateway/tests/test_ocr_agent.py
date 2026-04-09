@@ -146,6 +146,21 @@ class TestPaddleFallback:
         assert result["confidence"] > 0
 
 
+class TestZhipuVisionFallback:
+    """测试智谱视觉 OCR 云端降级。"""
+
+    @pytest.mark.asyncio
+    async def test_zhipu_fallback_when_baidu_unavailable(self):
+        agent = OCRAgent()
+
+        with patch.object(agent, "_baidu_ocr", side_effect=RuntimeError("baidu unavailable")), \
+             patch.object(agent, "_zhipu_ocr", new=AsyncMock(return_value={"text": "云端识别结果", "confidence": 0.75})):
+            result = await agent.recognize(b"fake_image_bytes")
+
+        assert result["text"] == "云端识别结果"
+        assert result["confidence"] == 0.75
+
+
 class TestPaddleLazyLoad:
     """测试PaddleOCR懒加载"""
 

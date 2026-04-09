@@ -139,6 +139,28 @@ class TestUploadReturnsDocumentId:
             f"document_id is not a valid UUID4: {result['document_id']}"
 
 
+class TestUploadDocumentOcrFailure:
+    """OCR completely unavailable should return a friendly HTTP error."""
+
+    @pytest.mark.asyncio
+    async def test_upload_returns_503_when_ocr_unavailable(self):
+        from fastapi import HTTPException
+        from routers.document import upload_document, ocr_agent
+
+        ocr_agent.recognize = AsyncMock(side_effect=RuntimeError("ocr service down"))
+
+        mock_file = MagicMock()
+        mock_file.content_type = "image/jpeg"
+        mock_file.filename = "ancient_text.jpg"
+        mock_file.read = AsyncMock(return_value=b"fake_image_bytes")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await upload_document(request=MagicMock(), file=mock_file, _user={"sub": "user-1"})
+
+        assert exc_info.value.status_code == 503
+        assert "图片识别服务暂时不可用" in str(exc_info.value.detail)
+
+
 # ---- SSE Process Tests ----
 
 class TestProcessDocumentSSE:
