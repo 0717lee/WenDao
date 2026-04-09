@@ -23,6 +23,36 @@ logger = logging.getLogger(__name__)
 EMBED_DIM = 384  # 统一输出维度 (与 MiniLM-L12-v2 一致)
 
 
+def embedding_backend_available(backend: str) -> tuple[bool, str | None]:
+    """Lightweight backend probe used by startup checks.
+
+    This intentionally avoids model instantiation so readiness checks stay fast.
+    """
+    normalized = (backend or "").strip().lower()
+
+    if normalized == "zhipuai":
+        if get_zhipu_api_key():
+            return True, None
+        return False, "missing ZHIPUAI_API_KEY"
+
+    if normalized == "fastembed":
+        try:
+            from fastembed import TextEmbedding as _TextEmbedding  # noqa: F401
+            return True, None
+        except Exception as exc:
+            return False, str(exc)
+
+    if normalized == "hf_inference":
+        if os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_TOKEN", ""):
+            return True, None
+        return False, "missing HF_TOKEN or HUGGINGFACE_API_TOKEN"
+
+    if normalized == "sklearn":
+        return True, None
+
+    return False, f"unknown embedding backend: {backend}"
+
+
 class WenDaoEmbeddings(Embeddings):
     """带缓存的多后端 Embedding 适配器"""
 

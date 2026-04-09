@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import agents.rag as rag_module
 from agents.rag import RAGAgent
 
 
@@ -154,6 +155,27 @@ class TestRAGAgentErrorHandling:
 
         # 应该返回中文错误消息
         assert "抱歉" in result["answer"] or "暂时不可用" in result["answer"]
+
+
+class TestFaissStartupProbe:
+    def test_inspect_faiss_index_compatibility_uses_lightweight_backend_probe(self, monkeypatch, tmp_path):
+        (tmp_path / "index.faiss").write_bytes(b"faiss")
+        (tmp_path / "index.pkl").write_bytes(b"pickle")
+
+        mock_probe = Mock(return_value=(True, None))
+        monkeypatch.setattr(rag_module.os.path, "abspath", lambda _path: str(tmp_path))
+        monkeypatch.setattr(
+            rag_module,
+            "_load_index_metadata",
+            lambda _db_path: {"embedding_backend": "fastembed"},
+        )
+        monkeypatch.setattr("core.embeddings.embedding_backend_available", mock_probe)
+
+        result = rag_module.inspect_faiss_index_compatibility()
+
+        assert result["status"] == "ok"
+        assert result["active_backend"] == "fastembed"
+        mock_probe.assert_called_once_with("fastembed")
 
 
 if __name__ == "__main__":

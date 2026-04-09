@@ -66,7 +66,7 @@ def _doc_matches_query(doc: Any, query_terms: list[str]) -> bool:
 
 
 def inspect_faiss_index_compatibility() -> dict[str, Any]:
-    from core.embeddings import WenDaoEmbeddings
+    from core.embeddings import embedding_backend_available
 
     db_path = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "faiss_db")))
     index_file = db_path / "index.faiss"
@@ -80,34 +80,27 @@ def inspect_faiss_index_compatibility() -> dict[str, Any]:
         return {"status": "missing_metadata", "db_path": str(db_path)}
 
     expected_backend = metadata.get("embedding_backend")
-    cache_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".embedding_cache"))
-    try:
-        embeddings = WenDaoEmbeddings(
-            cache_dir=cache_dir,
-            preferred_backend=expected_backend,
-            strict_backend=bool(expected_backend),
-        )
-    except RuntimeError as exc:
+    if not expected_backend:
+        return {
+            "status": "invalid_metadata",
+            "db_path": str(db_path),
+            "reason": "index.meta.json missing embedding_backend",
+        }
+
+    backend_available, reason = embedding_backend_available(expected_backend)
+    if not backend_available:
         return {
             "status": "backend_unavailable",
             "db_path": str(db_path),
             "expected_backend": expected_backend,
-            "reason": str(exc),
-        }
-
-    if embeddings.active_backend != expected_backend:
-        return {
-            "status": "backend_mismatch",
-            "db_path": str(db_path),
-            "expected_backend": expected_backend,
-            "active_backend": embeddings.active_backend,
+            "reason": reason,
         }
 
     return {
         "status": "ok",
         "db_path": str(db_path),
         "expected_backend": expected_backend,
-        "active_backend": embeddings.active_backend,
+        "active_backend": expected_backend,
     }
 
 
