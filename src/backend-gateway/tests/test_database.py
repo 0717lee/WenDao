@@ -99,7 +99,7 @@ class TestDatabaseInitialization:
         from core import database as database_module
 
         fail_loader = lambda: (_ for _ in ()).throw(AssertionError("should not reload corpus documents"))
-        monkeypatch.setattr(database_module, "load_corpus_documents", fail_loader)
+        monkeypatch.setattr(database_module, "iter_corpus_document_batches", fail_loader)
 
         await init_database(test_db)
 
@@ -107,6 +107,26 @@ class TestDatabaseInitialization:
             cursor = await db.execute("SELECT COUNT(*) FROM documents WHERE source_type = 'corpus'")
             corpus_count = await cursor.fetchone()
             assert corpus_count[0] >= 100
+
+        os.remove(test_db)
+
+    @pytest.mark.asyncio
+    async def test_init_with_seed_mode_none_never_loads_corpus(self, monkeypatch):
+        test_db = "test_ancient_texts.db"
+        if os.path.exists(test_db):
+            os.remove(test_db)
+
+        from core import database as database_module
+
+        fail_loader = lambda: (_ for _ in ()).throw(AssertionError("should not iterate corpus batches"))
+        monkeypatch.setattr(database_module, "iter_corpus_document_batches", fail_loader)
+
+        await init_database(test_db, seed_mode="none")
+
+        async with get_db(test_db) as db:
+            cursor = await db.execute("SELECT COUNT(*) FROM documents WHERE source_type = 'corpus'")
+            corpus_count = await cursor.fetchone()
+            assert corpus_count[0] == 0
 
         os.remove(test_db)
 

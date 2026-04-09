@@ -12,7 +12,7 @@ from typing import AsyncGenerator
 
 import aiosqlite
 
-from core.corpus_documents import load_corpus_documents
+from core.corpus_documents import iter_corpus_document_batches
 
 logger = logging.getLogger(__name__)
 SQLITE_CORPUS_SEED_MODE_ENV = "SQLITE_CORPUS_SEED_MODE"
@@ -86,6 +86,20 @@ async def _count_rows(db: aiosqlite.Connection, table: str) -> int:
     cursor = await db.execute(f"SELECT COUNT(*) FROM {table}")
     row = await cursor.fetchone()
     return int(row[0] if row else 0)
+
+
+async def count_corpus_documents(db_path: str = "ancient_texts.db") -> int:
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='documents'"
+        )
+        table_exists = await cursor.fetchone()
+        if not table_exists or int(table_exists[0] if table_exists else 0) == 0:
+            return 0
+
+        cursor = await db.execute("SELECT COUNT(*) FROM documents WHERE source_type = 'corpus'")
+        row = await cursor.fetchone()
+        return int(row[0] if row else 0)
 
 
 async def _count_user_rows(db: aiosqlite.Connection, table: str, user_id: str) -> int:
@@ -226,6 +240,105 @@ async def _migrate_legacy_documents_table_if_needed(db: aiosqlite.Connection) ->
         FROM documents_legacy
     """)
     await db.execute("DROP TABLE documents_legacy")
+
+
+async def _sync_corpus_documents(db: aiosqlite.Connection, db_path: str) -> None:
+    corpus_ids: list[str] = []
+    synced_count = 0
+
+    for batch in iter_corpus_document_batches():
+        if not batch:
+            continue
+
+        corpus_ids.extend(str(item["id"]) for item in batch)
+        await db.executemany(
+            """
+            INSERT INTO documents (
+                id, title, author, dynasty, category, source_name, source_url,
+                repo_id,
+                chapter_titles, chapter_count, featured_excerpt,
+                difficulty, guide_summary, reading_tip, recommended_chapters,
+                segment_guides, segments, translation_cache, translation_status,
+                original_text, punctuated_text, translated_text,
+                ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                repo_id = excluded.repo_id,
+                author = excluded.author,
+                dynasty = excluded.dynasty,
+                category = excluded.category,
+                source_name = excluded.source_name,
+                source_url = excluded.source_url,
+                chapter_titles = excluded.chapter_titles,
+                chapter_count = excluded.chapter_count,
+                featured_excerpt = excluded.featured_excerpt,
+                difficulty = excluded.difficulty,
+                guide_summary = excluded.guide_summary,
+                reading_tip = excluded.reading_tip,
+                recommended_chapters = excluded.recommended_chapters,
+                segment_guides = excluded.segment_guides,
+                segments = excluded.segments,
+                translation_cache = excluded.translation_cache,
+                translation_status = excluded.translation_status,
+                original_text = excluded.original_text,
+                punctuated_text = excluded.punctuated_text,
+                translated_text = excluded.translated_text,
+                ocr_confidence = excluded.ocr_confidence,
+                image_data = excluded.image_data,
+                status = excluded.status,
+                entity_ids = excluded.entity_ids,
+                source_type = excluded.source_type,
+                owner_user_id = excluded.owner_user_id,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            [
+                (
+                    item["id"],
+                    item["title"],
+                    item.get("author"),
+                    item.get("dynasty"),
+                    item.get("category"),
+                    item.get("source_name"),
+                    item.get("source_url"),
+                    item.get("repo_id"),
+                    json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
+                    int(item.get("chapter_count", 0)),
+                    item.get("featured_excerpt"),
+                    item.get("difficulty"),
+                    item.get("guide_summary"),
+                    item.get("reading_tip"),
+                    json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
+                    json.dumps(item.get("segment_guides", []), ensure_ascii=False),
+                    json.dumps(item.get("segments", []), ensure_ascii=False),
+                    json.dumps(item.get("translation_cache", []), ensure_ascii=False),
+                    item.get("translation_status", "none"),
+                    item["original_text"],
+                    item["punctuated_text"],
+                    item.get("translated_text", ""),
+                    1.0,
+                    None,
+                    "done",
+                    json.dumps(item.get("entity_ids", []), ensure_ascii=False),
+                    item["source_type"],
+                    None,
+                )
+                for item in batch
+            ],
+        )
+        synced_count += len(batch)
+        logger.info("[SQLite] corpus 同步进度: %d 条 -> %s", synced_count, db_path)
+
+    if corpus_ids:
+        placeholders = ",".join("?" for _ in corpus_ids)
+        await db.execute(
+            f"DELETE FROM documents WHERE source_type = 'corpus' AND id NOT IN ({placeholders})",
+            corpus_ids,
+        )
+        logger.info("[SQLite] 已同步 %d 条 corpus 文档到 %s", synced_count, db_path)
+    else:
+        await db.execute("DELETE FROM documents WHERE source_type = 'corpus'")
+        logger.warning("[SQLite] 未找到可同步的 corpus 文档，已清空旧 corpus 数据")
 
 
 async def init_database(db_path: str = "ancient_texts.db", seed_mode: str | None = None) -> None:
@@ -449,92 +562,7 @@ async def init_database(db_path: str = "ancient_texts.db", seed_mode: str | None
 
             should_refresh_corpus = resolved_seed_mode == "refresh" or existing_corpus_count == 0
             if should_refresh_corpus:
-                corpus_documents = load_corpus_documents()
-                if corpus_documents:
-                    corpus_ids = [str(item["id"]) for item in corpus_documents]
-                    placeholders = ",".join("?" for _ in corpus_ids)
-                    await db.execute(
-                        f"DELETE FROM documents WHERE source_type = 'corpus' AND id NOT IN ({placeholders})",
-                        corpus_ids,
-                    )
-                    await db.executemany(
-                        """
-                        INSERT INTO documents (
-                            id, title, author, dynasty, category, source_name, source_url,
-                            repo_id,
-                            chapter_titles, chapter_count, featured_excerpt,
-                            difficulty, guide_summary, reading_tip, recommended_chapters,
-                            segment_guides, segments, translation_cache, translation_status,
-                            original_text, punctuated_text, translated_text,
-                            ocr_confidence, image_data, status, entity_ids, source_type, owner_user_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(id) DO UPDATE SET
-                            title = excluded.title,
-                            repo_id = excluded.repo_id,
-                            author = excluded.author,
-                            dynasty = excluded.dynasty,
-                            category = excluded.category,
-                            source_name = excluded.source_name,
-                            source_url = excluded.source_url,
-                            chapter_titles = excluded.chapter_titles,
-                            chapter_count = excluded.chapter_count,
-                            featured_excerpt = excluded.featured_excerpt,
-                            difficulty = excluded.difficulty,
-                            guide_summary = excluded.guide_summary,
-                            reading_tip = excluded.reading_tip,
-                            recommended_chapters = excluded.recommended_chapters,
-                            segment_guides = excluded.segment_guides,
-                            segments = excluded.segments,
-                            translation_cache = excluded.translation_cache,
-                            translation_status = excluded.translation_status,
-                            original_text = excluded.original_text,
-                            punctuated_text = excluded.punctuated_text,
-                            translated_text = excluded.translated_text,
-                            ocr_confidence = excluded.ocr_confidence,
-                            image_data = excluded.image_data,
-                            status = excluded.status,
-                            entity_ids = excluded.entity_ids,
-                            source_type = excluded.source_type,
-                            owner_user_id = excluded.owner_user_id,
-                            updated_at = CURRENT_TIMESTAMP
-                        """,
-                        [
-                            (
-                                item["id"],
-                                item["title"],
-                                item.get("author"),
-                                item.get("dynasty"),
-                                item.get("category"),
-                                item.get("source_name"),
-                                item.get("source_url"),
-                                item.get("repo_id"),
-                                json.dumps(item.get("chapter_titles", []), ensure_ascii=False),
-                                int(item.get("chapter_count", 0)),
-                                item.get("featured_excerpt"),
-                                item.get("difficulty"),
-                                item.get("guide_summary"),
-                                item.get("reading_tip"),
-                                json.dumps(item.get("recommended_chapters", []), ensure_ascii=False),
-                                json.dumps(item.get("segment_guides", []), ensure_ascii=False),
-                                json.dumps(item.get("segments", []), ensure_ascii=False),
-                                json.dumps(item.get("translation_cache", []), ensure_ascii=False),
-                                item.get("translation_status", "none"),
-                                item["original_text"],
-                                item["punctuated_text"],
-                                item.get("translated_text", ""),
-                                1.0,
-                                None,
-                                "done",
-                                json.dumps(item.get("entity_ids", []), ensure_ascii=False),
-                                item["source_type"],
-                                None,
-                            )
-                            for item in corpus_documents
-                        ],
-                    )
-                    logger.info("[SQLite] 已同步 %d 条 corpus 文档到 %s", len(corpus_documents), db_path)
-                else:
-                    await db.execute("DELETE FROM documents WHERE source_type = 'corpus'")
+                await _sync_corpus_documents(db, db_path)
             else:
                 logger.info(
                     "[SQLite] 发现 %d 条现成 corpus 文档，跳过启动同步（模式: %s）",

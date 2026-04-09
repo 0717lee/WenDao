@@ -13,7 +13,7 @@ import logging
 import sqlite3
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -22,24 +22,48 @@ DATA_GLOB = "kanripo_corpus.part*.json"
 SQLITE_SNAPSHOT_PATH = Path(__file__).resolve().parent.parent / "ancient_texts.db"
 
 
-@lru_cache(maxsize=1)
-def load_corpus_documents() -> list[dict[str, Any]]:
-    """Return corpus documents if a local snapshot exists."""
+def resolve_corpus_data_files() -> list[Path]:
     data_files = sorted(DATA_PATH.parent.glob(DATA_GLOB))
     if not data_files and DATA_PATH.exists():
         data_files = [DATA_PATH]
+    return data_files
+
+
+def iter_corpus_document_batches() -> Iterator[list[dict[str, Any]]]:
+    """Yield corpus documents one source file at a time to keep memory bounded."""
+    data_files = resolve_corpus_data_files()
+    if not data_files:
+        logger.warning("[CorpusLoader] kanripo corpus snapshot not found under %s", DATA_PATH.parent)
+        return
+
+    for data_file in data_files:
+        try:
+            file_payload = json.loads(data_file.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.error("[CorpusLoader] Failed to parse corpus snapshot %s: %s", data_file, exc)
+            continue
+
+        if not isinstance(file_payload, list):
+            logger.warning("[CorpusLoader] %s is not a list, got %s", data_file, type(file_payload).__name__)
+            continue
+
+        batch = [item for item in file_payload if isinstance(item, dict)]
+        logger.info("[CorpusLoader] Loaded %d corpus documents from %s", len(batch), data_file.name)
+        yield batch
+
+
+@lru_cache(maxsize=1)
+def load_corpus_documents() -> list[dict[str, Any]]:
+    """Return corpus documents if a local snapshot exists."""
+    data_files = resolve_corpus_data_files()
     if not data_files:
         logger.warning("[CorpusLoader] kanripo corpus snapshot not found under %s", DATA_PATH.parent)
         return []
 
     try:
         payload: list[dict[str, Any]] = []
-        for data_file in data_files:
-            file_payload = json.loads(data_file.read_text(encoding="utf-8"))
-            if not isinstance(file_payload, list):
-                logger.warning("[CorpusLoader] %s is not a list, got %s", data_file, type(file_payload).__name__)
-                continue
-            payload.extend(item for item in file_payload if isinstance(item, dict))
+        for batch in iter_corpus_document_batches():
+            payload.extend(batch)
     except Exception as exc:
         logger.error("[CorpusLoader] Failed to parse corpus snapshot: %s", exc)
         return []

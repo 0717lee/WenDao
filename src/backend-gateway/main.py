@@ -9,13 +9,14 @@ from core.auth import DEFAULT_JWT_SECRET, get_jwt_secret
 
 prepare_runtime_environment()
 
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from routers import chat, search, document, reader, vision, speech_api, creative, auth
-from core.database import init_database
+from core.database import count_corpus_documents, init_database
 from core.pg_database import pg_lifespan, init_pg_database
 import uvicorn
 import logging
@@ -24,6 +25,26 @@ import os
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+async def _sync_sqlite_corpus_in_background() -> None:
+    try:
+        logger.info("后台开始同步 SQLite corpus 数据...")
+        await init_database(seed_mode="auto")
+        total = await count_corpus_documents()
+        logger.info("后台 SQLite corpus 同步完成，当前 corpus 数量: %d", total)
+    except Exception as exc:
+        logger.exception("后台 SQLite corpus 同步失败: %s", exc)
+
+
+def _track_background_task(app: FastAPI, task: asyncio.Task[None]) -> None:
+    app.state.sqlite_corpus_sync_task = task
+
+    def _clear_task_reference(done_task: asyncio.Task[None]) -> None:
+        if getattr(app.state, "sqlite_corpus_sync_task", None) is done_task:
+            app.state.sqlite_corpus_sync_task = None
+
+    task.add_done_callback(_clear_task_reference)
 
 @asynccontextmanager
 async def combined_lifespan(app: FastAPI):
@@ -50,10 +71,17 @@ async def combined_lifespan(app: FastAPI):
             rag_probe.get("active_backend"),
             rag_probe.get("reason"),
         )
-    # 1. SQLite (Phase 1)
-    logger.info("初始化SQLite数据库...")
-    await init_database()
-    logger.info("SQLite数据库初始化完成")
+    # 1. SQLite schema first, corpus sync later
+    logger.info("初始化SQLite数据库基础结构...")
+    await init_database(seed_mode="none")
+    logger.info("SQLite数据库基础结构初始化完成")
+
+    corpus_count = await count_corpus_documents()
+    if corpus_count > 0:
+        logger.info("SQLite 已存在 %d 条 corpus 文档，启动阶段跳过后台同步", corpus_count)
+    else:
+        logger.warning("SQLite 当前无 corpus 文档，改为后台分批同步，避免阻塞服务启动")
+        _track_background_task(app, asyncio.create_task(_sync_sqlite_corpus_in_background()))
 
     # 2. PostgreSQL (Phase 2) — optional, graceful degradation
     try:
@@ -64,6 +92,14 @@ async def combined_lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"PostgreSQL初始化失败，继续使用SQLite: {e}")
         yield
+    finally:
+        sync_task: asyncio.Task[None] | None = getattr(app.state, "sqlite_corpus_sync_task", None)
+        if sync_task and not sync_task.done():
+            sync_task.cancel()
+            try:
+                await sync_task
+            except asyncio.CancelledError:
+                logger.info("后台 SQLite corpus 同步任务已取消")
 
 
 app = FastAPI(title="古籍智解（WenDao）API", version="0.1.0", lifespan=combined_lifespan)
