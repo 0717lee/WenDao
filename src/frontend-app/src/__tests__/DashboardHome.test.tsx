@@ -90,7 +90,7 @@ describe('DashboardHome', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: /把古籍读成一段能走进去的文章/i,
+        name: /古人之言，今人可入/i,
       })
     ).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: /打开推荐内容/i })).toBeInTheDocument()

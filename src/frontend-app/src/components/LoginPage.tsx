@@ -51,8 +51,8 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                     >
                         古籍智解
                     </h1>
-                    <p className="text-sm tracking-wide" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
-                        把古籍读成能走进去的文章，而不只是临时查一句解释
+                    <p className="text-sm tracking-[0.18em]" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
+                        于字句之间，重见古意
                     </p>
                 </div>
 
@@ -154,8 +154,8 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
 
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
-                    <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
-                        从一句原文入手，把人物、语气与来处慢慢读明白
+                    <p className="text-xs tracking-[0.18em]" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
+                        先得其辞，后会其意
                     </p>
                 </div>
             </div>

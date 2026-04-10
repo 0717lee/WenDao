@@ -220,12 +220,10 @@ export default function DashboardHome({
                   className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  把古籍读成一段能走进去的文章，
-                  <br className="hidden md:block" />
-                  而不只是临时查一句解释
+                  古人之言，今人可入
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  先选一条最顺手的入口：继续上次进度、从一篇整理好的内容开始，或者先把手头的影印页识读成文。
+                  从一篇整理好的内容开始，或从一句原文、一页影印本进入，把古籍慢慢读懂。
                 </p>
               </div>
 
