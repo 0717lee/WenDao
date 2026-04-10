@@ -17,12 +17,9 @@ from core.runtime_checks import get_zhipu_api_key
 
 logger = logging.getLogger(__name__)
 
-# Preferred entity lexicon path, with legacy graph-shaped data as fallback.
+# Preferred entity lexicon path for WenDao reading cues.
 _ENTITY_DATA_PATH = os.path.join(
     os.path.dirname(__file__), "..", "data", "reading_entities.json"
-)
-_LEGACY_ENTITY_DATA_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "data", "ancient_texts_graph.json"
 )
 
 
@@ -32,19 +29,15 @@ class EntityExtractor:
     def __init__(self, graph_path: Optional[str] = None):
         self._label_to_id: Dict[str, str] = {}
         self._known_ids: set = set()
-        self._load_entities(graph_path or _ENTITY_DATA_PATH, allow_legacy_fallback=graph_path is None)
+        self._load_entities(graph_path or _ENTITY_DATA_PATH)
 
-    def _load_entities(self, path: str, allow_legacy_fallback: bool = True) -> None:
+    def _load_entities(self, path: str) -> None:
         """Load entity labels and IDs from an entity lexicon JSON file."""
         try:
             abs_path = os.path.abspath(path)
             if not os.path.exists(abs_path):
-                legacy_path = os.path.abspath(_LEGACY_ENTITY_DATA_PATH)
-                if allow_legacy_fallback and os.path.exists(legacy_path):
-                    abs_path = legacy_path
-                else:
-                    logger.warning("Entity lexicon file not found: %s", abs_path)
-                    return
+                logger.warning("Entity lexicon file not found: %s", abs_path)
+                return
             with open(abs_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 

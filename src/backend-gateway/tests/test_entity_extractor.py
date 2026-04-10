@@ -180,21 +180,21 @@ class TestExtractorEdgeCases:
         assert extractor.known_entity_count == 7
 
 
-class TestExtractorWithRealGraphData:
-    """Test with the actual ancient_texts_graph.json if available."""
+class TestExtractorWithRealEntityData:
+    """Test with the actual reading_entities.json if available."""
 
     @pytest.fixture
     def real_extractor(self):
-        """Load the real graph data file."""
+        """Load the real reading entity data file."""
         real_path = os.path.join(
-            os.path.dirname(__file__), "..", "data", "ancient_texts_graph.json"
+            os.path.dirname(__file__), "..", "data", "reading_entities.json"
         )
         if not os.path.exists(real_path):
-            pytest.skip("Real graph data not available")
+            pytest.skip("Real entity data not available")
         return EntityExtractor(graph_path=real_path)
 
     def test_loads_all_entities(self, real_extractor):
-        assert real_extractor.known_entity_count > 100
+        assert real_extractor.known_entity_count >= 50
 
     def test_finds_entities_in_sample_text(self, real_extractor):
         result = real_extractor.extract_entities("孔子是春秋时期的思想家，著有论语")

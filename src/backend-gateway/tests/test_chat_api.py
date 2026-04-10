@@ -29,7 +29,7 @@ class TestChatRouterFunctions:
         # Mock RAG agent response
         rag_agent.query_ancient_text = Mock(return_value={
             "answer": "测试回答",
-            "citations": [{"title": "《营造法式》", "source": "卷三"}]
+            "citations": [{"title": "《孟子》", "source": "梁惠王上"}]
         })
 
         events = []
@@ -103,12 +103,12 @@ class TestChatResponseModel:
     def test_response_with_citations(self):
         from models.schemas import ChatResponse, Citation
 
-        citations = [Citation(title="《营造法式》", source="卷三")]
+        citations = [Citation(title="《孟子》", source="梁惠王上")]
         resp = ChatResponse(answer="测试回答", citations=citations)
 
         assert resp.answer == "测试回答"
         assert len(resp.citations) == 1
-        assert resp.citations[0].title == "《营造法式》"
+        assert resp.citations[0].title == "《孟子》"
 
 
 class TestSSEEventFormat:

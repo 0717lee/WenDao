@@ -144,12 +144,12 @@ class TestDatabaseOperations:
 
         async with get_db(test_db) as db:
             # 插入对话记录
-            citations = [{"title": "《营造法式》", "source": "卷三"}]
+            citations = [{"title": "《孟子》", "source": "梁惠王上"}]
             await db.execute(
                 """INSERT INTO conversations
                    (user_message, ai_response, citations_json, timestamp)
                    VALUES (?, ?, ?, datetime('now'))""",
-                ("什么是斗拱？", "斗拱是中国古建筑的重要构件...", json.dumps(citations, ensure_ascii=False))
+                ("什么是仁政？", "仁政是孟子强调以民为本的治国主张。", json.dumps(citations, ensure_ascii=False))
             )
             await db.commit()
 
@@ -157,8 +157,8 @@ class TestDatabaseOperations:
             cursor = await db.execute("SELECT * FROM conversations")
             row = await cursor.fetchone()
             assert row is not None
-            assert row[1] == "什么是斗拱？"
-            assert row[2] == "斗拱是中国古建筑的重要构件..."
+            assert row[1] == "什么是仁政？"
+            assert row[2] == "仁政是孟子强调以民为本的治国主张。"
 
         os.remove(test_db)
 
@@ -241,8 +241,8 @@ class TestChatRequestModel:
     """测试3: ChatRequest模型验证必填字段（message非空）"""
 
     def test_valid_request(self):
-        req = ChatRequest(message="什么是斗拱？")
-        assert req.message == "什么是斗拱？"
+        req = ChatRequest(message="什么是仁政？")
+        assert req.message == "什么是仁政？"
 
     def test_empty_message_fails(self):
         with pytest.raises(Exception):  # Pydantic ValidationError
@@ -258,22 +258,22 @@ class TestChatResponseModel:
 
     def test_valid_response(self):
         citations = [
-            Citation(title="《营造法式》", source="卷三"),
-            Citation(title="《天工开物》", source="第五章")
+            Citation(title="《孟子》", source="梁惠王上"),
+            Citation(title="《论语》", source="颜渊")
         ]
-        resp = ChatResponse(answer="斗拱是中国古建筑的重要构件", citations=citations)
-        assert resp.answer == "斗拱是中国古建筑的重要构件"
+        resp = ChatResponse(answer="仁政是孟子政治思想中的核心概念", citations=citations)
+        assert resp.answer == "仁政是孟子政治思想中的核心概念"
         assert len(resp.citations) == 2
-        assert resp.citations[0].title == "《营造法式》"
+        assert resp.citations[0].title == "《孟子》"
 
     def test_empty_citations_allowed(self):
         resp = ChatResponse(answer="回答内容", citations=[])
         assert resp.citations == []
 
     def test_citation_structure(self):
-        citation = Citation(title="《营造法式》", source="卷三")
-        assert citation.title == "《营造法式》"
-        assert citation.source == "卷三"
+        citation = Citation(title="《孟子》", source="梁惠王上")
+        assert citation.title == "《孟子》"
+        assert citation.source == "梁惠王上"
 
 
 if __name__ == "__main__":

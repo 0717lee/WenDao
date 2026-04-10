@@ -32,8 +32,8 @@ class TestBaiduOCRSuccess:
         mock_response.raise_for_status = Mock()
         mock_response.json.return_value = {
             "words_result": [
-                {"words": "斗拱之制"},
-                {"words": "出一跳曰华拱"},
+                {"words": "学而时习之"},
+                {"words": "不亦说乎"},
             ],
             "words_result_num": 2,
         }
@@ -46,7 +46,7 @@ class TestBaiduOCRSuccess:
         with patch("agents.ocr.httpx.AsyncClient", return_value=mock_client):
             result = await agent._baidu_ocr(b"fake_image_bytes")
 
-        assert result["text"] == "斗拱之制\n出一跳曰华拱"
+        assert result["text"] == "学而时习之\n不亦说乎"
         assert result["confidence"] == 0.95
 
 
@@ -179,7 +179,7 @@ class TestRecognizeReturnsTextAndConfidence:
         agent = OCRAgent()
 
         with patch.object(agent, "_baidu_ocr") as mock_baidu:
-            mock_baidu.return_value = {"text": "古建筑识别文字", "confidence": 0.95}
+            mock_baidu.return_value = {"text": "古籍识读文字", "confidence": 0.95}
             result = await agent.recognize(b"fake_image_bytes")
 
         assert isinstance(result, dict)

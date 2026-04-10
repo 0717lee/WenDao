@@ -153,8 +153,8 @@ class TestExplainEndpoint:
         mock_agent = Mock()
         mock_agent.explain_word = AsyncMock(
             return_value={
-                "meaning": "古代建筑支撑构件",
-                "allusion": "出自营造法式",
+                "meaning": "以民为本的治国主张",
+                "allusion": "见于《孟子·梁惠王上》",
                 "citations": [],
             }
         )
@@ -170,7 +170,7 @@ class TestExplainEndpoint:
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as client:
                 resp = await client.post(
-                    "/api/v1/documents/explain?word=斗拱&context=建筑构件",
+                    "/api/v1/documents/explain?word=仁政&context=孟子政治思想",
                     headers=_auth_headers(),
                 )
 

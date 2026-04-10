@@ -25,7 +25,7 @@ WenDao 是一个帮助普通人“真正读懂”古籍的 AI 阅读工具。它
 - **三栏对照阅读**：原文 / 标点文 / 白话翻译并列展示，移动端 Tab 自适应
 - **AI 逐句精讲**：在阅读中点击一句古文，获取句义拆解、典故补充与继续追问建议
 - **RAG 智能对话**：基于向量检索的古籍知识问答，引用原文片段
-- **多模态增强**：图片辅助分析、古风诗词生成配图、语音交互
+- **多模态增强**：古风诗词生成配图、语音交互
 - **多类智能能力协同**：问答、释义、语音、向量检索等能力按场景组合使用
 
 ### 当前产品主链路
@@ -122,7 +122,7 @@ python -m venv .venv
 
 - 后端优先使用项目内 `.venv` 解释器。若直接调用系统 `python` / `pytest`，启动时会提示解释器不在项目虚拟环境中。
 - `ZHIPUAI_API_KEY` 是当前统一命名；旧变量 `ZHIPU_API_KEY` 仍可兼容读取，但建议尽快迁移。
-- 若更换了 embedding 后端或相关环境变量，请执行一次 `.venv\Scripts\python scripts/rebuild_ancient_index.py` 重建 FAISS 索引，索引元数据会记录构建时所用 backend。
+- 若更换了 embedding 后端或相关环境变量，请执行一次 `.venv\Scripts\python scripts/rebuild_corpus_faiss.py` 重建主库 FAISS 索引，索引元数据会记录构建时所用 backend。
 - 云端 Docker 部署默认复用仓库内已提交的 `faiss_db` 索引文件，不在镜像构建阶段强制重建，避免外部模型下载限流导致构建失败。
 
 ### 4. 运行测试
@@ -165,7 +165,6 @@ cd ../backend-gateway
 │       │   ├── translator.py      # 断句标点翻译
 │       │   ├── word_explainer.py  # 字词释义
 │       │   ├── speech.py          # 讯飞 ASR/TTS
-│       │   ├── vision.py          # 古建筑识别
 │       │   └── creative.py        # 诗词生成
 │       ├── core/
 │       │   ├── embeddings.py      # 多后端 Embedding 适配器

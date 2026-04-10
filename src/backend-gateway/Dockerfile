@@ -19,9 +19,9 @@ COPY src/backend-gateway/ .
 # from breaking the entire deployment. Rebuild only when explicitly requested.
 RUN if [ "$REBUILD_FAISS_ON_BUILD" = "1" ]; then \
       if [ "$REBUILD_FAISS_STRICT" = "1" ]; then \
-        python scripts/rebuild_ancient_index.py --backend "$REBUILD_FAISS_BACKEND" --strict; \
+        python scripts/rebuild_corpus_faiss.py --backend "$REBUILD_FAISS_BACKEND" --strict; \
       else \
-        python scripts/rebuild_ancient_index.py --backend "$REBUILD_FAISS_BACKEND"; \
+        python scripts/rebuild_corpus_faiss.py --backend "$REBUILD_FAISS_BACKEND"; \
       fi; \
     else \
       echo "Skipping FAISS rebuild during image build; using repository index artifacts."; \

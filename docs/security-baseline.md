@@ -79,7 +79,6 @@
 - `POST|GET /api/v1/documents/process/{document_id}`
 - `POST /api/v1/documents/{document_id}/translation-cache`
 - `POST /api/v1/documents/explain`
-- `POST /api/v1/vision/analyze`
 - `POST /api/v1/speech/asr`
 - `POST /api/v1/speech/tts`
 - `POST /api/v1/creative/poem`
@@ -90,8 +89,6 @@
 
 - OCR 图片上传最大 `5MB`
   `src/backend-gateway/routers/document.py`
-- 视觉识图最大 `5MB`
-  `src/backend-gateway/routers/vision.py`
 - ASR 音频最大 `8MB`
   `src/backend-gateway/routers/speech_api.py`
 

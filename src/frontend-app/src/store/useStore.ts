@@ -1,17 +1,6 @@
 import { create } from 'zustand'
 import type { ReasoningStep } from '../components/ReasoningTimeline'
 
-/** Vision recognition result attached to message */
-export interface VisionResult {
-    imagePreview: string      // base64 data URL for thumbnail
-    buildingType: string
-    roofStyle: string
-    components: string[]
-    era: string
-    rawText: string
-    matchedGraphNodes: Array<{ id: string; label: string }>
-}
-
 /** Poetry generation result attached to message */
 export interface PoemResult {
     text: string
@@ -49,7 +38,6 @@ export interface Message {
     entityIds?: string[]
     reasoningSteps?: ReasoningStep[]
     pendingEntities?: Array<{ label: string; group: string; desc: string; confidence: number; similar_to?: { id: string; label: string; similarity: number } }>
-    visionResult?: VisionResult
     poemResult?: PoemResult
     timestamp: number
 }

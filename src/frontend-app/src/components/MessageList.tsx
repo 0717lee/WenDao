@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Message } from '../store/useStore'
 import { CitationCard } from './CitationCard'
-import { VisionResultCard } from './VisionResultCard'
 import { PoemScrollCard } from './PoemScrollCard'
 
 interface MessageListProps {
@@ -44,20 +43,10 @@ export function MessageList({ messages, onCitationClick, loadingLabel }: Message
                                 : { backgroundColor: 'rgba(255,255,255,0.8)', color: 'var(--gf-text)', border: '1px solid rgba(26,30,35,0.06)' }
                         }
                     >
-                        {/* User message: show image thumbnail if vision result */}
-                        {message.role === 'user' && message.visionResult?.imagePreview && (
-                            <img
-                                src={message.visionResult.imagePreview}
-                                alt="已上传的图片"
-                                className="w-full max-h-32 rounded-lg object-cover mb-2"
-                                style={{ border: '1px solid rgba(255,255,255,0.2)' }}
-                            />
-                        )}
-
                         {/* Poem scroll card (replaces plain text for poetry messages) */}
                         {message.role === 'assistant' && message.poemResult ? (
                             <PoemScrollCard result={message.poemResult} />
-                        ) : message.role === 'assistant' && !message.content && !message.visionResult ? (
+                        ) : message.role === 'assistant' && !message.content ? (
                             <div className="min-w-[18rem] space-y-3">
                                 <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(26,30,35,0.54)' }}>
                                     <span
@@ -88,11 +77,6 @@ export function MessageList({ messages, onCitationClick, loadingLabel }: Message
                                     />
                                 ))}
                             </div>
-                        )}
-
-                        {/* Vision result card */}
-                        {message.role === 'assistant' && message.visionResult && (
-                            <VisionResultCard result={message.visionResult} />
                         )}
                     </div>
                 </motion.div>

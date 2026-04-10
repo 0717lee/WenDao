@@ -3,7 +3,6 @@ import { Search } from 'lucide-react'
 import { useStore, type AnswerContextAction } from '../store/useStore'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
-import { ImageUploadPreview } from './ImageUploadPreview'
 import { useVoiceRecorder } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
@@ -27,9 +26,7 @@ const QUICK_CHAT_PROMPTS = [
 
 export function ChatInterface() {
     const [inputValue, setInputValue] = useState('')
-    const [attachedImage, setAttachedImage] = useState<File | null>(null)
     const [voiceError, setVoiceError] = useState('')
-    const fileInputRef = useRef<HTMLInputElement>(null)
     const streamBufferRef = useRef('')
     const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const assistantContentRef = useRef('')
@@ -162,114 +159,6 @@ export function ChatInterface() {
         )
     }, [toggleRecording])
 
-    const handleAttachImage = () => {
-        fileInputRef.current?.click()
-    }
-
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file && (file.type === 'image/jpeg' || file.type === 'image/png')) {
-            if (file.size > 5 * 1024 * 1024) {
-                alert('图片大小不能超过 5MB')
-                return
-            }
-            setAttachedImage(file)
-        }
-        // Reset so same file can be selected again
-        if (fileInputRef.current) {
-            fileInputRef.current.value = ''
-        }
-    }
-
-    const handleCancelImage = () => {
-        setAttachedImage(null)
-    }
-
-    const readFileAsDataURL = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onloadend = () => resolve(reader.result as string)
-            reader.onerror = reject
-            reader.readAsDataURL(file)
-        })
-    }
-
-    const sendVisionMessage = async (image: File) => {
-        setLoading(true)
-        setProgress('正在分析图片内容...')
-
-        // Read image as data URL for preview
-        const imagePreview = await readFileAsDataURL(image)
-
-        // Add user message with image preview
-        const userMessage = {
-            id: Date.now().toString(),
-            role: 'user' as const,
-            content: inputValue.trim() || '请分析这张图片与相关文化信息',
-            visionResult: { imagePreview, buildingType: '', roofStyle: '', components: [], era: '', rawText: '', matchedGraphNodes: [] },
-            timestamp: Date.now(),
-        }
-        addMessage(userMessage)
-        setInputValue('')
-        setAttachedImage(null)
-
-        // Add assistant placeholder
-        addMessage({
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: '',
-            timestamp: Date.now(),
-        })
-
-        try {
-            const formData = new FormData()
-            formData.append('file', image)
-            formData.append('question', userMessage.content)
-
-            const response = await fetch(`${API_BASE}/api/v1/vision/analyze`, {
-                ...authFetchOptions({ method: 'POST' }),
-                body: formData,
-            })
-
-            if (!response.ok) {
-                const errBody = await response.json().catch(() => ({}))
-                throw new Error(errBody.error || `图片识别失败（${response.status}）`)
-            }
-
-            const data = await response.json()
-            const analysis = data.analysis || {}
-            const matchedNodes = data.matched_reading_entities || data.matched_graph_nodes || []
-
-            // Update assistant message with vision result (immutable)
-            useStore.setState((state) => {
-                if (state.messages.length === 0) return state
-                const last = state.messages[state.messages.length - 1]
-                if (!last || last.role !== 'assistant') return state
-                const updatedMessages = [...state.messages]
-                updatedMessages[updatedMessages.length - 1] = {
-                    ...last,
-                    content: analysis.raw_text || '图片解析完成',
-                    visionResult: {
-                        imagePreview,
-                        buildingType: analysis.building_type || '',
-                        roofStyle: analysis.roof_style || '',
-                        components: analysis.components || [],
-                        era: analysis.era || '',
-                        rawText: analysis.raw_text || '',
-                        matchedGraphNodes: matchedNodes,
-                    },
-                }
-                return { messages: updatedMessages }
-            })
-        } catch (error) {
-            console.error('Vision API error:', error)
-            updateLastMessage('图片分析没有完成，请稍后再试，或先改用文字提问。')
-        } finally {
-            setLoading(false)
-            setProgress('')
-        }
-    }
-
     const detectPoemIntent = (text: string): string | null => {
         // Pattern: "生成诗词：春日" or "生成诗词:春日"
         const p1 = text.match(/^生成诗词[：:](.+)/)
@@ -379,12 +268,6 @@ export function ChatInterface() {
 
     const sendMessage = async () => {
         if (isLoading) return
-
-        // If image is attached, use vision flow
-        if (attachedImage) {
-            await sendVisionMessage(attachedImage)
-            return
-        }
 
         if (!inputValue.trim()) return
 
@@ -564,15 +447,6 @@ export function ChatInterface() {
 
     return (
         <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
-            {/* Hidden file input for image upload */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={handleFileSelect}
-                className="hidden"
-            />
-
             {messages.length === 0 && (
                 <div className="px-4 pb-4">
                     <div
@@ -628,18 +502,12 @@ export function ChatInterface() {
                 </div>
             )}
 
-            {/* Image preview (above input) */}
-            {attachedImage && (
-                <ImageUploadPreview file={attachedImage} onCancel={handleCancelImage} />
-            )}
-
             {/* Input */}
             <MessageInput
                 value={inputValue}
                 onChange={setInputValue}
                 onSend={sendMessage}
                 disabled={isLoading}
-                onAttachImage={handleAttachImage}
                 onVoiceToggle={handleVoiceToggle}
                 isRecording={isRecording}
                 isTranscribing={isTranscribing}

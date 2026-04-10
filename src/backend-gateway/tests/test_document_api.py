@@ -55,7 +55,7 @@ class TestUploadDocumentSuccess:
 
         # Mock OCR agent
         ocr_agent.recognize = AsyncMock(return_value={
-            "text": "斗拱之制，出一跳曰华拱",
+            "text": "学而时习之不亦说乎",
             "confidence": 0.95,
         })
 
@@ -68,7 +68,7 @@ class TestUploadDocumentSuccess:
         with patch("routers.document._create_document", new_callable=AsyncMock) as mock_create:
             result = await upload_document(request=MagicMock(), file=mock_file, _user={"sub": "user-1"})
 
-        assert result["text"] == "斗拱之制，出一跳曰华拱"
+        assert result["text"] == "学而时习之不亦说乎"
         assert result["confidence"] == 0.95
         assert "document_id" in result
         assert result["image_url"].startswith("data:image/jpeg;base64,")
@@ -172,15 +172,15 @@ class TestProcessDocumentSSE:
         from routers.document import entity_extractor, stream_process, translator_agent
 
         translator_agent.punctuate_and_translate = AsyncMock(return_value={
-            "punctuated": "斗拱之制，出一跳曰华拱。",
-            "translated": "斗拱的构造规制，伸出一跳称为华拱。",
+            "punctuated": "学而时习之，不亦说乎。",
+            "translated": "学习之后经常温习，不也很愉快吗？",
         })
-        entity_extractor.extract_entities = MagicMock(return_value=["dougong"])
+        entity_extractor.extract_entities = MagicMock(return_value=["lunyu"])
 
         mock_document = {
             "id": "test-doc-id",
             "title": "测试文档",
-            "original_text": "斗拱之制出一跳曰华拱"
+            "original_text": "学而时习之不亦说乎"
         }
 
         with patch("routers.document._get_document", new=AsyncMock(return_value=mock_document)), \
@@ -192,8 +192,8 @@ class TestProcessDocumentSSE:
         all_events = "".join(events)
         assert "event: progress" in all_events
         assert "event: done" in all_events
-        assert "斗拱之制，出一跳曰华拱。" in all_events
-        assert "斗拱的构造规制" in all_events
+        assert "学而时习之，不亦说乎。" in all_events
+        assert "学习之后经常温习" in all_events
 
     @pytest.mark.asyncio
     async def test_process_document_not_found(self):

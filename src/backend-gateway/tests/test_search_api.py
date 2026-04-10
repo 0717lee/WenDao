@@ -24,8 +24,8 @@ def mock_db():
     db = AsyncMock()
     cursor = AsyncMock()
     cursor.fetchall = AsyncMock(return_value=[
-        (1, "斗拱结构", "斗拱是中国古代建筑特有的构件...", "营造法式", 0.85),
-        (2, "榫卯工艺", "榫卯是古代建筑的连接方式...", "天工开物", 0.72),
+        (1, "逍遥游", "北冥有鱼，其名为鲲。", "庄子", 0.85),
+        (2, "齐物论", "天地与我并生，而万物与我为一。", "庄子", 0.72),
     ])
     db.execute = AsyncMock(return_value=cursor)
     return db
@@ -35,12 +35,12 @@ def mock_db():
 def mock_vectorstore():
     """Mock FAISS vectorstore"""
     mock_doc1 = Mock()
-    mock_doc1.page_content = "斗拱是中国古代建筑特有的构件..."
-    mock_doc1.metadata = {"id": 1, "title": "斗拱结构", "source": "营造法式"}
+    mock_doc1.page_content = "北冥有鱼，其名为鲲。"
+    mock_doc1.metadata = {"id": 1, "title": "逍遥游", "source": "庄子"}
 
     mock_doc2 = Mock()
-    mock_doc2.page_content = "榫卯是古代建筑的连接方式..."
-    mock_doc2.metadata = {"id": 3, "title": "榫卯工艺", "source": "天工开物"}
+    mock_doc2.page_content = "天地与我并生，而万物与我为一。"
+    mock_doc2.metadata = {"id": 3, "title": "齐物论", "source": "庄子"}
 
     vectorstore = Mock()
     vectorstore.similarity_search_with_score = Mock(return_value=[
@@ -67,20 +67,20 @@ def app_client(mock_db, mock_vectorstore):
 
 
 def test_search_with_keyword_returns_results(app_client):
-    """Test 1: GET /api/v1/search?q=斗拱 returns matching documents"""
-    response = app_client.get("/api/v1/search?q=斗拱")
+    """Test 1: GET /api/v1/search?q=逍遥游 returns matching documents"""
+    response = app_client.get("/api/v1/search?q=逍遥游")
 
     assert response.status_code == 200
     data = response.json()
     assert "results" in data
     assert len(data["results"]) > 0
-    assert any("斗拱" in result["title"] or "斗拱" in result["content"]
+    assert any("逍遥游" in result["title"] or "鲲" in result["content"]
                for result in data["results"])
 
 
 def test_hybrid_search_combines_bm25_and_embedding(app_client):
     """Test 2: Hybrid mode uses both BM25 and Embedding, results sorted by score"""
-    response = app_client.get("/api/v1/search?q=斗拱&mode=HYBRID")
+    response = app_client.get("/api/v1/search?q=逍遥游&mode=HYBRID")
 
     assert response.status_code == 200
     data = response.json()
@@ -94,15 +94,15 @@ def test_hybrid_search_combines_bm25_and_embedding(app_client):
     assert len(results) > 0
 
 
-def test_jieba_custom_dict_not_split_dougong(app_client):
-    """Test 3: jieba loads custom dict, '斗拱' not split into '斗'+'拱'"""
+def test_jieba_custom_dict_not_split_xiaoyaoyou(app_client):
+    """Test 3: jieba loads custom dict, '逍遥游' not split into smaller pieces"""
     import jieba
 
     # Verify jieba tokenization
-    tokens = list(jieba.cut("斗拱结构"))
+    tokens = list(jieba.cut("逍遥游篇"))
 
-    # '斗拱' should be kept as one token
-    assert "斗拱" in tokens, f"Expected '斗拱' as single token, got: {tokens}"
+    # '逍遥游' should be kept as one token
+    assert "逍遥游" in tokens, f"Expected '逍遥游' as single token, got: {tokens}"
 
 
 def test_empty_query_returns_400_with_chinese_message(app_client):
@@ -138,7 +138,7 @@ def test_extract_search_terms_keeps_full_quote_for_exact_queries():
 
 def test_fulltext_mode_uses_fts5(app_client):
     """Test fulltext mode uses SQLite FTS5"""
-    response = app_client.get("/api/v1/search?q=斗拱&mode=FULLTEXT")
+    response = app_client.get("/api/v1/search?q=逍遥游&mode=FULLTEXT")
 
     assert response.status_code == 200
     data = response.json()
@@ -147,7 +147,7 @@ def test_fulltext_mode_uses_fts5(app_client):
 
 def test_vector_mode_uses_faiss(app_client):
     """Test vector mode uses FAISS similarity search"""
-    response = app_client.get("/api/v1/search?q=斗拱&mode=VECTOR")
+    response = app_client.get("/api/v1/search?q=逍遥游&mode=VECTOR")
 
     assert response.status_code == 200
     data = response.json()
@@ -160,8 +160,8 @@ async def test_vector_search_discards_unmapped_demo_hits():
     from routers.search import vector_search
 
     mock_doc = Mock()
-    mock_doc.page_content = "天工开物中的木构做法"
-    mock_doc.metadata = {"id": "doc_3", "title": "天工开物·榫卯", "source": "天工开物"}
+    mock_doc.page_content = "采菊东篱下，悠然见南山。"
+    mock_doc.metadata = {"id": "doc_3", "title": "陶渊明集·饮酒", "source": "陶渊明集"}
 
     with patch("routers.search.rag_agent") as mock_rag, \
          patch("routers.search._load_document_candidates", new=AsyncMock(return_value=[])), \
@@ -175,7 +175,7 @@ async def test_vector_search_discards_unmapped_demo_hits():
 
 def test_search_limit_parameter(app_client):
     """Test limit parameter controls result count"""
-    response = app_client.get("/api/v1/search?q=斗拱&limit=5")
+    response = app_client.get("/api/v1/search?q=逍遥游&limit=5")
 
     assert response.status_code == 200
     data = response.json()
@@ -382,11 +382,11 @@ async def test_hybrid_search_demotes_vector_noise_for_question_query():
         SearchResult(
             id="doc-noise",
             document_id="doc-noise",
-            title="清式营造则例·装修",
-            content="雀替、装修与斗口做法。",
+            title="陶渊明集·饮酒",
+            content="采菊东篱下，悠然见南山。",
             source="我的文档",
             score=0.01,
-            anchor_text="雀替",
+            anchor_text="采菊东篱下",
         ),
         SearchResult(
             id="doc-lunyu",
@@ -415,14 +415,14 @@ async def test_hybrid_search_demotes_vector_noise_for_question_query():
         },
         {
             "id": "doc-noise",
-            "title": "清式营造则例·装修",
-            "source_name": "建筑资料",
-            "author": "佚名",
-            "dynasty": "清",
-            "category": "建筑工艺",
-            "original_text": "雀替装修做法",
-            "punctuated_text": "雀替装修做法。",
-            "translated_text": "介绍木作装修工艺。",
+            "title": "陶渊明集·饮酒",
+            "source_name": "诗文集",
+            "author": "陶渊明",
+            "dynasty": "东晋",
+            "category": "文学总集",
+            "original_text": "采菊东篱下悠然见南山",
+            "punctuated_text": "采菊东篱下，悠然见南山。",
+            "translated_text": "在东篱下采菊，悠然望见南山。",
             "segments": [],
             "source_type": "user",
             "owner_user_id": "user-1",

@@ -65,11 +65,11 @@ describe('Chat Integration E2E', () => {
             read: vi.fn()
                 .mockResolvedValueOnce({
                     done: false,
-                    value: new TextEncoder().encode('data: {"content":"斗拱是"}\n'),
+                    value: new TextEncoder().encode('data: {"content":"仁政是"}\n'),
                 })
                 .mockResolvedValueOnce({
                     done: false,
-                    value: new TextEncoder().encode('data: {"content":"中国古代建筑"}\n'),
+                    value: new TextEncoder().encode('data: {"content":"孟子提出的治国主张"}\n'),
                 })
                 .mockResolvedValueOnce({
                     done: false,
@@ -87,15 +87,15 @@ describe('Chat Integration E2E', () => {
         const input = await screen.findByPlaceholderText(chatPlaceholder)
         const sendButton = screen.getByRole('button', { name: '发送' })
 
-        fireEvent.change(input, { target: { value: '什么是斗拱？' } })
+        fireEvent.change(input, { target: { value: '什么是仁政？' } })
         fireEvent.click(sendButton)
 
         await waitFor(() => {
-            expect(screen.getByText('什么是斗拱？')).toBeInTheDocument()
+            expect(screen.getByText('什么是仁政？')).toBeInTheDocument()
         })
 
         await waitFor(() => {
-            expect(screen.getByText(/斗拱是中国古代建筑/)).toBeInTheDocument()
+            expect(screen.getByText(/仁政是孟子提出的治国主张/)).toBeInTheDocument()
         }, { timeout: 3000 })
     })
 
@@ -137,7 +137,7 @@ describe('Chat Integration E2E', () => {
                 })
                 .mockResolvedValueOnce({
                     done: false,
-                    value: new TextEncoder().encode('event: citations\ndata: {"citations":[{"title":"营造法式","source":"宋代李诫"}]}\n\n'),
+                    value: new TextEncoder().encode('event: citations\ndata: {"citations":[{"title":"孟子","source":"梁惠王上"}]}\n\n'),
                 })
                 .mockResolvedValueOnce({
                     done: false,
@@ -157,7 +157,7 @@ describe('Chat Integration E2E', () => {
         fireEvent.click(screen.getByRole('button', { name: '发送' }))
 
         await waitFor(() => {
-            expect(screen.getByText(/营造法式/)).toBeInTheDocument()
+            expect(screen.getByText(/孟子/)).toBeInTheDocument()
         }, { timeout: 3000 })
     })
 

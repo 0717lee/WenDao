@@ -20,7 +20,7 @@ class TestExplainWordSuccess:
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_response.choices[0].message.content = json.dumps(
-            {"meaning": "古代建筑中一种独特的支撑构件", "allusion": "出自《营造法式》"},
+            {"meaning": "以民为本的治国主张", "allusion": "见于《孟子·梁惠王上》"},
             ensure_ascii=False,
         )
         mock_client = Mock()
@@ -33,17 +33,17 @@ class TestExplainWordSuccess:
         # Mock out RAG to avoid real init
         agent._rag_agent = Mock()
         agent._rag_agent.query_ancient_text = Mock(
-            return_value={"answer": "test", "citations": [{"title": "营造法式", "source": "宋·李诫"}]}
+            return_value={"answer": "test", "citations": [{"title": "孟子", "source": "梁惠王上"}]}
         )
 
         import asyncio
-        result = asyncio.run(agent.explain_word("斗拱"))
+        result = asyncio.run(agent.explain_word("仁政"))
 
         assert "meaning" in result
         assert "allusion" in result
         assert "citations" in result
-        assert result["meaning"] == "古代建筑中一种独特的支撑构件"
-        assert result["allusion"] == "出自《营造法式》"
+        assert result["meaning"] == "以民为本的治国主张"
+        assert result["allusion"] == "见于《孟子·梁惠王上》"
 
 
 class TestExplainWordWithContext:
@@ -54,7 +54,7 @@ class TestExplainWordWithContext:
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_response.choices[0].message.content = json.dumps(
-            {"meaning": "承重构件", "allusion": "宋代建筑术语"},
+            {"meaning": "仁爱之心", "allusion": "儒家核心概念"},
             ensure_ascii=False,
         )
         mock_client = Mock()
@@ -70,7 +70,7 @@ class TestExplainWordWithContext:
         )
 
         import asyncio
-        result = asyncio.run(agent.explain_word("柱", context="此柱承重甚大"))
+        result = asyncio.run(agent.explain_word("仁", context="孔子说仁者爱人"))
 
         assert "meaning" in result
         # Verify context was passed to the prompt
@@ -94,7 +94,7 @@ class TestExplainWordZhipuFails:
         agent = WordExplainerAgent()
 
         import asyncio
-        result = asyncio.run(agent.explain_word("斗拱"))
+        result = asyncio.run(agent.explain_word("仁政"))
 
         assert "meaning" in result
         assert "暂不可用" in result["meaning"]
@@ -110,8 +110,8 @@ class TestExplainWordMalformedJson:
         mock_response.choices = [Mock()]
         mock_response.choices[0].message.content = (
             '{\n'
-            '"meaning": "古代建筑中一种独特的支撑构件"\n'
-            '"allusion": "见于《营造法式》卷四"\n'
+            '"meaning": "以民为本的治国主张"\n'
+            '"allusion": "见于《孟子·梁惠王上》"\n'
             '}'
         )
         mock_client = Mock()
@@ -125,10 +125,10 @@ class TestExplainWordMalformedJson:
         agent._rag_agent.query_ancient_text = Mock(return_value={"answer": "", "citations": []})
 
         import asyncio
-        result = asyncio.run(agent.explain_word("斗拱"))
+        result = asyncio.run(agent.explain_word("仁政"))
 
-        assert result["meaning"] == "古代建筑中一种独特的支撑构件"
-        assert "营造法式" in result["allusion"]
+        assert result["meaning"] == "以民为本的治国主张"
+        assert "孟子" in result["allusion"]
 
 
 class TestRagCitationsIncluded:
@@ -205,7 +205,7 @@ class TestExplainCompoundWord:
         mock_response = Mock()
         mock_response.choices = [Mock()]
         mock_response.choices[0].message.content = json.dumps(
-            {"meaning": "古代建筑中用于支撑屋檐的层叠木构件", "allusion": "见于《营造法式》卷四"},
+            {"meaning": "约束自己，使言行归于礼", "allusion": "见于《论语·颜渊》"},
             ensure_ascii=False,
         )
         mock_client = Mock()
@@ -221,7 +221,7 @@ class TestExplainCompoundWord:
         )
 
         import asyncio
-        result = asyncio.run(agent.explain_word("斗拱铺作"))
+        result = asyncio.run(agent.explain_word("克己复礼"))
 
         assert "meaning" in result
         assert len(result["meaning"]) > 0

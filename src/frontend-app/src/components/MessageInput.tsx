@@ -1,4 +1,4 @@
-import { Send, Paperclip, Mic, Loader2 } from 'lucide-react'
+import { Send, Mic, Loader2 } from 'lucide-react'
 import React, { KeyboardEvent, useRef } from 'react'
 
 interface MessageInputProps {
@@ -6,7 +6,6 @@ interface MessageInputProps {
     onChange: (value: string) => void
     onSend: () => void
     disabled: boolean
-    onAttachImage?: () => void
     onVoiceToggle?: () => void
     isRecording?: boolean
     isTranscribing?: boolean
@@ -17,7 +16,6 @@ export function MessageInput({
     onChange,
     onSend,
     disabled,
-    onAttachImage,
     onVoiceToggle,
     isRecording = false,
     isTranscribing = false,
@@ -48,18 +46,6 @@ export function MessageInput({
                 贴一句原文，或直接提问。Enter 发送，Shift + Enter 换行。
             </div>
             <div className="flex items-end gap-2">
-                {/* Paperclip image attach button */}
-                {onAttachImage && (
-                    <button
-                        onClick={onAttachImage}
-                        disabled={disabled}
-                        className="flex items-center justify-center w-10 h-10 rounded-xl transition-colors disabled:opacity-30 hover:bg-black/5"
-                        style={{ color: 'rgba(26,30,35,0.45)' }}
-                        title="上传图片"
-                    >
-                        <Paperclip className="w-5 h-5" />
-                    </button>
-                )}
                 <textarea
                     value={value}
                     onChange={(e) => onChange(e.target.value)}

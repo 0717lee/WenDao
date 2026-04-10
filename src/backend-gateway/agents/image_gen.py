@@ -1,7 +1,7 @@
 """
-AI 工具 6 · 智谱 CogView-3 古建筑概念图生成
-────────────────────────────────────────
-根据用户描述或知识文本，生成古建筑场景的概念插画。
+AI 工具 6 · 智谱 CogView-3 古风意境图生成
+──────────────────────────────────────
+根据用户主题或诗词内容，生成通用古风场景插画。
 """
 
 from typing import Optional
@@ -11,7 +11,7 @@ from core.runtime_checks import get_zhipu_api_key
 
 
 class ImageGenAgent:
-    """基于 CogView-3-Flash 的古建筑概念图生成"""
+    """基于 CogView-3-Flash 的古风意境图生成"""
 
     def __init__(self):
         api_key = get_zhipu_api_key()
@@ -21,13 +21,13 @@ class ImageGenAgent:
 
     def generate(self, prompt: str, size: str = "1024x1024") -> Optional[str]:
         """
-        生成古建筑概念图
+        生成古风插画
         返回图片 URL 或 None
         """
-        # 加入领域风格前缀，提升生成质量
+        # 加入通用古风风格前缀，避免收敛到旧建筑项目语境
         styled_prompt = (
-            f"中国传统古建筑水墨画风格，高质量建筑插画：{prompt}。"
-            "画面精美，细节丰富，具有中国传统建筑美学特征。"
+            f"中国古典水墨画风格，高质量古风意境插画：{prompt}。"
+            "画面含蓄、留白自然、具有诗意与东方审美。"
         )
         try:
             response = self.client.images.generations(

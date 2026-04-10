@@ -30,9 +30,9 @@ describe('SearchPanel', () => {
       results: [
         {
           id: 1,
-          title: '斗拱结构',
-          content: '斗拱是中国古代建筑特有的构件...',
-          source: '营造法式',
+          title: '逍遥游',
+          content: '北冥有鱼，其名为鲲。',
+          source: '庄子',
           score: 0.85,
         },
       ],
@@ -50,12 +50,12 @@ describe('SearchPanel', () => {
     const input = screen.getByPlaceholderText(searchPlaceholder);
     const button = screen.getByRole('button', { name: /搜索/i });
 
-    fireEvent.change(input, { target: { value: '斗拱' } });
+    fireEvent.change(input, { target: { value: '逍遥游' } });
     fireEvent.click(button);
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/search?q=%E6%96%97%E6%8B%B1&mode=FULLTEXT'),
+        expect.stringContaining('/api/v1/search?q=%E9%80%8D%E9%81%A5%E6%B8%B8&mode=FULLTEXT'),
         expect.anything()
       );
     });
@@ -66,9 +66,9 @@ describe('SearchPanel', () => {
       results: [
         {
           id: 1,
-          title: '斗拱结构',
-          content: '斗拱是中国古代建筑特有的构件，用于承重和装饰。',
-          source: '营造法式',
+          title: '逍遥游',
+          content: '北冥有鱼，其名为鲲。',
+          source: '庄子',
           score: 0.85,
         },
       ],
@@ -84,13 +84,13 @@ describe('SearchPanel', () => {
     render(<SearchPanel {...props} />);
 
     const input = screen.getByPlaceholderText(searchPlaceholder);
-    fireEvent.change(input, { target: { value: '斗拱' } });
+    fireEvent.change(input, { target: { value: '逍遥游' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('斗拱结构')).toBeInTheDocument();
-      expect(screen.getByText(/斗拱是中国古代建筑特有的构件/i)).toBeInTheDocument();
-      expect(screen.getByText(/营造法式/i)).toBeInTheDocument();
+      expect(screen.getByText('逍遥游')).toBeInTheDocument();
+      expect(screen.getByText(/北冥有鱼，其名为鲲/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/庄子/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -99,9 +99,9 @@ describe('SearchPanel', () => {
       results: [
         {
           id: 1,
-          title: '斗拱结构',
-          content: '斗拱是中国古代建筑特有的构件，用于承重和装饰。',
-          source: '营造法式',
+          title: '逍遥游',
+          content: '北冥有鱼，其名为鲲。',
+          source: '庄子',
           score: 0.85,
         },
       ],
@@ -117,17 +117,17 @@ describe('SearchPanel', () => {
     render(<SearchPanel {...props} />);
 
     const input = screen.getByPlaceholderText(searchPlaceholder);
-    fireEvent.change(input, { target: { value: '斗拱' } });
+    fireEvent.change(input, { target: { value: '逍遥游' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('斗拱结构')).toBeInTheDocument();
+      expect(screen.getByText('逍遥游')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('斗拱结构'));
+    fireEvent.click(screen.getByText('逍遥游'));
 
     await waitFor(() => {
-      expect(screen.getAllByText('斗拱结构').length).toBeGreaterThan(1);
+      expect(screen.getAllByText('逍遥游').length).toBeGreaterThan(1);
     });
   });
 
@@ -148,7 +148,7 @@ describe('SearchPanel', () => {
     render(<SearchPanel {...props} />);
 
     const input = screen.getByPlaceholderText(searchPlaceholder);
-    fireEvent.change(input, { target: { value: '斗拱' } });
+    fireEvent.change(input, { target: { value: '逍遥游' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 
     await waitFor(() => {
@@ -176,11 +176,11 @@ describe('SearchPanel', () => {
         {
           id: 'doc-42',
           document_id: 'real-doc-42',
-          title: '斗拱结构',
-          content: '斗拱是中国古代建筑特有的构件，用于承重和装饰。',
-          source: '营造法式',
+          title: '逍遥游',
+          content: '北冥有鱼，其名为鲲。',
+          source: '庄子',
           score: 0.85,
-          anchor_text: '斗拱是中国古代建筑特有的构件',
+          anchor_text: '北冥有鱼，其名为鲲。',
         },
       ],
       mode: 'FULLTEXT',
@@ -194,14 +194,14 @@ describe('SearchPanel', () => {
 
     render(<SearchPanel {...props} />);
 
-    fireEvent.change(screen.getByPlaceholderText(searchPlaceholder), { target: { value: '斗拱' } });
+    fireEvent.change(screen.getByPlaceholderText(searchPlaceholder), { target: { value: '逍遥游' } });
     fireEvent.click(screen.getByRole('button', { name: /搜索/i }));
 
-    expect(await screen.findByText('斗拱结构')).toBeInTheDocument();
+    expect(await screen.findByText('逍遥游')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '打开原文' }));
     expect(props.onOpenDocument).toHaveBeenCalledWith('real-doc-42');
-    expect(useDocumentStore.getState().pendingAnchorText).toBe('斗拱是中国古代建筑特有的构件');
+    expect(useDocumentStore.getState().pendingAnchorText).toBe('北冥有鱼，其名为鲲。');
     expect(screen.queryByRole('button', { name: '继续追问' })).toBeNull();
   });
 });

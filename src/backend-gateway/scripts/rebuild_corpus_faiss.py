@@ -3,7 +3,6 @@
 """
 重建 100 部古籍主库专用 FAISS 索引。
 
-与 `rebuild_ancient_index.py` 不同，这个脚本面向线上实际产品检索：
 - 数据源：本地 100 部古籍快照
 - 粒度：段落 / 章节级
 - 输出目录：faiss_db_corpus

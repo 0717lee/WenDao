@@ -23,12 +23,12 @@ class TestRAGAgentQueryAncientText:
     def test_query_returns_dict_with_answer_and_citations(self, mock_openai, mock_init_vs):
         # Mock FAISS检索结果
         mock_doc1 = Mock()
-        mock_doc1.page_content = "斗拱是中国古建筑特有的构件..."
-        mock_doc1.metadata = {"title": "《营造法式》", "source": "卷三"}
+        mock_doc1.page_content = "仁政是孟子政治思想的重要概念，强调以民为本。"
+        mock_doc1.metadata = {"title": "《孟子》", "source": "梁惠王上"}
 
         mock_doc2 = Mock()
-        mock_doc2.page_content = "斗拱位于柱与梁之间..."
-        mock_doc2.metadata = {"title": "《天工开物》", "source": "第五章"}
+        mock_doc2.page_content = "民为贵，社稷次之，君为轻。"
+        mock_doc2.metadata = {"title": "《孟子》", "source": "尽心下"}
 
         agent = RAGAgent()
         agent.vectorstore = Mock()
@@ -37,10 +37,10 @@ class TestRAGAgentQueryAncientText:
         # Mock Kimi API响应
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "斗拱是中国古建筑的重要构件，起承重和装饰作用。"
+        mock_response.choices[0].message.content = "仁政是孟子提出的治国理念，核心是先安百姓，再谈国家治理。"
         mock_openai.return_value.chat.completions.create.return_value = mock_response
 
-        result = agent.query_ancient_text("什么是斗拱？")
+        result = agent.query_ancient_text("什么是仁政？")
 
         assert isinstance(result, dict)
         assert "answer" in result
@@ -57,8 +57,8 @@ class TestRAGAgentCitations:
     @patch("agents.rag.OpenAI")
     def test_citations_have_title_and_source(self, mock_openai, mock_init_vs):
         mock_doc = Mock()
-        mock_doc.page_content = "斗拱内容..."
-        mock_doc.metadata = {"title": "《营造法式》", "source": "卷三"}
+        mock_doc.page_content = "仁政是以民为本的政治主张。"
+        mock_doc.metadata = {"title": "《孟子》", "source": "梁惠王上"}
 
         agent = RAGAgent()
         agent.vectorstore = Mock()
@@ -69,14 +69,14 @@ class TestRAGAgentCitations:
         mock_response.choices[0].message.content = "测试回答"
         mock_openai.return_value.chat.completions.create.return_value = mock_response
 
-        result = agent.query_ancient_text("斗拱是什么")
+        result = agent.query_ancient_text("仁政是什么")
 
         assert len(result["citations"]) > 0
         citation = result["citations"][0]
         assert "title" in citation
         assert "source" in citation
-        assert citation["title"] == "《营造法式》"
-        assert citation["source"] == "卷三"
+        assert citation["title"] == "《孟子》"
+        assert citation["source"] == "梁惠王上"
 
 
 class TestRAGAgentFallback:
@@ -94,7 +94,7 @@ class TestRAGAgentFallback:
         mock_response.choices[0].message.content = "基于自身知识的回答"
         mock_openai.return_value.chat.completions.create.return_value = mock_response
 
-        result = agent.query_ancient_text("什么是斗拱？")
+        result = agent.query_ancient_text("什么是仁政？")
 
         # 应该返回有效结果，即使没有检索到文档
         assert result["answer"] == "基于自身知识的回答"
@@ -120,8 +120,8 @@ class TestRAGAgentGrounding:
     @patch("agents.rag.OpenAI")
     def test_query_drops_irrelevant_retrieval_context(self, mock_openai, mock_init_vs):
         mock_doc = Mock()
-        mock_doc.page_content = "雀替装修做法与斗口制度。"
-        mock_doc.metadata = {"title": "清式营造则例·装修", "source": "建筑资料"}
+        mock_doc.page_content = "采菊东篱下，悠然见南山。"
+        mock_doc.metadata = {"title": "《陶渊明集》", "source": "饮酒"}
 
         agent = RAGAgent()
         agent.vectorstore = Mock()
