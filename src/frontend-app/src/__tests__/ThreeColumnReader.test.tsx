@@ -239,6 +239,34 @@ describe('ThreeColumnReader', () => {
     )
   })
 
+  it('scrolls to the saved paragraph when resuming reading', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView')
+
+    useDocumentStore.getState().setPendingResumeParagraph(2)
+    useDocumentStore.getState().setDocument({
+      id: 'doc-resume',
+      title: 'resume test',
+      originalText: '第一段原文\n第二段原文\n第三段原文',
+      punctuatedText: '第一段原文。\n第二段原文。\n第三段原文。',
+      translatedText: '第一段白话。\n第二段白话。\n第三段白话。',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    await waitFor(() => {
+      expect(scrollSpy).toHaveBeenCalled()
+    })
+
+    scrollSpy.mockRestore()
+  })
+
   it('selects a sentence first and only opens AI explanation after explicit action', async () => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
@@ -348,7 +376,6 @@ describe('WordPopover', () => {
     await waitFor(() => {
       expect(screen.getByText('the meaning of the word')).toBeTruthy()
       expect(screen.getByText('a famous allusion')).toBeTruthy()
-      expect(screen.getByText(/Classic Text/)).toBeTruthy()
     })
   })
 

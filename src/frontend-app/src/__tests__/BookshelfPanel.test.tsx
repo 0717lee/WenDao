@@ -77,7 +77,7 @@ describe('BookshelfPanel', () => {
         return Promise.resolve({
           ok: true,
           json: async () => [
-            { id: 'history-doc-1', title: '《庄子》', last_read_at: '2026-04-07T00:00:00Z' },
+            { id: 'history-doc-1', title: '《庄子》', current_paragraph: 3, total_paragraphs: 9, last_read_at: '2026-04-07T00:00:00Z' },
           ],
         })
       }
@@ -92,7 +92,7 @@ describe('BookshelfPanel', () => {
     render(<BookshelfPanel {...props} comparedDocumentIds={['user-doc-1']} />)
 
     fireEvent.click(await screen.findByRole('button', { name: /回到上次进度/i }))
-    expect(props.onOpenDocument).toHaveBeenCalledWith('history-doc-1')
+    expect(props.onOpenDocument).toHaveBeenCalledWith('history-doc-1', { resumeParagraph: 3 })
 
     fireEvent.click(screen.getByRole('button', { name: /^对照阅读$/ }))
     expect(props.onOpenCompare).toHaveBeenCalled()

@@ -255,7 +255,5 @@ class TestExplainEmptyContext:
 
         assert "meaning" in result
         assert result["meaning"] == "仁爱之心"
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

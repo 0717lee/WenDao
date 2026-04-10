@@ -41,6 +41,7 @@ interface DocumentStore {
   currentDocument: Document | null;
   comparisonDocuments: Document[];
   pendingAnchorText: string;
+  pendingResumeParagraph: number | null;
   pendingReaderPanel: 'notes' | 'study' | 'explain' | null;
   uploadStatus: 'idle' | 'uploading' | 'processing' | 'done' | 'error';
   processProgress: string;
@@ -49,6 +50,8 @@ interface DocumentStore {
   clearCurrentDocument: () => void;
   setPendingAnchorText: (anchor: string) => void;
   consumePendingAnchorText: () => string;
+  setPendingResumeParagraph: (paragraph: number | null) => void;
+  consumePendingResumeParagraph: () => number | null;
   setPendingReaderPanel: (panel: 'notes' | 'study' | 'explain' | null) => void;
   consumePendingReaderPanel: () => 'notes' | 'study' | 'explain' | null;
   toggleComparisonDocument: (doc: Document) => void;
@@ -63,6 +66,7 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
   currentDocument: null,
   comparisonDocuments: [],
   pendingAnchorText: '',
+  pendingResumeParagraph: null,
   pendingReaderPanel: null,
   uploadStatus: 'idle',
   processProgress: '',
@@ -79,6 +83,15 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
       return { pendingAnchorText: '' }
     })
     return anchor
+  },
+  setPendingResumeParagraph: (pendingResumeParagraph) => set({ pendingResumeParagraph }),
+  consumePendingResumeParagraph: () => {
+    let paragraph: number | null = null
+    set((state) => {
+      paragraph = state.pendingResumeParagraph
+      return { pendingResumeParagraph: null }
+    })
+    return paragraph
   },
   setPendingReaderPanel: (pendingReaderPanel) => set({ pendingReaderPanel }),
   consumePendingReaderPanel: () => {
@@ -103,5 +116,5 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
   clearComparisonDocuments: () => set({ comparisonDocuments: [] }),
   setUploadStatus: (status) => set({ uploadStatus: status }),
   setProcessProgress: (progress) => set({ processProgress: progress }),
-  reset: () => set({ currentDocument: null, comparisonDocuments: [], pendingAnchorText: '', pendingReaderPanel: null, uploadStatus: 'idle', processProgress: '' }),
+  reset: () => set({ currentDocument: null, comparisonDocuments: [], pendingAnchorText: '', pendingResumeParagraph: null, pendingReaderPanel: null, uploadStatus: 'idle', processProgress: '' }),
 }));

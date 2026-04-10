@@ -11,7 +11,6 @@ from openai import OpenAI
 
 from core.runtime_checks import get_zhipu_api_key
 
-
 class WordExplainerAgent:
     def __init__(self):
         self.zhipu_client = OpenAI(

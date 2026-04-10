@@ -47,7 +47,7 @@ function TabLoader({ label = '正在准备页面...' }: { label?: string }) {
 
 function App() {
     const { activeTab, setActiveTab, queueReaderHubSection, setReaderReturnTab } = useGraphStore();
-    const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
+    const { currentDocument, comparisonDocuments, setDocument, setUploadStatus, setPendingReaderPanel, setPendingResumeParagraph, toggleComparisonDocument, clearCurrentDocument } = useDocumentStore();
     const { username, logout, validateStoredAuth } = useAuthStore();
     const { setDraftMessage } = useStore();
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -116,10 +116,11 @@ function App() {
     };
 
     const openDocument = useCallback(
-        async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => {
+        async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null; resumeParagraph?: number | null }) => {
             setOpeningDocumentId(documentId);
             clearCurrentDocument();
             setReaderReturnTab(activeTab);
+            setPendingResumeParagraph(options?.resumeParagraph && options.resumeParagraph > 0 ? options.resumeParagraph : null);
             setActiveTab('reader');
             try {
                 const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions());
@@ -137,7 +138,7 @@ function App() {
                 setOpeningDocumentId(null);
             }
         },
-        [activeTab, buildReaderDocument, clearCurrentDocument, setActiveTab, setDocument, setPendingReaderPanel, setReaderReturnTab, setUploadStatus]
+        [activeTab, buildReaderDocument, clearCurrentDocument, setActiveTab, setDocument, setPendingReaderPanel, setPendingResumeParagraph, setReaderReturnTab, setUploadStatus]
     );
 
     const jumpToChat = useCallback(

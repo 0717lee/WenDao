@@ -148,6 +148,47 @@ describe('DashboardHome', () => {
     expect(props.onOpenReaderHub).toHaveBeenCalled()
   })
 
+  it('passes the saved paragraph when continuing from reading history', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=12&source_type=corpus')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ documents: [], total: 40 }),
+        })
+      }
+
+      if (url.includes('/api/v1/documents?limit=12')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ documents: [], total: 0 }),
+        })
+      }
+
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ([
+            {
+              id: 'doc-history-1',
+              title: '《孟子》',
+              current_paragraph: 4,
+              total_paragraphs: 12,
+              last_read_at: '2026-04-10T09:00:00Z',
+            },
+          ]),
+        })
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [] }) })
+    })
+
+    render(<DashboardHome {...props} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /继续上次阅读/i }))
+
+    expect(props.onOpenDocument).toHaveBeenCalledWith('doc-history-1', { resumeParagraph: 4 })
+  })
+
   it('routes the image-first card to OCR upload flow', async () => {
     render(<DashboardHome {...props} />)
 

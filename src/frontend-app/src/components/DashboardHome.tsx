@@ -11,7 +11,7 @@ const DASHBOARD_WARM_RETRY_MAX = 4
 const DASHBOARD_WARM_RETRY_DELAY_MS = 900
 
 interface DashboardHomeProps {
-  onOpenDocument: (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => void
+  onOpenDocument: (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null; resumeParagraph?: number | null }) => void
   onAsk: (prompt: string) => void
   onOpenReaderHub: () => void
   onOpenReaderUpload: () => void
@@ -34,6 +34,8 @@ interface BookshelfItem {
 interface HistoryItem {
   id: string
   title: string
+  current_paragraph?: number
+  total_paragraphs?: number
   last_read_at: string
 }
 
@@ -128,7 +130,9 @@ export default function DashboardHome({
 
   const continueReadingAction = () => {
     if (latestHistoryDocumentId) {
-      onOpenDocument(latestHistoryDocumentId, { readerPanel: 'notes' })
+      onOpenDocument(latestHistoryDocumentId, {
+        resumeParagraph: history[0]?.current_paragraph ?? null,
+      })
       return
     }
     onOpenReaderHub()

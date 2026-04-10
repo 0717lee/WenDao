@@ -33,6 +33,7 @@ export function ThreeColumnReader() {
   const {
     currentDocument,
     consumePendingAnchorText,
+    consumePendingResumeParagraph,
     consumePendingReaderPanel,
     clearCurrentDocument,
   } = useDocumentStore();
@@ -45,12 +46,14 @@ export function ThreeColumnReader() {
   const [selectedChapterTitle, setSelectedChapterTitle] = useState<string | null>(null);
   const [tocOpen, setTocOpen] = useState(false);
   const [anchorText, setAnchorText] = useState('');
+  const [resumeParagraph, setResumeParagraph] = useState<number | null>(null);
   const [progressSyncError, setProgressSyncError] = useState(false);
   const [readerNotice, setReaderNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [wordLookup, setWordLookup] = useState<{ word: string; position: { x: number; y: number } } | null>(null);
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
+  const resumeParagraphRef = useRef<HTMLDivElement | null>(null);
   const hasMountedProgressRef = useRef<string | null>(null);
 
   const formatSectionTitle = (title: string | undefined | null, index: number) => {
@@ -87,11 +90,14 @@ export function ThreeColumnReader() {
       setAnchorText('');
     }
 
+    const nextResumeParagraph = consumePendingResumeParagraph();
+    setResumeParagraph(nextResumeParagraph && nextResumeParagraph > 0 ? nextResumeParagraph : null);
+
     const nextPanel = consumePendingReaderPanel();
     if (nextPanel) {
       setSidePanel(nextPanel);
     }
-  }, [currentDocument?.id, consumePendingAnchorText, consumePendingReaderPanel]);
+  }, [currentDocument?.id, consumePendingAnchorText, consumePendingReaderPanel, consumePendingResumeParagraph]);
 
   const readerParagraphs = useMemo(() => {
     if (!currentDocument) return [];
@@ -108,6 +114,12 @@ export function ThreeColumnReader() {
       anchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [anchorText, activeReaderTab]);
+
+  useEffect(() => {
+    if (anchorText || !resumeParagraph || !resumeParagraphRef.current) return;
+    resumeParagraphRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setResumeParagraph(null);
+  }, [anchorText, resumeParagraph, activeReaderTab, readerParagraphs.length]);
 
   useEffect(() => {
     if (!currentDocument) return
@@ -288,7 +300,11 @@ export function ThreeColumnReader() {
     return (
       <>
         {readerParagraphs.map((paragraph) => (
-          <div key={`${column}-${paragraph.id}`} className="space-y-2">
+          <div
+            key={`${column}-${paragraph.id}`}
+            className="space-y-2"
+            ref={paragraph.paragraphIndex === Math.max((resumeParagraph ?? 1) - 1, 0) ? resumeParagraphRef : undefined}
+          >
             {paragraph.sentences.map((sentence) => {
               const displayText = column === 'original' ? sentence.original : sentence.punctuated;
               if (!displayText) return null;

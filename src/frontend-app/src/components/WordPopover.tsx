@@ -181,36 +181,6 @@ export function WordPopover({ word, position, onClose }: WordPopoverProps) {
                 </div>
               )}
 
-              {/* Citations */}
-              {explanation.citations && explanation.citations.length > 0 && (
-                <div>
-                  <p
-                    className="text-[11px] tracking-[0.2em] mb-2"
-                    style={{ color: 'rgba(26,30,35,0.42)' }}
-                  >
-                    引用出处
-                  </p>
-                  <div className="space-y-2">
-                    {explanation.citations.map((citation, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-[12px] px-3 py-2.5 text-sm"
-                        style={{
-                          backgroundColor: 'rgba(201,160,99,0.08)',
-                          border: '1px solid rgba(201,160,99,0.12)',
-                        }}
-                      >
-                        <p className="font-medium" style={{ color: 'var(--gf-text)' }}>
-                          {citation.title}
-                        </p>
-                        <p className="text-xs mt-0.5" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                          {citation.source}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.4)' }}>

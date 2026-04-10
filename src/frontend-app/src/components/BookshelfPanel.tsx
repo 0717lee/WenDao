@@ -58,6 +58,8 @@ interface BookshelfItem {
 interface HistoryItem {
   id: string
   title: string
+  current_paragraph?: number
+  total_paragraphs?: number
   last_read_at: string
 }
 
@@ -73,7 +75,7 @@ interface CatalogEntry {
 }
 
 interface BookshelfPanelProps {
-  onOpenDocument: (documentId: string) => void
+  onOpenDocument: (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null; resumeParagraph?: number | null }) => void
   onToggleCompare: (documentId: string) => void
   comparedDocumentIds: string[]
   onOpenCompare: () => void
@@ -164,37 +166,6 @@ function buildFeaturedGuideSummary(doc: BookshelfItem): string {
       return doc.difficulty === '入门'
         ? '门槛更低，适合先翻几段试试看。'
         : '可以先从自己熟悉的主题切进去。'
-  }
-}
-
-function looksLikeDenseOriginalExcerpt(text: string): boolean {
-  const trimmed = text.trim()
-  if (!trimmed) return false
-  const plainText = trimmed.replace(/\s+/g, '')
-  return plainText.length >= 18 && !/[，。！？；、：,.!?;:]/.test(trimmed)
-}
-
-function buildFeaturedPreviewText(doc: BookshelfItem): string {
-  const preview = doc.preview?.trim() ?? ''
-  if (preview && !looksLikeDenseOriginalExcerpt(preview)) {
-    return preview
-  }
-
-  switch (inferFeaturedBucket(doc)) {
-    case '经部':
-      return '打开后可以直接对照原文、标点和白话，先读一两段就能找到感觉。'
-    case '史部':
-      return '打开后先挑一个熟悉人物或故事切进去，会比从头硬读轻松。'
-    case '子部':
-      return '先读一个观点最鲜明的段落，再回头看前后怎么展开。'
-    case '集部':
-      return '先挑较短的一篇或自己熟悉的题材，更容易读出意思。'
-    case '道部':
-      return '先看短章，再慢慢体会同一个词在不同段里的意思。'
-    case '佛部':
-      return '先顺着大意读，再配合白话看术语，不必一开始全懂。'
-    default:
-      return '翻开后就能对照原文、标点和白话，先从最短的一段开始就好。'
   }
 }
 
@@ -590,7 +561,9 @@ export default function BookshelfPanel({
 
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
             <button
-              onClick={primaryContinueItem ? () => onOpenDocument(primaryContinueItem.id) : () => scrollToSection(corpusSectionRef)}
+              onClick={primaryContinueItem
+                ? () => onOpenDocument(primaryContinueItem.id, { resumeParagraph: primaryContinueItem.current_paragraph ?? null })
+                : () => scrollToSection(corpusSectionRef)}
               className="flex h-full flex-col rounded-[26px] px-5 py-5 text-left transition-all duration-300 hover:-translate-y-0.5"
               style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 12px 24px rgba(26,30,35,0.04)' }}
             >
@@ -708,7 +681,7 @@ export default function BookshelfPanel({
                 {secondaryContinueItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => onOpenDocument(item.id)}
+                    onClick={() => onOpenDocument(item.id, { resumeParagraph: item.current_paragraph ?? null })}
                     className="w-full rounded-[22px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
                     style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
                   >
@@ -807,12 +780,6 @@ export default function BookshelfPanel({
                       </div>
                     </div>
                     {renderMetaLine(doc)}
-                    <div className="mb-2 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
-                      {buildFeaturedGuideSummary(doc)}
-                    </div>
-                    <div className="line-clamp-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                      {buildFeaturedPreviewText(doc)}
-                    </div>
                   </button>
                 ))
               )}
