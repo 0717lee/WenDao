@@ -68,7 +68,7 @@ function pickSuggestedQueries(previous: string[] = []) {
 
 const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   const [query, setQuery] = useState('');
-  const [mode, setMode] = useState<SearchMode>('HYBRID');
+  const [mode, setMode] = useState<SearchMode>('FULLTEXT');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,9 +152,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
     openQuestionAnswer(nextPrompt);
   };
 
-  const buildResultAskPrompt = (result: SearchResult) =>
-    `请结合《${result.title}》里的这段内容继续义理辨析：${result.content.slice(0, 120)}`;
-
   const openResultDocument = (result: SearchResult) => {
     if (!result.document_id) return;
     if (result.anchor_text) {
@@ -162,11 +159,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
     }
     setSelectedResult(null);
     onOpenDocument?.(String(result.document_id));
-  };
-
-  const askAboutResult = (result: SearchResult) => {
-    setSelectedResult(null);
-    openQuestionAnswer(buildResultAskPrompt(result));
   };
 
   return (
@@ -189,10 +181,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
             原文检索
           </div>
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
-            查一句原文，或找一个人物、典故
+            查一句原文，直接定位到篇章
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            一时想不好怎么搜，也可以先去 AI 问答，把问题直接说出来。
+            这里专门负责定位原文；如果你想延伸解释、追问背景，再转去 AI 问答。
           </p>
         </div>
 
@@ -232,29 +224,28 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           </button>
         </div>
 
-        {/* Search Mode Selection */}
         <div className="grid gap-2 md:grid-cols-3">
           {[
-            { value: 'FULLTEXT' as SearchMode, label: '原句检索', desc: '记得原句时' },
-            { value: 'VECTOR' as SearchMode, label: '大意检索', desc: '只记得大意时' },
-            { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '拿不准时选这个' },
-          ].map(opt => (
+            { value: 'FULLTEXT' as SearchMode, label: '原句检索', desc: '最快，适合记得原句时' },
+            { value: 'VECTOR' as SearchMode, label: '大意检索', desc: '适合只记得意思时' },
+            { value: 'HYBRID' as SearchMode, label: '综合检索', desc: '效果最稳，但会更慢一些' },
+          ].map((item) => (
             <label
-              key={opt.value}
-              className="flex min-h-[4.5rem] items-center gap-1.5 cursor-pointer group rounded-2xl px-3 py-2"
+              key={item.value}
+              className="flex min-h-[4.5rem] items-center gap-1.5 cursor-pointer rounded-2xl px-3 py-2"
               style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.58)' }}
             >
               <input
                 type="radio"
-                value={opt.value}
-                checked={mode === opt.value}
-                onChange={(e) => setMode(e.target.value as SearchMode)}
+                value={item.value}
+                checked={mode === item.value}
+                onChange={(event) => setMode(event.target.value as SearchMode)}
                 className="w-3.5 h-3.5"
                 style={{ accentColor: 'var(--gf-gugong-red)' }}
               />
               <div className="flex flex-col">
-                <span className="text-sm" style={{ fontFamily: '"Noto Serif SC", serif' }}>{opt.label}</span>
-                <span className="text-xs opacity-60">{opt.desc}</span>
+                <span className="text-sm" style={{ fontFamily: '"Noto Serif SC", serif' }}>{item.label}</span>
+                <span className="text-xs opacity-60">{item.desc}</span>
               </div>
             </label>
           ))}
@@ -391,17 +382,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                 >
                   {result.document_id ? '打开原文' : '暂时不能直接打开'}
                 </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    askAboutResult(result);
-                  }}
-                  className="inline-flex min-w-[7.5rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300"
-                  style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-                >
-                  继续追问
-                </button>
               </div>
             </div>
           ))}
@@ -461,18 +441,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
                   >
                     {selectedResult.document_id ? '打开原文' : '暂时不能直接打开'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => askAboutResult(selectedResult)}
-                    className="inline-flex min-w-[7.5rem] justify-center rounded-full px-4 py-2 text-sm transition-all duration-300"
-                    style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-                  >
-                    继续追问
-                  </button>
                 </div>
                 {!selectedResult.document_id && (
                   <p className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    这条结果目前只是一段索引片段，还不能直接打开全文；你可以先继续追问。
+                    这条结果目前只是一段索引片段，还不能直接打开全文；建议换更完整的原句，或转到 AI 问答继续追背景。
                   </p>
                 )}
               </div>

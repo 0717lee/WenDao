@@ -15,6 +15,8 @@ import jieba
 
 logger = logging.getLogger(__name__)
 INDEX_METADATA_FILE = "index.meta.json"
+DEFAULT_CORPUS_INDEX_DIR = "faiss_db_corpus"
+LEGACY_INDEX_DIR = "faiss_db"
 RAG_NORMALIZE_PATTERN = re.compile(r"[\s，。！？；：、“”‘’「」『』（）()《》〈〉【】〔〕—…·,.!?:;\"'\-]+")
 RAG_NOISE_TERMS = {"什么", "为何", "为什么", "如何", "怎么", "怎样", "到底", "请", "请问", "一下", "有关", "相关", "解释", "说明"}
 
@@ -34,6 +36,23 @@ def _load_index_metadata(db_path: Path) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("[RAGAgent] 索引元数据读取失败: %s", exc)
         return None
+
+
+def _resolve_faiss_db_path() -> Path:
+    base_dir = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    if (base_dir / "index.faiss").exists() and (base_dir / "index.pkl").exists():
+        return base_dir
+    explicit_dir = (os.getenv("FAISS_DB_DIR") or "").strip()
+    candidates = [explicit_dir] if explicit_dir else [DEFAULT_CORPUS_INDEX_DIR, LEGACY_INDEX_DIR]
+
+    for dirname in candidates:
+        if not dirname:
+            continue
+        candidate = base_dir / dirname
+        if (candidate / "index.faiss").exists() and (candidate / "index.pkl").exists():
+            return candidate
+
+    return base_dir / (explicit_dir or DEFAULT_CORPUS_INDEX_DIR)
 
 
 def _normalize_rag_text(value: str) -> str:
@@ -68,7 +87,7 @@ def _doc_matches_query(doc: Any, query_terms: list[str]) -> bool:
 def inspect_faiss_index_compatibility() -> dict[str, Any]:
     from core.embeddings import embedding_backend_available
 
-    db_path = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "faiss_db")))
+    db_path = _resolve_faiss_db_path()
     index_file = db_path / "index.faiss"
     pkl_file = db_path / "index.pkl"
     metadata = _load_index_metadata(db_path)
@@ -237,7 +256,7 @@ class RAGAgent:
             from langchain_community.docstore.in_memory import InMemoryDocstore
             from core.embeddings import WenDaoEmbeddings
 
-            db_path = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "faiss_db")))
+            db_path = _resolve_faiss_db_path()
             metadata = _load_index_metadata(db_path)
             expected_backend = metadata.get("embedding_backend") if metadata else None
 

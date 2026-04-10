@@ -36,7 +36,7 @@ describe('SearchPanel', () => {
           score: 0.85,
         },
       ],
-      mode: 'HYBRID',
+      mode: 'FULLTEXT',
       total: 1,
     };
 
@@ -55,7 +55,7 @@ describe('SearchPanel', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/search?q=%E6%96%97%E6%8B%B1'),
+        expect.stringContaining('/api/v1/search?q=%E6%96%97%E6%8B%B1&mode=FULLTEXT'),
         expect.anything()
       );
     });
@@ -72,7 +72,7 @@ describe('SearchPanel', () => {
           score: 0.85,
         },
       ],
-      mode: 'HYBRID',
+      mode: 'FULLTEXT',
       total: 1,
     };
 
@@ -105,7 +105,7 @@ describe('SearchPanel', () => {
           score: 0.85,
         },
       ],
-      mode: 'HYBRID',
+      mode: 'FULLTEXT',
       total: 1,
     };
 
@@ -131,18 +131,12 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('supports switching between search modes', () => {
+  it('defaults to FULLTEXT mode and still exposes the three search modes', () => {
     render(<SearchPanel {...props} />);
 
-    const [fulltextRadio, vectorRadio, hybridRadio] = screen.getAllByRole('radio');
-
-    expect(hybridRadio).toBeChecked();
-
-    fireEvent.click(fulltextRadio);
-    expect(fulltextRadio).toBeChecked();
-
-    fireEvent.click(vectorRadio);
-    expect(vectorRadio).toBeChecked();
+    const radios = screen.getAllByRole('radio');
+    expect(radios).toHaveLength(3);
+    expect(radios[0]).toBeChecked();
   });
 
   it('shows error message when search fails', async () => {
@@ -176,7 +170,7 @@ describe('SearchPanel', () => {
     });
   });
 
-  it('routes search results to reading and QA actions', async () => {
+  it('routes search results to reading action only', async () => {
     const mockResponse = {
       results: [
         {
@@ -189,7 +183,7 @@ describe('SearchPanel', () => {
           anchor_text: '斗拱是中国古代建筑特有的构件',
         },
       ],
-      mode: 'HYBRID',
+      mode: 'FULLTEXT',
       total: 1,
     };
 
@@ -208,8 +202,6 @@ describe('SearchPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '打开原文' }));
     expect(props.onOpenDocument).toHaveBeenCalledWith('real-doc-42');
     expect(useDocumentStore.getState().pendingAnchorText).toBe('斗拱是中国古代建筑特有的构件');
-
-    fireEvent.click(screen.getByRole('button', { name: '继续追问' }));
-    expect(props.onAsk).toHaveBeenCalledWith(expect.stringContaining('斗拱结构'));
+    expect(screen.queryByRole('button', { name: '继续追问' })).toBeNull();
   });
 });

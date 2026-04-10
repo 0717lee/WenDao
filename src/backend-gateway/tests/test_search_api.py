@@ -127,6 +127,15 @@ def test_extract_search_terms_keeps_core_terms_and_drops_question_noise():
     assert "谈" not in terms
 
 
+def test_extract_search_terms_keeps_full_quote_for_exact_queries():
+    from routers.search import _extract_search_terms
+
+    terms = _extract_search_terms("学而时习之")
+
+    assert "学而时习之" in terms
+    assert "之" not in terms
+
+
 def test_fulltext_mode_uses_fts5(app_client):
     """Test fulltext mode uses SQLite FTS5"""
     response = app_client.get("/api/v1/search?q=斗拱&mode=FULLTEXT")
@@ -144,6 +153,24 @@ def test_vector_mode_uses_faiss(app_client):
     data = response.json()
     assert "results" in data
     assert any(result.get("document_id") for result in data["results"])
+
+
+@pytest.mark.asyncio
+async def test_vector_search_discards_unmapped_demo_hits():
+    from routers.search import vector_search
+
+    mock_doc = Mock()
+    mock_doc.page_content = "天工开物中的木构做法"
+    mock_doc.metadata = {"id": "doc_3", "title": "天工开物·榫卯", "source": "天工开物"}
+
+    with patch("routers.search.rag_agent") as mock_rag, \
+         patch("routers.search._load_document_candidates", new=AsyncMock(return_value=[])), \
+         patch("routers.search._resolve_document_id", new=AsyncMock(return_value=None)):
+        mock_rag.vectorstore = Mock()
+        mock_rag.vectorstore.similarity_search_with_score = Mock(return_value=[(mock_doc, 0.42)])
+        results = await vector_search("庄子", limit=5)
+
+    assert results == []
 
 
 def test_search_limit_parameter(app_client):
@@ -287,6 +314,53 @@ async def test_fulltext_search_prioritizes_exact_quote_with_segment_location():
     assert len(results) == 1
     assert results[0].source.endswith("学而篇")
     assert results[0].anchor_text == "学而时习之，不亦说乎？"
+
+
+@pytest.mark.asyncio
+async def test_fulltext_search_matches_simplified_query_against_traditional_text():
+    from routers.search import fulltext_search
+
+    class FakeConverter:
+        def convert(self, text: str) -> str:
+            return (
+                text.replace("學", "学")
+                .replace("時", "时")
+                .replace("習", "习")
+                .replace("說", "说")
+                .replace("論", "论")
+                .replace("顏", "颜")
+                .replace("書", "书")
+                .replace("四書", "四书")
+            )
+
+    with patch("routers.search.SEARCH_CONVERTER", FakeConverter()), \
+         patch("routers.search._load_document_candidates", new=AsyncMock(return_value=[
+            {
+                "id": "doc-lunyu",
+                "title": "《論語》",
+                "source_name": "Kanripo",
+                "author": "孔子弟子",
+                "dynasty": "先秦",
+                "category": "四書",
+                "original_text": "學而時習之不亦說乎",
+                "punctuated_text": "學而時習之，不亦說乎？",
+                "translated_text": "",
+                "segments": [
+                    {
+                        "title": "學而篇",
+                        "text": "學而時習之，不亦說乎？",
+                        "excerpt": "學而時習之，不亦說乎？",
+                        "summary": "適合作為《論語》入門句。",
+                    }
+                ],
+                "source_type": "corpus",
+                "owner_user_id": None,
+            }
+        ])):
+        results = await fulltext_search("学而时习之", user_id=None)
+
+    assert len(results) == 1
+    assert results[0].document_id == "doc-lunyu"
 
 
 @pytest.mark.asyncio

@@ -272,6 +272,27 @@ describe('ThreeColumnReader', () => {
 
     expect(await screen.findByText('当前句子')).toBeInTheDocument()
   })
+
+  it('keeps the study cards action visible in the reader guide area', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-study',
+      title: 'study test',
+      originalText: '原文内容',
+      punctuatedText: '原文内容。',
+      translatedText: '解释内容',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    expect(screen.getByRole('button', { name: '学习卡片' })).toBeInTheDocument()
+  })
 })
 
 describe('WordPopover', () => {

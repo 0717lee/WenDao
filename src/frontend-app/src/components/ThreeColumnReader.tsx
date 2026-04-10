@@ -194,7 +194,6 @@ export function ThreeColumnReader() {
       ) ??
       null,
     );
-    setReaderNotice({ tone: 'info', message: '已选中一句。需要时再点“AI解读选中句”，不会自动打断阅读。' });
   };
 
   const handleLookupSelection = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -230,7 +229,6 @@ export function ThreeColumnReader() {
   const clearSentenceSelection = () => {
     setSelectedSentence(null);
     setSelectedChapterTitle(null);
-    setReaderNotice({ tone: 'info', message: '继续顺着原文往下读，卡住时再点一句。' });
   };
 
   const handleTocSelect = (entry: { title: string; displayTitle?: string; excerpt?: string; summary?: string }) => {
@@ -374,11 +372,6 @@ export function ThreeColumnReader() {
             {currentDocument.difficulty}
           </span>
         )}
-        {selectedSentence && (
-          <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}>
-            已选中 1 句
-          </span>
-        )}
       </div>
       {currentDocument.guideSummary ? (
         <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.62)' }}>
@@ -387,11 +380,6 @@ export function ThreeColumnReader() {
       ) : (
         <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
           可以先顺着原文往下读，卡住时再点一句细看。
-        </div>
-      )}
-      {currentDocument.readingTip && (
-        <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
-          可以先这样读：{currentDocument.readingTip}
         </div>
       )}
       {selectedSentenceText && (
@@ -418,6 +406,13 @@ export function ThreeColumnReader() {
           讲解此句
         </button>
         <button
+          onClick={() => setSidePanel((prev) => (prev === 'study' ? null : 'study'))}
+          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+        >
+          学习卡片
+        </button>
+        <button
           onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
           className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
@@ -440,9 +435,9 @@ export function ThreeColumnReader() {
             className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(255,255,255,0.74)', color: 'rgba(26,30,35,0.66)', border: '1px solid rgba(26,30,35,0.08)' }}
           >
-            取消选句
-          </button>
-        )}
+          取消选句
+        </button>
+      )}
       </div>
       <div
         className="mt-2 rounded-[16px] px-3 py-2 text-xs leading-6"
@@ -450,7 +445,7 @@ export function ThreeColumnReader() {
       >
         查词提示：在原文里拖选一个词，系统会弹出查词卡，也能顺手加入字词记录。
       </div>
-      {readerNotice && (
+      {readerNotice && readerNotice.tone !== 'info' && (
         <div
           className="mt-3 rounded-[16px] px-3 py-2 text-xs"
           style={{

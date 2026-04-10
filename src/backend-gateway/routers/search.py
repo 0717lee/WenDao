@@ -20,6 +20,11 @@ from core.lazy_proxy import LazyProxy
 from core.rate_limit import limiter
 from agents.rag import RAGAgent
 
+try:
+    from opencc import OpenCC
+except ImportError:  # pragma: no cover
+    OpenCC = None  # type: ignore[assignment]
+
 # Load custom dictionary for ancient Chinese terms
 DICT_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "ancient_words.txt")
 if os.path.exists(DICT_PATH):
@@ -34,6 +39,7 @@ QUESTION_NOISE_TERMS = {
     "可以", "一下", "一下子", "一下儿", "请问", "请", "一下吧", "一下吗",
 }
 FUNCTION_WORDS = {"的", "了", "吗", "呢", "啊", "呀", "吧", "着", "在", "和", "与", "及", "并", "而", "是", "有"}
+SEARCH_CONVERTER = OpenCC("t2s") if OpenCC else None
 
 
 def get_connection():
@@ -153,7 +159,15 @@ async def _load_sqlite_corpus_candidates(limit: int) -> list[dict[str, Any]]:
 
 
 def _normalize_search_text(value: str) -> str:
-    return SEARCH_NORMALIZE_PATTERN.sub("", value or "").lower()
+    text = value or ""
+    if SEARCH_CONVERTER is not None:
+        try:
+            converted = SEARCH_CONVERTER.convert(text)
+            if converted and converted.strip():
+                text = converted
+        except Exception:
+            pass
+    return SEARCH_NORMALIZE_PATTERN.sub("", text).lower()
 
 
 def _extract_preserved_terms(query: str) -> list[str]:
@@ -171,11 +185,18 @@ def _extract_search_terms(query: str) -> list[str]:
     tokens = [token.strip() for token in jieba.cut(query) if token.strip()]
     terms: list[str] = []
 
+    normalized_query = _normalize_search_text(query)
+    if _looks_like_exact_quote(query) and normalized_query:
+        terms.append(query.strip())
+
+    preserved_set = set(preserved_terms)
     for token in preserved_terms + tokens:
         normalized = _normalize_search_text(token)
         if not normalized:
             continue
         if normalized in FUNCTION_WORDS or normalized in QUESTION_NOISE_TERMS:
+            continue
+        if len(normalized) <= 1 and token not in preserved_set:
             continue
         if token not in terms:
             terms.append(token)
@@ -183,7 +204,6 @@ def _extract_search_terms(query: str) -> list[str]:
     if terms:
         return terms
 
-    normalized_query = _normalize_search_text(query)
     return [normalized_query] if normalized_query else []
 
 
@@ -571,7 +591,10 @@ async def vector_search(query: str, limit: int = 10, user_id: str | None = None)
         raise HTTPException(status_code=500, detail=f"向量检索失败: {str(e)}")
 
     results = []
+    search_terms = _extract_search_terms(query)
+    requires_grounding = _looks_like_exact_quote(query) or len(_normalize_search_text(query)) <= 8
     candidates = await _load_document_candidates(user_id=user_id)
+    candidate_map = {str(row.get("id")): row for row in candidates if row.get("id") is not None}
     for doc, score in docs_with_scores:
         metadata = doc.metadata
         title = metadata.get("title", "") or metadata.get("source", "") or "检索结果"
@@ -585,7 +608,10 @@ async def vector_search(query: str, limit: int = 10, user_id: str | None = None)
             candidates=candidates,
             user_id=user_id,
         )
-        if document_id is None and metadata.get("document_id"):
+        if document_id is None:
+            continue
+        row = candidate_map.get(str(document_id))
+        if requires_grounding and row is not None and not _has_term_grounding(row, search_terms):
             continue
         results.append(SearchResult(
             id=str(metadata.get("id", 0)),
@@ -597,7 +623,18 @@ async def vector_search(query: str, limit: int = 10, user_id: str | None = None)
             anchor_text=doc.page_content[:60] if doc.page_content else None,
         ))
 
-    return results
+    if not results:
+        return []
+
+    normalized_scores = normalize_scores([result.score for result in results], higher_is_better=False)
+    reranked_results: list[SearchResult] = []
+    for index, result in enumerate(results):
+        row = candidate_map.get(str(result.document_id or result.id))
+        result.score = normalized_scores[index] + _lexical_rerank_bonus(result, row, query, search_terms)
+        reranked_results.append(result)
+
+    reranked_results.sort(key=lambda item: item.score, reverse=True)
+    return reranked_results[:limit]
 
 
 async def hybrid_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
