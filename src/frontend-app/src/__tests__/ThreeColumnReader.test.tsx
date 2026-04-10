@@ -273,6 +273,32 @@ describe('ThreeColumnReader', () => {
     expect(await screen.findByText('当前句子')).toBeInTheDocument()
   })
 
+  it('keeps reader text selectable for drag lookup', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-selectable',
+      title: 'selectable test',
+      originalText: '子曰学而时习之',
+      punctuatedText: '子曰：学而时习之。',
+      translatedText: '孔子说，学习后经常温习它。',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    const originalSentence = screen.getByText('子曰学而时习之')
+    expect(originalSentence).toHaveStyle({
+      userSelect: 'text',
+      WebkitUserSelect: 'text',
+      cursor: 'text',
+    })
+  })
+
   it('keeps the study cards action visible in the reader guide area', async () => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,

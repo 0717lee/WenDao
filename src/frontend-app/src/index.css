@@ -25,7 +25,6 @@ html, body, #root {
   color: var(--gf-text);
   /* 优先使用优雅的国风宋体/楷体系列 */
   font-family: "Noto Serif SC", "Source Han Serif SC", STZhongsong, "Microsoft YaHei", serif;
-  user-select: none;
   /* 移动端优化 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

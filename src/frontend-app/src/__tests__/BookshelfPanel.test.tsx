@@ -21,13 +21,13 @@ describe('BookshelfPanel', () => {
     render(<BookshelfPanel {...props} />)
 
     expect(
-      await screen.findByText((content) => content.includes('这里会放整理好的内容，适合第一次使用时开始。'))
+      await screen.findByText((content) => content.includes('这里会先放几部更容易开始的书。'))
     ).toBeInTheDocument()
   })
 
   it('shows an empty continue-reading state for accounts with no reading history', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
-      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -69,7 +69,7 @@ describe('BookshelfPanel', () => {
 
   it('uses the top starting cards and secondary quick links as real actions', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
-      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
         return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
       }
 
@@ -100,7 +100,7 @@ describe('BookshelfPanel', () => {
 
   it('keeps featured picks diverse for 全部 and narrows after selecting a category', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
-      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -125,7 +125,7 @@ describe('BookshelfPanel', () => {
 
     expect(await screen.findByText('《史记》')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByDisplayValue('全部'), { target: { value: '文学总集' } })
+    fireEvent.change(screen.getByDisplayValue('全部门类'), { target: { value: '文学总集' } })
 
     expect(await screen.findByText('《国秀集》')).toBeInTheDocument()
     expect(screen.queryByText('《史记》')).not.toBeInTheDocument()
@@ -133,7 +133,7 @@ describe('BookshelfPanel', () => {
 
   it('does not fetch more sources until the panel is expanded', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
-      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
         return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
       }
       if (url.includes('/api/v1/reader/history')) {
@@ -154,7 +154,7 @@ describe('BookshelfPanel', () => {
       if (url.includes('/api/v1/documents?limit=100')) {
         return Promise.resolve({ ok: false, json: async () => ({ documents: [], total: 0 }) })
       }
-      if (url.includes('/api/v1/documents?limit=24&source_type=corpus')) {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
         return Promise.resolve({ ok: false, json: async () => ({ documents: [], total: 0 }) })
       }
       if (url.includes('/api/v1/reader/history')) {

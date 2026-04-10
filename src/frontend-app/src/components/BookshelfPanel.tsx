@@ -9,14 +9,33 @@ import { useGraphStore } from '../store/useGraphStore'
 const BOOKSHELF_WARM_RETRY_MAX = 4
 const BOOKSHELF_WARM_RETRY_DELAY_MS = 900
 const CATALOG_PAGE_SIZE = 36
+const CORPUS_FETCH_LIMIT = 120
 const DIFFICULTY_RANK: Record<string, number> = {
   入门: 0,
   进阶: 1,
   挑战: 2,
 }
+const FEATURED_STARTER_REPO_IDS = [
+  'KR1h0004', // 《论语》
+  'KR3l0002', // 《世说新语》
+  'KR5c0045', // 《道德经》
+  'KR2a0001', // 《史记》
+  'KR1c0001', // 《诗经》
+  'KR3b0003', // 《孙子》
+  'KR4a0001', // 《楚辞》
+  'KR6c0023', // 《金刚经》
+  'KR1h0001', // 《孟子》
+  'KR2e0006', // 《贞观政要》
+  'KR3j0092', // 《梦溪笔谈》
+  'KR5c0126', // 《庄子》
+] as const
+const FEATURED_STARTER_REPO_RANK = new Map<string, number>(
+  FEATURED_STARTER_REPO_IDS.map((repoId, index) => [repoId, index]),
+)
 
 interface BookshelfItem {
   id: string
+  repo_id?: string
   title: string
   author?: string
   dynasty?: string
@@ -61,7 +80,7 @@ interface BookshelfPanelProps {
 }
 
 const FAMILY_LABELS: Record<string, string> = {
-  全部: '全部',
+  全部: '全部门类',
   经部: '经学',
   史部: '历史',
   子部: '思想',
@@ -86,8 +105,96 @@ function rankDocumentForStart(doc: BookshelfItem, index: number) {
   return {
     doc,
     index,
+    starterRank: FEATURED_STARTER_REPO_RANK.get(doc.repo_id || '') ?? Number.MAX_SAFE_INTEGER,
     difficultyRank: DIFFICULTY_RANK[doc.difficulty || ''] ?? 99,
     chapterRank: doc.chapter_count ?? Number.MAX_SAFE_INTEGER,
+  }
+}
+
+function inferFeaturedBucket(doc: BookshelfItem): string {
+  switch (doc.category) {
+    case '四书':
+    case '经学典籍':
+      return '经部'
+    case '史书':
+      return '史部'
+    case '儒家':
+    case '兵家':
+    case '法家':
+    case '墨家':
+    case '杂家':
+    case '政论':
+    case '理学':
+    case '笔记':
+    case '笔记小说':
+    case '志怪':
+    case '艺术':
+      return '子部'
+    case '文学总集':
+    case '辞赋':
+    case '文学理论':
+    case '词曲':
+    case '古文选本':
+    case '文论':
+      return '集部'
+    case '道家':
+      return '道部'
+    case '佛学':
+      return '佛部'
+    default:
+      return doc.category || `__${doc.id}`
+  }
+}
+
+function buildFeaturedGuideSummary(doc: BookshelfItem): string {
+  switch (inferFeaturedBucket(doc)) {
+    case '经部':
+      return '句子和概念都更常见，适合先从几段熟悉的话开始读。'
+    case '史部':
+      return '可以先从熟悉的人物或事件切进去，不用一开始就通读全书。'
+    case '子部':
+      return '适合先抓一个观点或故事，看懂一层再往下走。'
+    case '集部':
+      return '先读短篇或熟悉题材，更容易读出画面和情绪。'
+    case '道部':
+      return '先抓几个反复出现的关键词，不必急着把每句都讲透。'
+    case '佛部':
+      return '先把大意读顺，再回头看术语，会轻松很多。'
+    default:
+      return doc.difficulty === '入门'
+        ? '门槛更低，适合先翻几段试试看。'
+        : '可以先从自己熟悉的主题切进去。'
+  }
+}
+
+function looksLikeDenseOriginalExcerpt(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed) return false
+  const plainText = trimmed.replace(/\s+/g, '')
+  return plainText.length >= 18 && !/[，。！？；、：,.!?;:]/.test(trimmed)
+}
+
+function buildFeaturedPreviewText(doc: BookshelfItem): string {
+  const preview = doc.preview?.trim() ?? ''
+  if (preview && !looksLikeDenseOriginalExcerpt(preview)) {
+    return preview
+  }
+
+  switch (inferFeaturedBucket(doc)) {
+    case '经部':
+      return '打开后可以直接对照原文、标点和白话，先读一两段就能找到感觉。'
+    case '史部':
+      return '打开后先挑一个熟悉人物或故事切进去，会比从头硬读轻松。'
+    case '子部':
+      return '先读一个观点最鲜明的段落，再回头看前后怎么展开。'
+    case '集部':
+      return '先挑较短的一篇或自己熟悉的题材，更容易读出意思。'
+    case '道部':
+      return '先看短章，再慢慢体会同一个词在不同段里的意思。'
+    case '佛部':
+      return '先顺着大意读，再配合白话看术语，不必一开始全懂。'
+    default:
+      return '翻开后就能对照原文、标点和白话，先从最短的一段开始就好。'
   }
 }
 
@@ -100,11 +207,14 @@ function pickFeaturedCorpusDocuments(
     ? documents
     : documents.filter((item) => item.category === selectedCategory)
 
-  if (scoped.length <= maxItems) return scoped
+  if (scoped.length === 0) return []
 
   const ordered = scoped
     .map((doc, index) => rankDocumentForStart(doc, index))
     .sort((left, right) => {
+      if (left.starterRank !== right.starterRank) {
+        return left.starterRank - right.starterRank
+      }
       if (left.difficultyRank !== right.difficultyRank) {
         return left.difficultyRank - right.difficultyRank
       }
@@ -123,7 +233,7 @@ function pickFeaturedCorpusDocuments(
   const seenCategories = new Set<string>()
 
   for (const doc of ordered) {
-    const categoryKey = doc.category || `__${doc.id}`
+    const categoryKey = inferFeaturedBucket(doc)
     if (seenCategories.has(categoryKey)) continue
     seenCategories.add(categoryKey)
     featured.push(doc)
@@ -177,7 +287,7 @@ export default function BookshelfPanel({
       try {
         for (let attempt = 0; attempt <= BOOKSHELF_WARM_RETRY_MAX; attempt += 1) {
           const [corpusResponse, historyResponse] = await Promise.all([
-            fetch(`${API_BASE}/api/v1/documents?limit=24&source_type=corpus`, authFetchOptions()).catch(() => null),
+            fetch(`${API_BASE}/api/v1/documents?limit=${CORPUS_FETCH_LIMIT}&source_type=corpus`, authFetchOptions()).catch(() => null),
             fetch(`${API_BASE}/api/v1/reader/history`, authFetchOptions()).catch(() => null),
           ])
 
@@ -527,10 +637,10 @@ export default function BookshelfPanel({
                 {recommendedStart ? (
                   <div className="space-y-0.5">
                     <div className="line-clamp-1">推荐篇目：{recommendedStart.title}</div>
-                    <div className="line-clamp-2">{recommendedStart.preview}</div>
+                    <div className="line-clamp-2">{buildFeaturedGuideSummary(recommendedStart)}</div>
                   </div>
                 ) : (
-                  '这里会放整理好的内容，适合第一次使用时开始。'
+                  '这里会先放几部更容易开始的书。'
                 )}
               </div>
               <div className="mt-auto inline-flex items-center gap-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
@@ -631,8 +741,8 @@ export default function BookshelfPanel({
                 </h3>
                 <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
                   {selectedCorpusCategory === '全部'
-                    ? '默认按易读度和门类分散挑选，避免都挤在同一类。'
-                    : '切到具体门类后，这里只展示该类里更适合先读的内容。'}
+                    ? '这里先放几部更容易开始的书；想看完整目录，可以展开下面的“更多篇目”。'
+                    : '切到具体门类后，这里只保留更适合起步的几部。'}
                 </p>
               </div>
               <label className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
@@ -697,13 +807,11 @@ export default function BookshelfPanel({
                       </div>
                     </div>
                     {renderMetaLine(doc)}
-                    {doc.guide_summary && (
-                      <div className="mb-2 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
-                        {doc.guide_summary}
-                      </div>
-                    )}
+                    <div className="mb-2 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                      {buildFeaturedGuideSummary(doc)}
+                    </div>
                     <div className="line-clamp-3 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                      {doc.preview || '翻开后就能对照原文、标点和白话。'}
+                      {buildFeaturedPreviewText(doc)}
                     </div>
                   </button>
                 ))

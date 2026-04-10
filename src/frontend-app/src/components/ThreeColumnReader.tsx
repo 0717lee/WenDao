@@ -196,6 +196,16 @@ export function ThreeColumnReader() {
     );
   };
 
+  const hasActiveTextSelection = () => {
+    const selection = window.getSelection();
+    return Boolean(selection?.toString().trim());
+  };
+
+  const handleSentenceActivate = (sentence: ReaderSentence) => {
+    if (hasActiveTextSelection()) return;
+    handleSentenceSelect(sentence);
+  };
+
   const handleLookupSelection = (event: React.MouseEvent<HTMLDivElement>) => {
     const selection = window.getSelection();
     const word = selection?.toString().trim() ?? '';
@@ -291,7 +301,7 @@ export function ThreeColumnReader() {
               return (
                 <div
                   key={`${column}-${sentence.id}`}
-                  onClick={() => handleSentenceSelect(sentence)}
+                  onClick={() => handleSentenceActivate(sentence)}
                   onMouseUp={handleLookupSelection}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -309,6 +319,9 @@ export function ThreeColumnReader() {
                       : isAnchorSentence
                         ? 'rgba(201,160,99,0.14)'
                         : 'transparent',
+                    userSelect: 'text',
+                    WebkitUserSelect: 'text',
+                    cursor: 'text',
                   }}
                 >
                   {displayText}
