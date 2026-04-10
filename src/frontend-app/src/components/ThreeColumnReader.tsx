@@ -667,14 +667,18 @@ export function ThreeColumnReader() {
             reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
           }}
         >
-          <div className="bg-xuan-paper rounded-[20px]"></div>
-          <div className="ink-wash-blob w-32 h-32 -top-10 -left-10 bg-[var(--gf-gold)] opacity-10"></div>
           {renderColumn('原文', renderInteractiveParagraphs('original'))}
         </motion.div>
 
-        <motion.div layout variants={columnItemVariants} className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide rounded-[20px] p-5 glass-card">
-          <div className="bg-xuan-paper rounded-[20px]"></div>
-          <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
+        <motion.div
+          layout
+          variants={columnItemVariants}
+          className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide rounded-[20px] p-5 glass-card"
+          onScroll={(e) => {
+            const target = e.currentTarget;
+            reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+          }}
+        >
           {renderColumn(
             '标点文',
             currentDocument.punctuatedText
@@ -684,8 +688,15 @@ export function ThreeColumnReader() {
         </motion.div>
 
         {hasFullTranslation && (
-          <motion.div layout variants={columnItemVariants} className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card">
-            <div className="bg-xuan-paper rounded-[20px]"></div>
+          <motion.div
+            layout
+            variants={columnItemVariants}
+            className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
+            onScroll={(e) => {
+              const target = e.currentTarget;
+              reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+            }}
+          >
             {renderColumn(
               '白话解读',
               renderTranslatedParagraphs()
