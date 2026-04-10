@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookPlus, Loader2, Menu, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookPlus, Menu, NotebookPen, Sparkles } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
-import { useStore } from '../store/useStore';
 import { Drawer } from './Drawer';
 import { ReaderExplainPanel } from './ReaderExplainPanel';
 import { ReaderNotesPanel } from './ReaderNotesPanel';
@@ -33,17 +32,12 @@ const columnItemVariants = {
 export function ThreeColumnReader() {
   const {
     currentDocument,
-    comparisonDocuments,
     consumePendingAnchorText,
     consumePendingReaderPanel,
-    updateDocument,
     clearCurrentDocument,
-    toggleComparisonDocument,
   } = useDocumentStore();
   const readerReturnTab = useGraphStore((state) => state.readerReturnTab);
   const setAppTab = useGraphStore((state) => state.setActiveTab);
-  const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery);
-  const setDraftMessage = useStore((state) => state.setDraftMessage);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeReaderTab, setActiveReaderTab] = useState<'original' | 'punctuated' | 'translated'>('original');
   const [sidePanel, setSidePanel] = useState<'notes' | 'study' | 'explain' | null>(null);
@@ -52,13 +46,12 @@ export function ThreeColumnReader() {
   const [tocOpen, setTocOpen] = useState(false);
   const [anchorText, setAnchorText] = useState('');
   const [progressSyncError, setProgressSyncError] = useState(false);
-  const [translationGenerating, setTranslationGenerating] = useState(false);
-  const [translationError, setTranslationError] = useState('');
   const [readerNotice, setReaderNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [wordLookup, setWordLookup] = useState<{ word: string; position: { x: number; y: number } } | null>(null);
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
+  const hasMountedProgressRef = useRef<string | null>(null);
 
   const formatSectionTitle = (title: string | undefined | null, index: number) => {
     const trimmed = title?.trim() ?? ''
@@ -116,6 +109,47 @@ export function ThreeColumnReader() {
     }
   }, [anchorText, activeReaderTab]);
 
+  useEffect(() => {
+    if (!currentDocument) return
+    const hasFullTranslation = Boolean(currentDocument.translatedText?.trim())
+    if (!hasFullTranslation && activeReaderTab === 'translated') {
+      setActiveReaderTab('punctuated')
+    }
+  }, [activeReaderTab, currentDocument])
+
+  useEffect(() => {
+    if (!currentDocument) return
+    const isSampleDocument = (currentDocument as any).sourceType === 'sample'
+    if (isSampleDocument) return
+    if (hasMountedProgressRef.current === currentDocument.id) return
+    hasMountedProgressRef.current = currentDocument.id
+    const paragraphCount = Math.max(1, readerParagraphs.length)
+    if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current)
+    progressTimeoutRef.current = setTimeout(() => {
+      fetch(`${API_BASE}/api/v1/reader/progress`, {
+        ...authFetchOptions({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+        body: JSON.stringify({
+          document_id: currentDocument.id,
+          current_paragraph: 1,
+          total_paragraphs: paragraphCount,
+        }),
+      })
+        .then(async (response) => {
+          const data = await response.json().catch(() => null)
+          if (!response.ok || data?.status === 'error') {
+            throw new Error('progress sync failed')
+          }
+          setProgressSyncError(false)
+        })
+        .catch(() => {
+          setProgressSyncError(true)
+        })
+    }, 200)
+  }, [currentDocument, readerParagraphs.length])
+
   if (!currentDocument) return null;
 
   const isSample = (currentDocument as any).sourceType === 'sample';
@@ -125,14 +159,6 @@ export function ThreeColumnReader() {
     currentDocument.category,
     currentDocument.chapterCount ? `${currentDocument.chapterCount}篇` : null,
   ].filter(Boolean).join(' · ')
-  const recommendedChapters = currentDocument.recommendedChapters?.slice(0, 4) ?? []
-  const segmentGuides = (currentDocument.segmentGuides ?? [])
-    .slice(0, 6)
-    .map((item, index) => ({
-      ...item,
-      title: formatSectionTitle(item.title, index),
-    }))
-  const translationCache = currentDocument.translationCache ?? []
   const tocEntries = currentDocument.segments?.map((segment, index) => ({
     title: segment.title,
     displayTitle: formatSectionTitle(segment.title, index),
@@ -147,7 +173,7 @@ export function ThreeColumnReader() {
 
   const totalParagraphs = Math.max(1, readerParagraphs.length);
   const selectedSentenceText = selectedSentence?.punctuated || selectedSentence?.original || '';
-  const isCompared = comparisonDocuments.some((item) => item.id === currentDocument.id);
+  const hasFullTranslation = Boolean(currentDocument.translatedText?.trim());
 
   const handleBack = () => {
     clearCurrentDocument();
@@ -188,15 +214,6 @@ export function ThreeColumnReader() {
     setReaderNotice(null);
   };
 
-  const handleToggleCompare = () => {
-    toggleComparisonDocument(currentDocument);
-    setReaderNotice(
-      isCompared
-        ? { tone: 'info', message: '这篇已经从对照阅读里移出。' }
-        : { tone: 'success', message: '这篇已经加入对照阅读，去“对照阅读”页就能看到。' }
-    );
-  };
-
   const handleFavoriteDocument = async () => {
     if (favoriteSaving) return;
     setFavoriteSaving(true);
@@ -223,12 +240,7 @@ export function ThreeColumnReader() {
     setTocOpen(false);
   };
 
-  const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
-    if (!currentDocument || isSample) return;
-    const readableHeight = Math.max(scrollHeight - clientHeight, 1);
-    const ratio = Math.min(1, Math.max(0, scrollTop / readableHeight));
-    const currentParagraph = Math.min(totalParagraphs, Math.max(1, Math.round(ratio * (totalParagraphs - 1)) + 1));
-
+  const persistProgress = (currentParagraph: number) => {
     if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
     progressTimeoutRef.current = setTimeout(() => {
       fetch(`${API_BASE}/api/v1/reader/progress`, {
@@ -253,6 +265,14 @@ export function ThreeColumnReader() {
           setProgressSyncError(true);
         });
     }, 200);
+  };
+
+  const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
+    if (!currentDocument || isSample) return;
+    const readableHeight = Math.max(scrollHeight - clientHeight, 1);
+    const ratio = Math.min(1, Math.max(0, scrollTop / readableHeight));
+    const currentParagraph = Math.min(totalParagraphs, Math.max(1, Math.round(ratio * (totalParagraphs - 1)) + 1));
+    persistProgress(currentParagraph);
   };
 
   const renderInteractiveParagraphs = (column: 'original' | 'punctuated') => {
@@ -304,10 +324,6 @@ export function ThreeColumnReader() {
   };
 
   const renderTranslatedParagraphs = () => {
-    if (!currentDocument.translatedText) {
-      return renderTranslatedFallback();
-    }
-
     return (
       <>
         {readerParagraphs.map((paragraph) => {
@@ -344,99 +360,6 @@ export function ThreeColumnReader() {
     )
   }
 
-  const renderTranslatedFallback = () => {
-    if (translationCache.length > 0) {
-      return (
-        <div className="space-y-3">
-          {translationCache.map((item, index) => (
-            <div
-              key={`${item.title}-${index}`}
-              className="rounded-[18px] px-3 py-3"
-              style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
-            >
-              <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                {formatSectionTitle(item.title, index)}
-              </div>
-              <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
-                {item.translated}
-              </div>
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    if (segmentGuides.length > 0) {
-      return (
-        <div className="space-y-3">
-          {segmentGuides.map((item) => (
-            <div
-              key={item.title}
-              className="rounded-[18px] px-3 py-3"
-              style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
-            >
-              <div className="mb-2 text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                {item.title}
-              </div>
-              <div className="text-xs mb-2" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                原句提示：{item.excerpt}
-              </div>
-              <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
-                {item.summary}
-              </div>
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没有白话解读</p>
-  }
-
-  const generateTranslationCache = async () => {
-    if (!currentDocument || translationGenerating) return
-    setTranslationGenerating(true)
-    setTranslationError('')
-    try {
-      const strategy = (currentDocument.translationCache?.length ?? 0) > 0 ? 'next' : 'recommended'
-      const response = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/translation-cache`, {
-        method: 'POST',
-        ...authFetchOptions({ headers: { 'Content-Type': 'application/json' } }),
-        body: JSON.stringify({ strategy, max_segments: 6 }),
-      })
-      if (!response.ok) throw new Error('translation cache failed')
-      const data = await response.json()
-      const document = data?.document
-      if (document) {
-        updateDocument({
-          translatedText: document.translated_text ?? currentDocument.translatedText,
-          translationCache: document.translation_cache ?? currentDocument.translationCache,
-          translationStatus: document.translation_status ?? currentDocument.translationStatus,
-        })
-      }
-    } catch {
-      setTranslationError('白话解读还没生成出来，请稍后再试一次')
-    } finally {
-      setTranslationGenerating(false)
-    }
-  }
-
-  const openReaderCompanion = (kind: 'explain' | 'allusion' | 'study') => {
-    if (kind === 'study') {
-      setSidePanel('study')
-      return
-    }
-
-    if (kind === 'allusion') {
-      queueSearchQuery(`${currentDocument.title} 典故 人物`)
-      setAppTab('search')
-      return
-    }
-
-    setDraftMessage(`请像老师带读一样解释《${currentDocument.title}》：先说主旨，再讲关键句，再给两条继续阅读建议。`)
-    setAppTab('chat')
-  }
-
   const renderReaderGuideCard = () => (
     <div
       className="rounded-[22px] px-4 py-4"
@@ -471,25 +394,6 @@ export function ThreeColumnReader() {
           可以先这样读：{currentDocument.readingTip}
         </div>
       )}
-      {recommendedChapters.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {recommendedChapters.map((title) => (
-            <span
-              key={`recommended-${title}`}
-              className="rounded-full px-3 py-1 text-[11px]"
-              style={{ backgroundColor: 'rgba(201,160,99,0.14)', color: 'var(--gf-gold)' }}
-            >
-              建议先读：{title}
-            </span>
-          ))}
-        </div>
-      )}
-      <div
-        className="mt-3 rounded-[18px] px-3 py-3 text-xs leading-7"
-        style={{ backgroundColor: 'rgba(244,241,225,0.72)', border: '1px solid rgba(26,30,35,0.05)', color: 'rgba(26,30,35,0.55)' }}
-      >
-        这一页默认先让你顺着原文往下读：卡住时再点一句、查词，或收藏这篇，不会一下子出现太多操作。
-      </div>
       {selectedSentenceText && (
         <div
           className="mt-3 rounded-[18px] px-3 py-3"
@@ -514,6 +418,14 @@ export function ThreeColumnReader() {
           讲解此句
         </button>
         <button
+          onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
+          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
+        >
+          <NotebookPen className="mr-1 inline h-3.5 w-3.5" />
+          阅读笔记
+        </button>
+        <button
           onClick={handleFavoriteDocument}
           disabled={favoriteSaving}
           className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
@@ -522,13 +434,15 @@ export function ThreeColumnReader() {
           <BookPlus className="mr-1 inline h-3.5 w-3.5" />
           {favoriteSaving ? '正在收藏...' : '收藏这篇'}
         </button>
-        <button
-          onClick={clearSentenceSelection}
-          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
-          style={{ backgroundColor: 'rgba(255,255,255,0.74)', color: 'rgba(26,30,35,0.66)', border: '1px solid rgba(26,30,35,0.08)' }}
-        >
-          继续阅读
-        </button>
+        {selectedSentence && (
+          <button
+            onClick={clearSentenceSelection}
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
+            style={{ backgroundColor: 'rgba(255,255,255,0.74)', color: 'rgba(26,30,35,0.66)', border: '1px solid rgba(26,30,35,0.08)' }}
+          >
+            取消选句
+          </button>
+        )}
       </div>
       <div
         className="mt-2 rounded-[16px] px-3 py-2 text-xs leading-6"
@@ -557,71 +471,6 @@ export function ThreeColumnReader() {
           {readerNotice.message}
         </div>
       )}
-      <details
-        className="mt-4 rounded-[18px] px-3 py-3"
-        style={{ backgroundColor: 'rgba(255,255,255,0.74)', border: '1px solid rgba(26,30,35,0.06)' }}
-      >
-        <summary className="cursor-pointer text-sm" style={{ color: 'var(--gf-text)' }}>
-          更多功能
-        </summary>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-            style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-          >
-            阅读笔记
-          </button>
-          <button
-            onClick={handleToggleCompare}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-            style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
-          >
-            {isCompared ? '移出对照' : '加入对照'}
-          </button>
-          <button
-            onClick={() => openReaderCompanion('explain')}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-            style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-          >
-            整篇讲解
-          </button>
-          <button
-            onClick={() => openReaderCompanion('allusion')}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-            style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
-          >
-            查人物典故
-          </button>
-          <button
-            onClick={() => openReaderCompanion('study')}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-            style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
-          >
-            生成复习卡
-          </button>
-          <button
-            onClick={() => setAppTab('wordbook')}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.74)', color: 'rgba(26,30,35,0.66)', border: '1px solid rgba(26,30,35,0.08)' }}
-          >
-            字词记录
-          </button>
-          {!currentDocument.translatedText && currentDocument.sourceType === 'corpus' && (
-            <button
-              onClick={generateTranslationCache}
-              className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
-              style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
-            >
-              {translationGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {translationCache.length > 0 ? '继续生成白话解读' : '生成白话解读'}
-            </button>
-          )}
-        </div>
-        {translationError && (
-          <p className="mt-2 text-xs" style={{ color: 'var(--gf-gugong-red)' }}>{translationError}</p>
-        )}
-      </details>
     </div>
   )
 
@@ -640,7 +489,7 @@ export function ThreeColumnReader() {
               返回
             </button>
             <span className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.45)' }}>
-              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.title))}
+              {isSample ? currentDocument.title : (progressSyncError ? '阅读进度稍后同步' : (documentMeta || currentDocument.title))}
             </span>
           </div>
           <div className="flex gap-2">
@@ -660,7 +509,7 @@ export function ThreeColumnReader() {
           {[
             { key: 'original' as const, label: '原文' },
             { key: 'punctuated' as const, label: '标点文' },
-            { key: 'translated' as const, label: '白话解读' },
+            ...(hasFullTranslation ? [{ key: 'translated' as const, label: '白话解读' }] : []),
           ].map(tab => (
             <button
               key={tab.key}
@@ -689,7 +538,7 @@ export function ThreeColumnReader() {
           <div className="mb-4">{renderReaderGuideCard()}</div>
           {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original'))}
           {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>)}
-          {activeReaderTab === 'translated' && renderColumn('白话解读', renderTranslatedParagraphs())}
+          {hasFullTranslation && activeReaderTab === 'translated' && renderColumn('白话解读', renderTranslatedParagraphs())}
         </div>
 
         {sidePanel === 'notes' && (
@@ -744,7 +593,7 @@ export function ThreeColumnReader() {
                 {currentDocument.title}
               </div>
               <div className="text-xs" style={{ color: progressSyncError ? '#b03a3a' : 'rgba(26,30,35,0.42)' }}>
-                {progressSyncError ? '阅读进度暂未同步' : (documentMeta || currentDocument.sourceName || '阅读进度会自动保存')}
+                {progressSyncError ? '阅读进度稍后同步' : (documentMeta || currentDocument.sourceName || '阅读进度会自动保存')}
               </div>
             </div>
           </div>
@@ -766,7 +615,11 @@ export function ThreeColumnReader() {
         initial="hidden"
         animate="show"
         transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
-        className={`grid min-h-0 flex-1 gap-4 p-4 ${sidePanel ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-3'}`}
+        className={`grid min-h-0 flex-1 gap-4 p-4 ${
+          sidePanel
+            ? (hasFullTranslation ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-[1fr_1fr_320px]')
+            : (hasFullTranslation ? 'grid-cols-3' : 'grid-cols-2')
+        }`}
       >
         <motion.div
           layout
@@ -793,13 +646,15 @@ export function ThreeColumnReader() {
           )}
         </motion.div>
 
-        <motion.div layout variants={columnItemVariants} className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card">
-          <div className="bg-xuan-paper rounded-[20px]"></div>
-          {renderColumn(
-            '白话解读',
-            renderTranslatedParagraphs()
-          )}
-        </motion.div>
+        {hasFullTranslation && (
+          <motion.div layout variants={columnItemVariants} className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card">
+            <div className="bg-xuan-paper rounded-[20px]"></div>
+            {renderColumn(
+              '白话解读',
+              renderTranslatedParagraphs()
+            )}
+          </motion.div>
+        )}
 
         <AnimatePresence mode="wait">
           {sidePanel && (

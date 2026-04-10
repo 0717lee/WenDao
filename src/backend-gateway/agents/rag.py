@@ -194,8 +194,8 @@ class RAGAgent:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7,
-                max_tokens=300
+                temperature=0.5,
+                max_tokens=180
             )
 
             answer = response.choices[0].message.content.strip()
@@ -223,9 +223,9 @@ class RAGAgent:
             return []
         entity_ids = set()
         for doc in docs:
-            extracted = self.entity_extractor.extract_entities(doc.page_content)
+            extracted = self.entity_extractor.extract_entities_fast(doc.page_content)
             entity_ids.update(extracted)
-        query_entities = self.entity_extractor.extract_entities(user_query)
+        query_entities = self.entity_extractor.extract_entities_fast(user_query)
         entity_ids.update(query_entities)
         return list(entity_ids)
 

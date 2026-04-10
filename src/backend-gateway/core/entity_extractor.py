@@ -90,6 +90,12 @@ class EntityExtractor:
                     found.append(entity_id)
         return found
 
+    def extract_entities_fast(self, text: str) -> List[str]:
+        """Public fast-path extractor for latency-sensitive flows."""
+        if not text or not self._label_to_id:
+            return []
+        return self._extract_fast(text)
+
     # ------------------------------------------------------------------
     # Enhanced path: GLM-4 extraction
     # ------------------------------------------------------------------

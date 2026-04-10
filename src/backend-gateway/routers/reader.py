@@ -196,7 +196,8 @@ async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
                 user_id,
             )
             return [dict(row) for row in rows]
-    except RuntimeError:
+    except Exception as exc:
+        logger.warning("PostgreSQL 阅读记录读取失败，降级到 SQLite: %s", exc)
         async with get_db() as db:
             cursor = await db.execute(
                 """
@@ -494,26 +495,30 @@ async def update_progress(body: ProgressUpdate, _user: dict = Depends(require_au
     user_id = _extract_user_id(_user)
     try:
         if pg_database.pool:
-            async with get_connection() as conn:
-                await conn.execute("""
-                    INSERT INTO user_reading_history (user_id, document_id, current_paragraph, total_paragraphs, last_read_at)
-                    VALUES ($1::uuid, $2::uuid, $3, $4, NOW())
-                    ON CONFLICT (user_id, document_id) DO UPDATE SET
-                        current_paragraph = EXCLUDED.current_paragraph,
-                        total_paragraphs = EXCLUDED.total_paragraphs,
-                        last_read_at = NOW()
-                """, user_id, body.document_id, body.current_paragraph, body.total_paragraphs)
-        else:
-            async with get_db() as db:
-                await db.execute("""
-                    INSERT INTO user_reading_history (user_id, document_id, current_paragraph, total_paragraphs, last_read_at)
-                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(user_id, document_id) DO UPDATE SET
-                        current_paragraph = excluded.current_paragraph,
-                        total_paragraphs = excluded.total_paragraphs,
-                        last_read_at = CURRENT_TIMESTAMP
-                """, (user_id, body.document_id, body.current_paragraph, body.total_paragraphs))
-                await db.commit()
+            try:
+                async with get_connection() as conn:
+                    await conn.execute("""
+                        INSERT INTO user_reading_history (user_id, document_id, current_paragraph, total_paragraphs, last_read_at)
+                        VALUES ($1::uuid, $2::uuid, $3, $4, NOW())
+                        ON CONFLICT (user_id, document_id) DO UPDATE SET
+                            current_paragraph = EXCLUDED.current_paragraph,
+                            total_paragraphs = EXCLUDED.total_paragraphs,
+                            last_read_at = NOW()
+                    """, user_id, body.document_id, body.current_paragraph, body.total_paragraphs)
+                return {"status": "ok"}
+            except Exception as exc:
+                logger.warning("PostgreSQL 阅读进度保存失败，降级到 SQLite: %s", exc)
+
+        async with get_db() as db:
+            await db.execute("""
+                INSERT INTO user_reading_history (user_id, document_id, current_paragraph, total_paragraphs, last_read_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, document_id) DO UPDATE SET
+                    current_paragraph = excluded.current_paragraph,
+                    total_paragraphs = excluded.total_paragraphs,
+                    last_read_at = CURRENT_TIMESTAMP
+            """, (user_id, body.document_id, body.current_paragraph, body.total_paragraphs))
+            await db.commit()
         return {"status": "ok"}
     except Exception as e:
         _raise_reader_error("保存阅读进度失败", e)

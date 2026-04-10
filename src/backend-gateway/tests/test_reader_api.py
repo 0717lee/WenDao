@@ -72,14 +72,43 @@ class TestGetHistoryWithRecords:
         mock_cm = MagicMock()
         mock_cm.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
         mock_cm.__aexit__ = AsyncMock(return_value=False)
+        sqlite_ctx = MagicMock()
+        sqlite_ctx.__aenter__ = AsyncMock(side_effect=Exception("sqlite down"))
+        sqlite_ctx.__aexit__ = AsyncMock(return_value=False)
 
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.get_connection", return_value=mock_cm):
+             patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader.get_db", return_value=sqlite_ctx):
             with pytest.raises(HTTPException) as exc_info:
                 await get_reading_history({"sub": "user-1"})
 
         assert exc_info.value.status_code == 500
         assert exc_info.value.detail == "读取阅读记录失败"
+
+    @pytest.mark.asyncio
+    async def test_get_history_falls_back_to_sqlite_when_pg_query_fails(self):
+        from routers.reader import get_reading_history
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("pg failed"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        sqlite_cursor = AsyncMock()
+        sqlite_cursor.fetchall = AsyncMock(return_value=[
+            {"id": "doc-1", "title": "SQLite Doc", "current_paragraph": 1, "total_paragraphs": 8, "last_read_at": "2026-03-19T10:00:00"},
+        ])
+        sqlite_db = AsyncMock()
+        sqlite_db.execute = AsyncMock(return_value=sqlite_cursor)
+        sqlite_ctx = MagicMock()
+        sqlite_ctx.__aenter__ = AsyncMock(return_value=sqlite_db)
+        sqlite_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader.get_db", return_value=sqlite_ctx):
+            result = await get_reading_history({"sub": "user-1"})
+
+        assert result[0]["title"] == "SQLite Doc"
 
 
 class TestUpdateProgress:
@@ -129,6 +158,30 @@ class TestUpdateProgress:
 
         assert exc_info.value.status_code == 500
         assert exc_info.value.detail == "保存阅读进度失败"
+
+    @pytest.mark.asyncio
+    async def test_update_progress_falls_back_to_sqlite_when_pg_query_fails(self):
+        from routers.reader import update_progress, ProgressUpdate
+
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("pg failed"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        sqlite_db = AsyncMock()
+        sqlite_ctx = MagicMock()
+        sqlite_ctx.__aenter__ = AsyncMock(return_value=sqlite_db)
+        sqlite_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader.get_db", return_value=sqlite_ctx):
+            result = await update_progress(
+                ProgressUpdate(document_id="uuid-1", current_paragraph=1, total_paragraphs=10),
+                {"sub": "user-1"},
+            )
+
+        assert result["status"] == "ok"
+        sqlite_db.execute.assert_awaited_once()
 
 
 class TestCreateFolder:

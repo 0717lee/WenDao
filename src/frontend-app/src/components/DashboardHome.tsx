@@ -220,12 +220,12 @@ export default function DashboardHome({
                   className="max-w-3xl text-4xl leading-[1.08] md:text-5xl"
                   style={{ fontFamily: '"ZCOOL XiaoWei", serif', color: 'var(--gf-text)' }}
                 >
-                  读不懂古文时，
+                  把古籍读成一段能走进去的文章，
                   <br className="hidden md:block" />
-                  可以从这里开始
+                  而不只是临时查一句解释
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 md:text-base" style={{ color: 'rgba(26,30,35,0.62)' }}>
-                  可以先读一篇整理好的内容，也可以先问一句原文；如果手头只有图片，就先把它识读成文。
+                  先选一条最顺手的入口：继续上次进度、从一篇整理好的内容开始，或者先把手头的影印页识读成文。
                 </p>
               </div>
 

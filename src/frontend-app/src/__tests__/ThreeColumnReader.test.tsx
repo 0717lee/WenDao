@@ -29,6 +29,7 @@ describe('ThreeColumnReader', () => {
     originalInnerWidth = window.innerWidth
     useDocumentStore.getState().reset()
     vi.mocked(global.fetch).mockReset()
+    vi.useRealTimers()
   })
 
   afterEach(() => {
@@ -121,7 +122,7 @@ describe('ThreeColumnReader', () => {
     // Should render the layout with placeholder text for empty columns
     expect(screen.getByText('原文')).toBeTruthy()
     expect(screen.getByText('这篇内容还没整理出标点文')).toBeTruthy()
-    expect(screen.getByText('这篇内容还没有白话解读')).toBeTruthy()
+    expect(screen.queryByText('白话解读')).toBeNull()
   })
 
   it('switches tabs on mobile viewport', async () => {
@@ -156,6 +157,29 @@ describe('ThreeColumnReader', () => {
     expect(container.textContent).toContain('punctuated tab content')
   })
 
+  it('hides the translation column when there is no full translated text', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-no-translation',
+      title: 'no translation',
+      originalText: '原文内容',
+      punctuatedText: '原文内容。',
+      translatedText: '',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    expect(screen.getByText('原文')).toBeInTheDocument()
+    expect(screen.getByText('标点文')).toBeInTheDocument()
+    expect(screen.queryByText('白话解读')).toBeNull()
+  })
+
   it('returns to reader hub when opened from the reader tab', async () => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
@@ -179,6 +203,40 @@ describe('ThreeColumnReader', () => {
 
     expect(mockGraphStoreState.setActiveTab).toHaveBeenCalledWith('reader')
     expect(useDocumentStore.getState().currentDocument).toBeNull()
+  })
+
+  it('persists initial reading progress when a document opens', async () => {
+    vi.useFakeTimers()
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'ok' }),
+    } as Response)
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-progress',
+      title: 'progress test',
+      originalText: '原文内容',
+      punctuatedText: '原文内容。',
+      translatedText: '解释内容',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/reader/progress'),
+      expect.objectContaining({ method: 'POST' }),
+    )
   })
 
   it('selects a sentence first and only opens AI explanation after explicit action', async () => {

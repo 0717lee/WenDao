@@ -124,13 +124,13 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
             return
 
         # -- Step 1: Retrieval --
-        yield sse_reasoning("retrieval", "检索古籍知识库", "running", model="Kimi-32k")
+        yield sse_reasoning("retrieval", "检索古籍知识库", "running", model="Kimi-8k")
         yield f'event: progress\ndata: {json.dumps({"status": "正在整理线索..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
         result = await asyncio.to_thread(rag_agent.query_ancient_text, query)
         answer = result["answer"]
         citations = result["citations"]
-        yield sse_reasoning("retrieval", "检索古籍知识库", "complete", time.time() - t0, model="Kimi-32k")
+        yield sse_reasoning("retrieval", "检索古籍知识库", "complete", time.time() - t0, model="Kimi-8k")
 
         # -- Step 2: Entity extraction --
         yield sse_reasoning("entity_extraction", "抽取关联实体", "running", model="GLM-4-Flash")
@@ -146,16 +146,16 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
         yield sse_reasoning("knowledge_linking", "知识关联推理", "complete", time.time() - t0, model="GraphRAG")
 
         # -- Step 4: Generation (streaming) --
-        yield sse_reasoning("generation", "生成通俗解读", "running", model="Kimi-32k")
+        yield sse_reasoning("generation", "生成通俗解读", "running", model="Kimi-8k")
         yield f'event: progress\ndata: {json.dumps({"status": "正在组织回答..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
 
         for i, char in enumerate(answer):
             yield f'data: {json.dumps({"content": char}, ensure_ascii=False)}\n\n'
             if (i + 1) % 10 == 0:
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.004)
 
-        yield sse_reasoning("generation", "生成通俗解读", "complete", time.time() - t0, model="Kimi-32k")
+        yield sse_reasoning("generation", "生成通俗解读", "complete", time.time() - t0, model="Kimi-8k")
 
         # -- Citations --
         if citations:
