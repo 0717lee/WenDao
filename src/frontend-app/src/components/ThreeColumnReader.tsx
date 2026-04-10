@@ -52,8 +52,11 @@ export function ThreeColumnReader() {
   const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [wordLookup, setWordLookup] = useState<{ word: string; position: { x: number; y: number } } | null>(null);
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentParagraphRef = useRef(1);
   const anchorRef = useRef<HTMLDivElement | null>(null);
-  const resumeParagraphRef = useRef<HTMLDivElement | null>(null);
+  const resumeOriginalParagraphRef = useRef<HTMLDivElement | null>(null);
+  const resumePunctuatedParagraphRef = useRef<HTMLDivElement | null>(null);
+  const resumeTranslatedParagraphRef = useRef<HTMLParagraphElement | null>(null);
   const hasMountedProgressRef = useRef<string | null>(null);
 
   const formatSectionTitle = (title: string | undefined | null, index: number) => {
@@ -71,7 +74,10 @@ export function ThreeColumnReader() {
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
+      if (progressTimeoutRef.current) {
+        clearTimeout(progressTimeoutRef.current);
+        progressTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -92,6 +98,7 @@ export function ThreeColumnReader() {
 
     const nextResumeParagraph = consumePendingResumeParagraph();
     setResumeParagraph(nextResumeParagraph && nextResumeParagraph > 0 ? nextResumeParagraph : null);
+    currentParagraphRef.current = nextResumeParagraph && nextResumeParagraph > 0 ? nextResumeParagraph : 1;
 
     const nextPanel = consumePendingReaderPanel();
     if (nextPanel) {
@@ -116,8 +123,14 @@ export function ThreeColumnReader() {
   }, [anchorText, activeReaderTab]);
 
   useEffect(() => {
-    if (anchorText || !resumeParagraph || !resumeParagraphRef.current) return;
-    resumeParagraphRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (anchorText || !resumeParagraph) return;
+    const targets = [
+      resumeOriginalParagraphRef.current,
+      resumePunctuatedParagraphRef.current,
+      resumeTranslatedParagraphRef.current,
+    ].filter(Boolean);
+    if (targets.length === 0) return;
+    targets.forEach((target) => target?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
     setResumeParagraph(null);
   }, [anchorText, resumeParagraph, activeReaderTab, readerParagraphs.length]);
 
@@ -136,30 +149,7 @@ export function ThreeColumnReader() {
     if (hasMountedProgressRef.current === currentDocument.id) return
     hasMountedProgressRef.current = currentDocument.id
     const paragraphCount = Math.max(1, readerParagraphs.length)
-    if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current)
-    progressTimeoutRef.current = setTimeout(() => {
-      fetch(`${API_BASE}/api/v1/reader/progress`, {
-        ...authFetchOptions({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        }),
-        body: JSON.stringify({
-          document_id: currentDocument.id,
-          current_paragraph: 1,
-          total_paragraphs: paragraphCount,
-        }),
-      })
-        .then(async (response) => {
-          const data = await response.json().catch(() => null)
-          if (!response.ok || data?.status === 'error') {
-            throw new Error('progress sync failed')
-          }
-          setProgressSyncError(false)
-        })
-        .catch(() => {
-          setProgressSyncError(true)
-        })
-    }, 200)
+    persistProgress(1, { immediate: true, totalParagraphsOverride: paragraphCount })
   }, [currentDocument, readerParagraphs.length])
 
   if (!currentDocument) return null;
@@ -187,7 +177,51 @@ export function ThreeColumnReader() {
   const selectedSentenceText = selectedSentence?.punctuated || selectedSentence?.original || '';
   const hasFullTranslation = Boolean(currentDocument.translatedText?.trim());
 
+  const persistProgress = (
+    currentParagraph: number,
+    options?: { immediate?: boolean; totalParagraphsOverride?: number },
+  ) => {
+    currentParagraphRef.current = currentParagraph;
+    if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
+
+    const syncProgress = () => {
+      progressTimeoutRef.current = null;
+      void (async () => {
+        try {
+          const response = await fetch(`${API_BASE}/api/v1/reader/progress`, {
+            ...authFetchOptions({
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            }),
+            body: JSON.stringify({
+              document_id: currentDocument.id,
+              current_paragraph: currentParagraph,
+              total_paragraphs: options?.totalParagraphsOverride ?? totalParagraphs,
+            }),
+          });
+          const data = await response?.json?.().catch(() => null);
+          if (!response?.ok || data?.status === 'error') {
+            throw new Error('progress sync failed');
+          }
+          setProgressSyncError(false);
+        } catch {
+          setProgressSyncError(true);
+        }
+      })();
+    };
+
+    if (options?.immediate) {
+      syncProgress();
+      return;
+    }
+
+    progressTimeoutRef.current = setTimeout(syncProgress, 200);
+  };
+
   const handleBack = () => {
+    if (!isSample) {
+      persistProgress(currentParagraphRef.current, { immediate: true });
+    }
     clearCurrentDocument();
     if (readerReturnTab === 'reader') {
       setAppTab('reader');
@@ -260,33 +294,6 @@ export function ThreeColumnReader() {
     setTocOpen(false);
   };
 
-  const persistProgress = (currentParagraph: number) => {
-    if (progressTimeoutRef.current) clearTimeout(progressTimeoutRef.current);
-    progressTimeoutRef.current = setTimeout(() => {
-      fetch(`${API_BASE}/api/v1/reader/progress`, {
-        ...authFetchOptions({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        }),
-        body: JSON.stringify({
-          document_id: currentDocument.id,
-          current_paragraph: currentParagraph,
-          total_paragraphs: totalParagraphs,
-        }),
-      })
-        .then(async (response) => {
-          const data = await response.json().catch(() => null);
-          if (!response.ok || data?.status === 'error') {
-            throw new Error('progress sync failed');
-          }
-          setProgressSyncError(false);
-        })
-        .catch(() => {
-          setProgressSyncError(true);
-        });
-    }, 200);
-  };
-
   const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
     if (!currentDocument || isSample) return;
     const readableHeight = Math.max(scrollHeight - clientHeight, 1);
@@ -297,13 +304,18 @@ export function ThreeColumnReader() {
 
   const renderInteractiveParagraphs = (column: 'original' | 'punctuated') => {
     if (readerParagraphs.length === 0) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这一栏暂时还没有内容</p>
+    const resumeIndex = Math.max((resumeParagraph ?? 1) - 1, 0);
     return (
       <>
         {readerParagraphs.map((paragraph) => (
           <div
             key={`${column}-${paragraph.id}`}
             className="space-y-2"
-            ref={paragraph.paragraphIndex === Math.max((resumeParagraph ?? 1) - 1, 0) ? resumeParagraphRef : undefined}
+            ref={
+              paragraph.paragraphIndex === resumeIndex
+                ? (column === 'original' ? resumeOriginalParagraphRef : resumePunctuatedParagraphRef)
+                : undefined
+            }
           >
             {paragraph.sentences.map((sentence) => {
               const displayText = column === 'original' ? sentence.original : sentence.punctuated;
@@ -360,6 +372,7 @@ export function ThreeColumnReader() {
           return (
             <p
               key={`translated-${paragraph.id}`}
+              ref={paragraph.paragraphIndex === Math.max((resumeParagraph ?? 1) - 1, 0) ? resumeTranslatedParagraphRef : undefined}
               className="rounded-lg px-2 py-1"
               style={{ backgroundColor: isActiveParagraph ? 'rgba(140,26,17,0.08)' : 'transparent' }}
             >
@@ -648,7 +661,7 @@ export function ThreeColumnReader() {
         <motion.div
           layout
           variants={columnItemVariants}
-          className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
+          className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
           onScroll={(e) => {
             const target = e.currentTarget;
             reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
@@ -659,7 +672,7 @@ export function ThreeColumnReader() {
           {renderColumn('原文', renderInteractiveParagraphs('original'))}
         </motion.div>
 
-        <motion.div layout variants={columnItemVariants} className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide rounded-[20px] p-5 glass-card">
+        <motion.div layout variants={columnItemVariants} className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide rounded-[20px] p-5 glass-card">
           <div className="bg-xuan-paper rounded-[20px]"></div>
           <div className="ink-wash-blob w-40 h-40 -bottom-10 -right-10 bg-[var(--gf-gugong-red)] opacity-[0.04]"></div>
           {renderColumn(
@@ -671,7 +684,7 @@ export function ThreeColumnReader() {
         </motion.div>
 
         {hasFullTranslation && (
-          <motion.div layout variants={columnItemVariants} className="relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card">
+          <motion.div layout variants={columnItemVariants} className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card">
             <div className="bg-xuan-paper rounded-[20px]"></div>
             {renderColumn(
               '白话解读',

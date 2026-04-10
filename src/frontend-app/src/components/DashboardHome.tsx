@@ -33,6 +33,7 @@ interface BookshelfItem {
 
 interface HistoryItem {
   id: string
+  document_id?: string
   title: string
   current_paragraph?: number
   total_paragraphs?: number
@@ -115,7 +116,7 @@ export default function DashboardHome({
   }, [])
 
   const firstCorpus = corpusDocuments[0]
-  const latestHistoryDocumentId = history[0]?.id ?? null
+  const latestHistoryDocumentId = history[0]?.document_id ?? history[0]?.id ?? null
   const recommendedStart = firstCorpus ?? null
   const corpusCountLabel = corpusTotal === null ? '准备中' : corpusTotal
   const documentsCountLabel = documentsTotal === null ? '准备中' : documentsTotal

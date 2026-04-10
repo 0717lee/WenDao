@@ -57,6 +57,7 @@ interface BookshelfItem {
 
 interface HistoryItem {
   id: string
+  document_id?: string
   title: string
   current_paragraph?: number
   total_paragraphs?: number
@@ -562,7 +563,7 @@ export default function BookshelfPanel({
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
             <button
               onClick={primaryContinueItem
-                ? () => onOpenDocument(primaryContinueItem.id, { resumeParagraph: primaryContinueItem.current_paragraph ?? null })
+                ? () => onOpenDocument(primaryContinueItem.document_id ?? primaryContinueItem.id, { resumeParagraph: primaryContinueItem.current_paragraph ?? null })
                 : () => scrollToSection(corpusSectionRef)}
               className="flex h-full flex-col rounded-[26px] px-5 py-5 text-left transition-all duration-300 hover:-translate-y-0.5"
               style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.06)', boxShadow: '0 12px 24px rgba(26,30,35,0.04)' }}
@@ -680,8 +681,8 @@ export default function BookshelfPanel({
               <div className="space-y-3">
                 {secondaryContinueItems.map((item) => (
                   <button
-                    key={item.id}
-                    onClick={() => onOpenDocument(item.id, { resumeParagraph: item.current_paragraph ?? null })}
+                    key={item.document_id ?? item.id}
+                    onClick={() => onOpenDocument(item.document_id ?? item.id, { resumeParagraph: item.current_paragraph ?? null })}
                     className="w-full rounded-[22px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
                     style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
                   >

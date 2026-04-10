@@ -187,7 +187,7 @@ async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
         async with get_connection() as conn:
             rows = await conn.fetch(
                 """
-                SELECT d.id, d.title, h.current_paragraph, h.total_paragraphs, h.last_read_at
+                SELECT d.id::text AS id, d.id::text AS document_id, d.title, h.current_paragraph, h.total_paragraphs, h.last_read_at
                 FROM user_reading_history h
                 JOIN documents d ON h.document_id = d.id
                 WHERE h.user_id = $1::uuid
@@ -201,7 +201,7 @@ async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
         async with get_db() as db:
             cursor = await db.execute(
                 """
-                SELECT d.id, d.title, h.current_paragraph, h.total_paragraphs, h.last_read_at
+                SELECT d.id AS id, d.id AS document_id, d.title, h.current_paragraph, h.total_paragraphs, h.last_read_at
                 FROM user_reading_history h
                 JOIN documents d ON h.document_id = d.id
                 WHERE h.user_id = ?
