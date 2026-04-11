@@ -693,32 +693,43 @@ async def add_favorite(body: FavoriteAdd, _user: dict = Depends(require_auth)):
     """Add a document to a favorite folder."""
     user_id = _extract_user_id(_user)
     try:
+        folder_name: str | None = None
         if pg_database.pool:
-            async with get_connection() as conn:
-                folder = await conn.fetchrow(
-                    "SELECT id FROM user_favorite_folders WHERE user_id = $1::uuid AND id = $2::uuid",
-                    user_id,
-                    body.folder_id,
-                )
-                if not folder:
-                    raise HTTPException(status_code=404, detail="收藏夹不存在")
-                await conn.execute(
-                    "INSERT INTO user_favorites (user_id, document_id, folder_id) VALUES ($1::uuid, $2::uuid, $3::uuid) ON CONFLICT DO NOTHING",
-                    user_id, body.document_id, body.folder_id,
-                )
-        else:
-            async with get_db() as db:
-                cursor = await db.execute(
-                    "SELECT id FROM user_favorite_folders WHERE user_id = ? AND id = ?",
-                    (user_id, body.folder_id),
-                )
-                if not await cursor.fetchone():
-                    raise HTTPException(status_code=404, detail="收藏夹不存在")
+            try:
+                async with get_connection() as conn:
+                    folder = await conn.fetchrow(
+                        "SELECT id::text AS id, name FROM user_favorite_folders WHERE user_id = $1::uuid AND id = $2::uuid",
+                        user_id,
+                        body.folder_id,
+                    )
+                    if not folder:
+                        raise HTTPException(status_code=404, detail="收藏夹不存在")
+                    folder_name = folder["name"] if "name" in folder else None
+                    await conn.execute(
+                        "INSERT INTO user_favorites (user_id, document_id, folder_id) VALUES ($1::uuid, $2::uuid, $3::uuid) ON CONFLICT DO NOTHING",
+                        user_id, body.document_id, body.folder_id,
+                    )
+                return {"status": "ok"}
+            except HTTPException:
+                raise
+            except Exception as exc:
+                logger.warning("PostgreSQL 收藏保存失败，降级到 SQLite: %s", exc)
+
+        async with get_db() as db:
+            cursor = await db.execute(
+                "SELECT id FROM user_favorite_folders WHERE user_id = ? AND id = ?",
+                (user_id, body.folder_id),
+            )
+            if not await cursor.fetchone():
                 await db.execute(
-                    "INSERT OR IGNORE INTO user_favorites (user_id, document_id, folder_id) VALUES (?, ?, ?)",
-                    (user_id, body.document_id, body.folder_id),
+                    "INSERT OR IGNORE INTO user_favorite_folders (id, user_id, name) VALUES (?, ?, ?)",
+                    (body.folder_id, user_id, folder_name or "默认收藏夹"),
                 )
-                await db.commit()
+            await db.execute(
+                "INSERT OR IGNORE INTO user_favorites (user_id, document_id, folder_id) VALUES (?, ?, ?)",
+                (user_id, body.document_id, body.folder_id),
+            )
+            await db.commit()
         return {"status": "ok"}
     except HTTPException:
         raise
@@ -734,15 +745,19 @@ async def get_favorites(folder_id: str, _user: dict | None = Depends(maybe_auth)
         return []
     try:
         if pg_database.pool:
-            async with get_connection() as conn:
-                rows = await conn.fetch("""
-                    SELECT d.id::text AS id, d.title, f.created_at
-                    FROM user_favorites f
-                    JOIN documents d ON f.document_id = d.id
-                    WHERE f.user_id = $1::uuid AND f.folder_id = $2::uuid
-                    ORDER BY f.created_at DESC
-                """, user_id, folder_id)
-                return [dict(row) for row in rows]
+            try:
+                async with get_connection() as conn:
+                    rows = await conn.fetch("""
+                        SELECT d.id::text AS id, d.title, f.created_at
+                        FROM user_favorites f
+                        JOIN documents d ON f.document_id = d.id
+                        WHERE f.user_id = $1::uuid AND f.folder_id = $2::uuid
+                        ORDER BY f.created_at DESC
+                    """, user_id, folder_id)
+                    if rows:
+                        return [dict(row) for row in rows]
+            except Exception as exc:
+                logger.warning("PostgreSQL 收藏内容读取失败，降级到 SQLite: %s", exc)
 
         async with get_db() as db:
             cursor = await db.execute("""

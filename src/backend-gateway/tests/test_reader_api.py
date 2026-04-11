@@ -253,6 +253,37 @@ class TestAddFavorite:
         assert exc_info.value.status_code == 500
         assert exc_info.value.detail == "加入收藏失败"
 
+    @pytest.mark.asyncio
+    async def test_add_favorite_falls_back_to_sqlite_when_pg_insert_fails(self):
+        from routers.reader import add_favorite, FavoriteAdd
+
+        mock_conn = AsyncMock()
+        mock_conn.fetchrow = AsyncMock(return_value={"id": "folder-uuid", "name": "默认收藏夹"})
+        mock_conn.execute = AsyncMock(side_effect=Exception("fk failed"))
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        sqlite_cursor = AsyncMock()
+        sqlite_cursor.fetchone = AsyncMock(return_value=None)
+        sqlite_db = AsyncMock()
+        sqlite_db.execute = AsyncMock(side_effect=[sqlite_cursor, None, None])
+        sqlite_ctx = MagicMock()
+        sqlite_ctx.__aenter__ = AsyncMock(return_value=sqlite_db)
+        sqlite_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader.get_db", return_value=sqlite_ctx):
+            result = await add_favorite(
+                FavoriteAdd(document_id="doc-uuid", folder_id="folder-uuid"),
+                {"sub": "user-1"},
+            )
+
+        assert result["status"] == "ok"
+        assert sqlite_db.execute.await_count == 3
+        sqlite_db.commit.assert_awaited_once()
+
 
 class TestGetFavorites:
     """Get favorites for a folder returns document list."""
@@ -282,6 +313,29 @@ class TestGetFavorites:
 
         assert len(result) == 1
         assert result[0]["title"] == "Ancient Text"
+
+    @pytest.mark.asyncio
+    async def test_get_favorites_falls_back_to_sqlite_when_pg_returns_empty(self):
+        from routers.reader import get_favorites
+
+        mock_cm, _ = _make_mock_connection(fetch_return=[])
+        sqlite_cursor = AsyncMock()
+        sqlite_cursor.fetchall = AsyncMock(return_value=[
+            {"id": "doc-1", "title": "SQLite Favorite", "created_at": "2026-03-19T10:00:00"},
+        ])
+        sqlite_db = AsyncMock()
+        sqlite_db.execute = AsyncMock(return_value=sqlite_cursor)
+        sqlite_ctx = MagicMock()
+        sqlite_ctx.__aenter__ = AsyncMock(return_value=sqlite_db)
+        sqlite_ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm), \
+             patch("routers.reader.get_db", return_value=sqlite_ctx):
+            result = await get_favorites("folder-uuid", {"sub": "user-1"})
+
+        assert len(result) == 1
+        assert result[0]["title"] == "SQLite Favorite"
 
 
 class TestGetFolders:

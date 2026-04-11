@@ -673,7 +673,7 @@ export function ThreeColumnReader() {
         <motion.div
           layout
           variants={columnItemVariants}
-          className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide rounded-[20px] p-5 glass-card"
+          className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
           onScroll={(e) => {
             const target = e.currentTarget;
             reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);

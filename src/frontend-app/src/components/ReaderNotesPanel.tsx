@@ -60,7 +60,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
         body: JSON.stringify({ note_text: noteText }),
       })
       if (!response.ok) throw new Error('save failed')
-      showMessage('笔记已经保存')
+      showMessage('笔记已经保存。下次打开这篇，再点“阅读笔记”就能继续看。')
     } catch {
       showMessage('笔记没保存成功，请稍后再试一次')
     } finally {
@@ -118,9 +118,14 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
       />
 
       <div className="mt-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
-          <BookMarked className="h-3.5 w-3.5" />
-          {folders.length > 0 ? `默认分组：${folders[0].name}` : '点“收藏此篇”后会自动建立默认分组'}
+        <div className="space-y-1 text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+          <div className="flex items-center gap-2">
+            <BookMarked className="h-3.5 w-3.5" />
+            {folders.length > 0 ? `默认分组：${folders[0].name}` : '点“收藏此篇”后会自动建立默认分组'}
+          </div>
+          <div>
+            保存后会跟这篇文章一起保留；下次可以从“文章收藏”打开文章，再点“阅读笔记”继续看。
+          </div>
         </div>
         <button
           onClick={handleSaveNote}

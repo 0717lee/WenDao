@@ -27,6 +27,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _make_json_safe(value):
+    if isinstance(value, dict):
+        return {str(key): _make_json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_make_json_safe(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
 async def _sync_sqlite_corpus_in_background() -> None:
     try:
         logger.info("后台开始同步 SQLite corpus 数据...")
@@ -175,14 +185,15 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.warning(f"验证错误: {exc.errors()}")
+    details = _make_json_safe(exc.errors())
+    logger.warning(f"验证错误: {details}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "验证错误",
             "message": "验证错误",
             "detail": "验证错误",
-            "details": exc.errors(),
+            "details": details,
             "path": str(request.url),
             "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
         }

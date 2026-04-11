@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from main import app
+from main import _make_json_safe
 from main import _resolve_pg_seed_mode
 
 
@@ -33,3 +34,27 @@ def test_global_exception_handler_hides_internal_details():
 def test_resolve_pg_seed_mode_skips_pg_corpus_seed_when_sqlite_is_empty():
     assert _resolve_pg_seed_mode(0) == "none"
     assert _resolve_pg_seed_mode(100) is None
+
+
+def test_make_json_safe_converts_validation_error_objects_to_strings():
+    data = [
+        {
+            "type": "value_error",
+            "ctx": {
+                "error": ValueError("字段不能为空"),
+            },
+        }
+    ]
+
+    result = _make_json_safe(data)
+
+    assert result[0]["ctx"]["error"] == "字段不能为空"
+
+
+def test_login_empty_fields_returns_422_instead_of_500():
+    response = client.post("/api/v1/auth/login", json={"username": "", "password": ""})
+    data = response.json()
+
+    assert response.status_code == 422
+    assert data["detail"] == "验证错误"
+    assert data["details"][0]["ctx"]["error"] == "字段不能为空"

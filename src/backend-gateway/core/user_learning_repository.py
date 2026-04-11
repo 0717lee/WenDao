@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from core.database import get_db
 from core.pg_database import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def empty_document_note(document_id: str) -> dict[str, Any]:
@@ -39,9 +42,8 @@ async def get_document_note(document_id: str, user_id: str | None) -> dict[str, 
             )
             if row:
                 return dict(row)
-            return empty_document_note(document_id)
-    except RuntimeError:
-        pass
+    except Exception as exc:
+        logger.warning("PostgreSQL 文档笔记读取失败，降级到 SQLite: %s", exc)
 
     async with get_db() as db:
         cursor = await db.execute(
@@ -72,8 +74,8 @@ async def save_document_note(document_id: str, user_id: str, note_text: str) -> 
                 note_text,
             )
             return dict(row)
-    except RuntimeError:
-        pass
+    except Exception as exc:
+        logger.warning("PostgreSQL 文档笔记保存失败，降级到 SQLite: %s", exc)
 
     async with get_db() as db:
         await db.execute(

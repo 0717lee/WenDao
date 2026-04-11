@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, FolderPlus, Star, ChevronRight, ChevronDown } from 'lucide-react';
+import { Folder, FolderPlus, Star, ChevronRight, ChevronDown, NotebookText } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { authFetchOptions } from '../store/useAuthStore';
 
@@ -16,7 +16,7 @@ interface FavoriteDoc {
 }
 
 interface FavoritesListProps {
-  onNavigate?: (documentId: string) => void;
+  onNavigate?: (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null }) => void;
 }
 
 const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
@@ -105,7 +105,7 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
             文章收藏
           </h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            这里收整篇文章；查过的字词请去“字词记录”。
+            这里收整篇文章；需要继续看笔记时，也可以从这里直接进去。
           </p>
         </div>
         <div
@@ -196,19 +196,37 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
                         docs.map((doc) => (
                           <div
                             key={doc.id}
-                            className="p-3 rounded-xl transition-all cursor-pointer flex items-center gap-2 hover:shadow-sm"
+                            className="p-3 rounded-xl transition-all flex items-center gap-3 hover:shadow-sm"
                             style={{
                               backgroundColor: 'rgba(255,255,255,0.4)',
                               border: '1px solid rgba(26,30,35,0.04)',
                             }}
-                            onClick={() => {
-                              if (onNavigate) {
-                                onNavigate(doc.id);
-                              }
-                            }}
                           >
-                            <Star className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--gf-gold)' }} />
-                            <span className="text-sm" style={{ color: 'var(--gf-text)' }}>{doc.title}</span>
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                              onClick={() => {
+                                if (onNavigate) {
+                                  onNavigate(doc.id);
+                                }
+                              }}
+                            >
+                              <Star className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--gf-gold)' }} />
+                              <span className="text-sm" style={{ color: 'var(--gf-text)' }}>{doc.title}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors hover:bg-[rgba(140,26,17,0.08)]"
+                              style={{ color: 'var(--gf-gugong-red)' }}
+                              onClick={() => {
+                                if (onNavigate) {
+                                  onNavigate(doc.id, { readerPanel: 'notes' });
+                                }
+                              }}
+                            >
+                              <NotebookText className="h-3.5 w-3.5" />
+                              阅读笔记
+                            </button>
                           </div>
                         ))
                       )}
