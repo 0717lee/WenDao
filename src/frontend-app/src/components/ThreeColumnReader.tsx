@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { startTransition, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookPlus, Menu, NotebookPen, Sparkles } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
@@ -11,7 +11,17 @@ import { ReaderTocPanel } from './ReaderTocPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
-import { buildReaderParagraphs, type ReaderSentence } from '../utils/readerSentences';
+import {
+  buildReaderBlocks,
+  buildReaderParagraphs,
+  buildReaderVirtualMetrics,
+  findReaderBlockIndexForAnchor,
+  findReaderBlockIndexForParagraph,
+  getReaderVisibleRange,
+  splitReaderBlockSentences,
+  type ReaderColumn,
+  type ReaderSentence,
+} from '../utils/readerSentences';
 import { addDocumentToFavorites } from '../lib/favorites';
 
 const TECHNICAL_SECTION_ID_RE = /^[A-Za-z]{1,6}\d[\w-]*$/;
@@ -28,6 +38,26 @@ const columnItemVariants = {
   hidden: { opacity: 0, x: -20, scale: 0.95 },
   show: { opacity: 1, x: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 180, damping: 20 } }
 };
+
+const DEFAULT_VISIBLE_BLOCKS = 18;
+const RANGE_OVERSCAN = 6;
+
+type RenderRange = {
+  start: number;
+  end: number;
+};
+
+type ReaderRangeMap = Record<ReaderColumn, RenderRange>;
+
+const EMPTY_RANGE: RenderRange = { start: 0, end: 0 };
+
+function createRangeMap(range: RenderRange): ReaderRangeMap {
+  return {
+    original: range,
+    punctuated: range,
+    translated: range,
+  };
+}
 
 export function ThreeColumnReader() {
   const {
@@ -58,6 +88,12 @@ export function ThreeColumnReader() {
   const resumePunctuatedParagraphRef = useRef<HTMLDivElement | null>(null);
   const resumeTranslatedParagraphRef = useRef<HTMLParagraphElement | null>(null);
   const hasMountedProgressRef = useRef<string | null>(null);
+  const scrollFrameRef = useRef<Record<'mobile' | ReaderColumn, number | null>>({
+    mobile: null,
+    original: null,
+    punctuated: null,
+    translated: null,
+  });
 
   const formatSectionTitle = (title: string | undefined | null, index: number) => {
     const trimmed = title?.trim() ?? ''
@@ -77,6 +113,13 @@ export function ThreeColumnReader() {
       if (progressTimeoutRef.current) {
         clearTimeout(progressTimeoutRef.current);
         progressTimeoutRef.current = null;
+      }
+      for (const key of Object.keys(scrollFrameRef.current) as Array<'mobile' | ReaderColumn>) {
+        const frame = scrollFrameRef.current[key];
+        if (frame !== null) {
+          cancelAnimationFrame(frame);
+          scrollFrameRef.current[key] = null;
+        }
       }
     };
   }, []);
@@ -116,6 +159,88 @@ export function ThreeColumnReader() {
     currentDocument?.translatedText,
   ]);
 
+  const readerBlocks = useMemo(() => buildReaderBlocks(readerParagraphs), [readerParagraphs]);
+  const originalMetrics = useMemo(() => buildReaderVirtualMetrics(readerBlocks, 'original'), [readerBlocks]);
+  const punctuatedMetrics = useMemo(() => buildReaderVirtualMetrics(readerBlocks, 'punctuated'), [readerBlocks]);
+  const translatedMetrics = useMemo(() => buildReaderVirtualMetrics(readerBlocks, 'translated'), [readerBlocks]);
+  const [desktopRanges, setDesktopRanges] = useState<ReaderRangeMap>(createRangeMap(EMPTY_RANGE));
+  const [mobileRanges, setMobileRanges] = useState<ReaderRangeMap>(createRangeMap(EMPTY_RANGE));
+
+  const buildInitialRange = (index: number): RenderRange => {
+    const safeIndex = Math.max(0, index);
+    const start = Math.max(0, safeIndex - Math.floor(DEFAULT_VISIBLE_BLOCKS / 2));
+    const end = Math.min(readerBlocks.length, Math.max(start + DEFAULT_VISIBLE_BLOCKS, safeIndex + Math.ceil(DEFAULT_VISIBLE_BLOCKS / 2)));
+    return { start, end };
+  };
+
+  const getMetricsForColumn = (column: ReaderColumn) => (
+    column === 'original'
+      ? originalMetrics
+      : column === 'punctuated'
+        ? punctuatedMetrics
+        : translatedMetrics
+  );
+
+  const getEndOffset = (column: ReaderColumn, end: number) => {
+    const metrics = getMetricsForColumn(column);
+    if (end <= 0) return 0;
+    if (end >= readerBlocks.length) return metrics.totalHeight;
+    return metrics.offsets[end];
+  };
+
+  const setRangeForTarget = (
+    target: 'desktop' | 'mobile',
+    column: ReaderColumn,
+    scrollTop: number,
+    clientHeight: number,
+  ) => {
+    const nextRange = getReaderVisibleRange(getMetricsForColumn(column), scrollTop, clientHeight, RANGE_OVERSCAN);
+    const applyRanges = target === 'desktop' ? setDesktopRanges : setMobileRanges;
+    startTransition(() => {
+      applyRanges((previous) => {
+        const current = previous[column];
+        if (current.start === nextRange.start && current.end === nextRange.end) {
+          return previous;
+        }
+        return { ...previous, [column]: nextRange };
+      });
+    });
+  };
+
+  const scheduleRangeUpdate = (
+    target: 'desktop' | 'mobile',
+    column: ReaderColumn,
+    scrollTop: number,
+    clientHeight: number,
+  ) => {
+    const frameKey = target === 'desktop' ? column : 'mobile';
+    if (scrollFrameRef.current[frameKey] !== null) {
+      return;
+    }
+    scrollFrameRef.current[frameKey] = requestAnimationFrame(() => {
+      setRangeForTarget(target, column, scrollTop, clientHeight);
+      reportProgress(column, scrollTop, clientHeight);
+      scrollFrameRef.current[frameKey] = null;
+    });
+  };
+
+  const anchorBlockIndex = useMemo(
+    () => findReaderBlockIndexForAnchor(readerBlocks, anchorText),
+    [anchorText, readerBlocks],
+  );
+
+  const resumeBlockIndex = useMemo(
+    () => findReaderBlockIndexForParagraph(readerBlocks, resumeParagraph != null ? resumeParagraph - 1 : null),
+    [readerBlocks, resumeParagraph],
+  );
+
+  useEffect(() => {
+    const focusIndex = anchorBlockIndex >= 0 ? anchorBlockIndex : resumeBlockIndex >= 0 ? resumeBlockIndex : 0;
+    const nextRange = buildInitialRange(focusIndex);
+    setDesktopRanges(createRangeMap(nextRange));
+    setMobileRanges(createRangeMap(nextRange));
+  }, [currentDocument?.id, readerBlocks.length, anchorBlockIndex, resumeBlockIndex]);
+
   useEffect(() => {
     if (anchorText && anchorRef.current) {
       anchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -132,7 +257,7 @@ export function ThreeColumnReader() {
     if (targets.length === 0) return;
     targets.forEach((target) => target?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
     setResumeParagraph(null);
-  }, [anchorText, resumeParagraph, activeReaderTab, readerParagraphs.length]);
+  }, [anchorText, resumeParagraph, activeReaderTab, readerBlocks.length]);
 
   useEffect(() => {
     if (!currentDocument) return
@@ -294,30 +419,54 @@ export function ThreeColumnReader() {
     setTocOpen(false);
   };
 
-  const reportProgress = (scrollTop: number, scrollHeight: number, clientHeight: number) => {
+  const reportProgress = (column: ReaderColumn, scrollTop: number, clientHeight: number) => {
     if (!currentDocument || isSample) return;
-    const readableHeight = Math.max(scrollHeight - clientHeight, 1);
-    const ratio = Math.min(1, Math.max(0, scrollTop / readableHeight));
-    const currentParagraph = Math.min(totalParagraphs, Math.max(1, Math.round(ratio * (totalParagraphs - 1)) + 1));
+    if (readerBlocks.length === 0) return;
+    const focusOffset = scrollTop + clientHeight * 0.35;
+    const focusRange = getReaderVisibleRange(getMetricsForColumn(column), focusOffset, 1, 0);
+    const blockIndex = Math.min(readerBlocks.length - 1, Math.max(0, focusRange.start));
+    const currentParagraph = Math.min(
+      totalParagraphs,
+      Math.max(1, (readerBlocks[blockIndex]?.startParagraphIndex ?? 0) + 1),
+    );
     persistProgress(currentParagraph);
   };
 
-  const renderInteractiveParagraphs = (column: 'original' | 'punctuated') => {
-    if (readerParagraphs.length === 0) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这一栏暂时还没有内容</p>
+  const renderInteractiveParagraphs = (column: 'original' | 'punctuated', range: RenderRange) => {
+    if (readerBlocks.length === 0) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这一栏暂时还没有内容</p>
     const resumeIndex = Math.max((resumeParagraph ?? 1) - 1, 0);
+    const metrics = getMetricsForColumn(column);
+    const topSpacerHeight = range.start < readerBlocks.length ? metrics.offsets[range.start] ?? 0 : 0;
+    const bottomSpacerHeight = Math.max(0, metrics.totalHeight - getEndOffset(column, range.end));
+
     return (
       <>
-        {readerParagraphs.map((paragraph) => (
+        {topSpacerHeight > 0 && <div aria-hidden style={{ height: topSpacerHeight }} />}
+        {readerBlocks.slice(range.start, range.end).map((block) => {
+          const sentences = splitReaderBlockSentences(block);
+          const isResumeBlock = resumeIndex >= block.startParagraphIndex && resumeIndex <= block.endParagraphIndex;
+          const hasAnchorSentence = Boolean(anchorText) && sentences.some(
+            (sentence) => sentence.punctuated.includes(anchorText) || sentence.original.includes(anchorText),
+          );
+
+          return (
           <div
-            key={`${column}-${paragraph.id}`}
+            key={`${column}-${block.id}`}
             className="space-y-2"
             ref={
-              paragraph.paragraphIndex === resumeIndex
+              isResumeBlock
                 ? (column === 'original' ? resumeOriginalParagraphRef : resumePunctuatedParagraphRef)
                 : undefined
             }
+            style={{
+              contentVisibility: 'auto',
+              containIntrinsicSize: '480px',
+            }}
           >
-            {paragraph.sentences.map((sentence) => {
+            {!hasAnchorSentence && anchorText && (block.punctuated.includes(anchorText) || block.original.includes(anchorText)) && (
+              <div ref={anchorRef} />
+            )}
+            {sentences.map((sentence) => {
               const displayText = column === 'original' ? sentence.original : sentence.punctuated;
               if (!displayText) return null;
 
@@ -357,29 +506,46 @@ export function ThreeColumnReader() {
               );
             })}
           </div>
-        ))}
+        )})}
+        {bottomSpacerHeight > 0 && <div aria-hidden style={{ height: bottomSpacerHeight }} />}
       </>
     )
   };
 
-  const renderTranslatedParagraphs = () => {
+  const renderTranslatedParagraphs = (range: RenderRange) => {
+    const topSpacerHeight = range.start < readerBlocks.length ? translatedMetrics.offsets[range.start] ?? 0 : 0;
+    const bottomSpacerHeight = Math.max(0, translatedMetrics.totalHeight - getEndOffset('translated', range.end));
     return (
       <>
-        {readerParagraphs.map((paragraph) => {
-          const translatedBlock = paragraph.translated;
-          const isActiveParagraph = selectedSentence?.paragraphIndex === paragraph.paragraphIndex;
+        {topSpacerHeight > 0 && <div aria-hidden style={{ height: topSpacerHeight }} />}
+        {readerBlocks.slice(range.start, range.end).map((block) => {
+          const translatedBlock = block.translated;
+          const isActiveParagraph =
+            selectedSentence != null &&
+            selectedSentence.paragraphIndex >= block.startParagraphIndex &&
+            selectedSentence.paragraphIndex <= block.endParagraphIndex;
           if (!translatedBlock) return null;
           return (
             <p
-              key={`translated-${paragraph.id}`}
-              ref={paragraph.paragraphIndex === Math.max((resumeParagraph ?? 1) - 1, 0) ? resumeTranslatedParagraphRef : undefined}
+              key={`translated-${block.id}`}
+              ref={
+                Math.max((resumeParagraph ?? 1) - 1, 0) >= block.startParagraphIndex &&
+                Math.max((resumeParagraph ?? 1) - 1, 0) <= block.endParagraphIndex
+                  ? resumeTranslatedParagraphRef
+                  : undefined
+              }
               className="rounded-lg px-2 py-1"
-              style={{ backgroundColor: isActiveParagraph ? 'rgba(140,26,17,0.08)' : 'transparent' }}
+              style={{
+                backgroundColor: isActiveParagraph ? 'rgba(140,26,17,0.08)' : 'transparent',
+                contentVisibility: 'auto',
+                containIntrinsicSize: '320px',
+              }}
             >
               {translatedBlock}
             </p>
           );
         })}
+        {bottomSpacerHeight > 0 && <div aria-hidden style={{ height: bottomSpacerHeight }} />}
       </>
     );
   };
@@ -569,13 +735,13 @@ export function ThreeColumnReader() {
           className="flex-1 overflow-y-auto p-4"
           onScroll={(e) => {
             const target = e.currentTarget;
-            reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+            scheduleRangeUpdate('mobile', activeReaderTab, target.scrollTop, target.clientHeight);
           }}
         >
           <div className="mb-4">{renderReaderGuideCard()}</div>
-          {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original'))}
-          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated') : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>)}
-          {hasFullTranslation && activeReaderTab === 'translated' && renderColumn('白话解读', renderTranslatedParagraphs())}
+          {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original', mobileRanges.original))}
+          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated', mobileRanges.punctuated) : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>)}
+          {hasFullTranslation && activeReaderTab === 'translated' && renderColumn('白话解读', renderTranslatedParagraphs(mobileRanges.translated))}
         </div>
 
         {sidePanel === 'notes' && (
@@ -594,7 +760,7 @@ export function ThreeColumnReader() {
               documentId={currentDocument.id}
               documentTitle={currentDocument.title}
               sentence={selectedSentence.punctuated || selectedSentence.original}
-              context={readerParagraphs[selectedSentence.paragraphIndex]?.punctuated ?? ''}
+              context={selectedSentence.context}
               chapterTitle={selectedChapterTitle ?? undefined}
             />
           </div>
@@ -661,13 +827,13 @@ export function ThreeColumnReader() {
         <motion.div
           layout
           variants={columnItemVariants}
-          className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
-          onScroll={(e) => {
-            const target = e.currentTarget;
-            reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
-          }}
-        >
-          {renderColumn('原文', renderInteractiveParagraphs('original'))}
+            className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
+            onScroll={(e) => {
+              const target = e.currentTarget;
+              scheduleRangeUpdate('desktop', 'original', target.scrollTop, target.clientHeight);
+            }}
+          >
+          {renderColumn('原文', renderInteractiveParagraphs('original', desktopRanges.original))}
         </motion.div>
 
         <motion.div
@@ -676,13 +842,13 @@ export function ThreeColumnReader() {
           className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
           onScroll={(e) => {
             const target = e.currentTarget;
-            reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+            scheduleRangeUpdate('desktop', 'punctuated', target.scrollTop, target.clientHeight);
           }}
         >
           {renderColumn(
             '标点文',
             currentDocument.punctuatedText
-              ? renderInteractiveParagraphs('punctuated')
+              ? renderInteractiveParagraphs('punctuated', desktopRanges.punctuated)
               : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>
           )}
         </motion.div>
@@ -694,12 +860,12 @@ export function ThreeColumnReader() {
             className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
             onScroll={(e) => {
               const target = e.currentTarget;
-              reportProgress(target.scrollTop, target.scrollHeight, target.clientHeight);
+              scheduleRangeUpdate('desktop', 'translated', target.scrollTop, target.clientHeight);
             }}
           >
             {renderColumn(
               '白话解读',
-              renderTranslatedParagraphs()
+              renderTranslatedParagraphs(desktopRanges.translated)
             )}
           </motion.div>
         )}
@@ -722,7 +888,7 @@ export function ThreeColumnReader() {
                   documentId={currentDocument.id}
                   documentTitle={currentDocument.title}
                   sentence={selectedSentence.punctuated || selectedSentence.original}
-                  context={readerParagraphs[selectedSentence.paragraphIndex]?.punctuated ?? ''}
+                  context={selectedSentence.context}
                   chapterTitle={selectedChapterTitle ?? undefined}
                 />
               ) : (

@@ -347,6 +347,34 @@ describe('ThreeColumnReader', () => {
 
     expect(screen.getByRole('button', { name: '学习卡片' })).toBeInTheDocument()
   })
+
+  it('only renders the initial visible slice for very large documents', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    const originalLines = Array.from({ length: 500 }, (_, index) => `原文段落-${index + 1}`)
+    const punctuatedLines = Array.from({ length: 500 }, (_, index) => `标点段落-${index + 1}。`)
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-large',
+      title: 'large doc',
+      originalText: originalLines.join('\n'),
+      punctuatedText: punctuatedLines.join('\n'),
+      translatedText: '',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('原文段落-1').length).toBeGreaterThan(0)
+    })
+    expect(screen.queryByText('原文段落-500')).toBeNull()
+    expect(screen.queryByText('标点段落-500。')).toBeNull()
+  })
 })
 
 describe('WordPopover', () => {
