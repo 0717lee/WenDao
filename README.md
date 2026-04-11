@@ -175,7 +175,10 @@ cd ../backend-gateway
 │       ├── faiss_db/              # FAISS 向量索引
 │       └── tests/                 # 后端测试
 │
-├── .planning/                     # 项目规划文档
+├── infrastructure/                # 部署与基础设施配置
+├── docker-compose.yml             # 本地联调配置
+├── railway.json                   # Railway 部署配置
+├── vercel.json                    # Vercel 部署配置
 └── README.md
 ```
 
@@ -184,15 +187,6 @@ cd ../backend-gateway
 启动后端后访问：
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
-
-## Competition Materials
-
-竞赛交付材料源码已放在 [deliverables/competition/CHECKLIST.md](./deliverables/competition/CHECKLIST.md)：
-
-- [PPT_OUTLINE.md](./deliverables/competition/PPT_OUTLINE.md)
-- [DEMO_SCRIPT.md](./deliverables/competition/DEMO_SCRIPT.md)
-- [DEV_BRIEF.md](./deliverables/competition/DEV_BRIEF.md)
-- [JUDGE_TALKING_POINTS.md](./deliverables/competition/JUDGE_TALKING_POINTS.md)
 
 ## 赛制合规
 

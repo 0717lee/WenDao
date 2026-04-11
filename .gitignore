@@ -43,6 +43,7 @@ pnpm-debug.log*
 
 # 测试覆盖率
 coverage/
+htmlcov/
 .coverage
 .nyc_output/
 *.lcov
@@ -76,9 +77,20 @@ tsconfig.tsbuildinfo
 volumes/
 
 # Claude Code / Agent 本地配置
+.codex/
 .claude/
 .agent/
 genesis/
+
+# 纯源码仓库：过程与交付留痕不入库
+.planning/
+deliverables/
+docs/
+TECHNICAL_DOC.md
+progress.md
+task_plan.md
+findings.md
+git_status.txt
 
 # 内部文档（非项目源码）
 2026年*.md
