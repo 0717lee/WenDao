@@ -85,7 +85,6 @@ export function ThreeColumnReader() {
   const [readerNotice, setReaderNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
   const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
-  const [segmentLoading, setSegmentLoading] = useState(false);
   const [segmentLoadError, setSegmentLoadError] = useState(false);
   const [pendingSegmentIndex, setPendingSegmentIndex] = useState<number | null>(null);
   const [wordLookup, setWordLookup] = useState<{ word: string; position: { x: number; y: number } } | null>(null);
@@ -149,7 +148,6 @@ export function ThreeColumnReader() {
     setReaderNotice(null);
     setWordLookup(null);
     setSyncScrollEnabled(true);
-    setSegmentLoading(false);
     setSegmentLoadError(false);
     setPendingSegmentIndex(null);
     segmentLoadingRef.current = false;
@@ -284,7 +282,6 @@ export function ThreeColumnReader() {
       };
 
       segmentLoadingRef.current = true;
-      setSegmentLoading(true);
       setSegmentLoadError(false);
       try {
         let workingDocument = initialDocument;
@@ -309,7 +306,6 @@ export function ThreeColumnReader() {
         setSegmentLoadError(true);
       } finally {
         segmentLoadingRef.current = false;
-        setSegmentLoading(false);
       }
     },
     [updateDocument],
@@ -461,7 +457,6 @@ export function ThreeColumnReader() {
   const totalParagraphs = Math.max(1, totalParagraphEstimate);
   const selectedSentenceText = selectedSentence?.punctuated || selectedSentence?.original || '';
   const hasFullTranslation = Boolean(currentDocument.translatedText?.trim());
-  const readerContentState = currentDocument.readerContent;
 
   const persistProgress = (
     currentParagraph: number,
@@ -827,24 +822,12 @@ export function ThreeColumnReader() {
       >
         查词提示：在原文里拖选一个词，系统会弹出查词卡，也能顺手加入字词记录。
       </div>
-      {readerContentState && readerContentState.totalSegments > 0 && (
-        <div
-          className="mt-2 rounded-[16px] px-3 py-2 text-xs leading-6"
-          style={{ backgroundColor: 'rgba(255,255,255,0.66)', color: 'rgba(26,30,35,0.5)', border: '1px solid rgba(26,30,35,0.05)' }}
-        >
-          {segmentLoading
-            ? `正在继续加载正文，已到第 ${readerContentState.loadedSegmentCount} / ${readerContentState.totalSegments} 节。`
-            : readerContentState.hasMore
-              ? `当前已加载第 ${readerContentState.loadedSegmentCount} / ${readerContentState.totalSegments} 节，往下滚动会自动续读。`
-              : `这篇内容已经全部载入，共 ${readerContentState.totalSegments} 节。`}
-        </div>
-      )}
       {segmentLoadError && (
         <div
           className="mt-2 rounded-[16px] px-3 py-2 text-xs"
           style={{ backgroundColor: 'rgba(176,58,58,0.08)', color: '#b03a3a' }}
         >
-          后续章节这次没有拉下来，继续下滑时会再试一次。
+          后续内容加载失败，继续下滑时会自动重试。
         </div>
       )}
       {readerNotice && readerNotice.tone !== 'info' && (
