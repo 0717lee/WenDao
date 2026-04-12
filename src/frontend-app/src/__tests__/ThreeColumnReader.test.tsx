@@ -180,6 +180,27 @@ describe('ThreeColumnReader', () => {
     expect(screen.queryByText('白话解读')).toBeNull()
   })
 
+  it('shows a sync-scroll toggle on desktop readers', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-sync-toggle',
+      title: 'sync toggle test',
+      originalText: '第一段原文\n第二段原文',
+      punctuatedText: '第一段原文。\n第二段原文。',
+      translatedText: '',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    expect(screen.getByRole('button', { name: '同步滚动：开' })).toBeInTheDocument()
+  })
+
   it('returns to reader hub when opened from the reader tab', async () => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
@@ -374,6 +395,91 @@ describe('ThreeColumnReader', () => {
     })
     expect(screen.queryByText('原文段落-500')).toBeNull()
     expect(screen.queryByText('标点段落-500。')).toBeNull()
+  })
+
+  it('loads the next segment window when scrolling near the bottom of a lazy reader payload', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    vi.mocked(global.fetch).mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/reader/segments')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            segments: [
+              { index: 2, title: '第三节', text: '后续独有内容甲。', line_count: 1, char_count: 7 },
+              { index: 3, title: '第四节', text: '后续独有内容乙。', line_count: 1, char_count: 7 },
+            ],
+            original_text: '后续独有内容甲\n\n后续独有内容乙',
+            punctuated_text: '后续独有内容甲。\n\n后续独有内容乙。',
+            translated_text: '',
+            reader_content: {
+              offset: 2,
+              limit: 2,
+              returned: 2,
+              loaded_segment_count: 4,
+              total_segments: 4,
+              next_offset: null,
+              has_more: false,
+            },
+          }),
+        } as Response)
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      } as Response)
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-lazy-reader',
+      title: 'lazy reader',
+      sourceType: 'corpus',
+      originalText: '第一段原文\n第二段原文',
+      punctuatedText: '第一段原文。\n第二段原文。',
+      translatedText: '',
+      readerContent: {
+        offset: 0,
+        limit: 2,
+        returned: 2,
+        loadedSegmentCount: 2,
+        totalSegments: 4,
+        nextOffset: 2,
+        hasMore: true,
+      },
+      segments: [
+        { index: 0, title: '第一节', text: '第一段原文。', excerpt: '第一段原文', summary: '第一节', lineCount: 1, charCount: 6 },
+        { index: 1, title: '第二节', text: '第二段原文。', excerpt: '第二段原文', summary: '第二节', lineCount: 1, charCount: 6 },
+        { index: 2, title: '第三节', text: '', excerpt: '后续独有内容甲', summary: '第三节', lineCount: 1, charCount: 7 },
+        { index: 3, title: '第四节', text: '', excerpt: '后续独有内容乙', summary: '第四节', lineCount: 1, charCount: 7 },
+      ],
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    const originalColumn = screen.getByTestId('reader-column-original')
+    Object.defineProperty(originalColumn, 'clientHeight', { configurable: true, value: 240 })
+    Object.defineProperty(originalColumn, 'scrollHeight', { configurable: true, value: 1000 })
+    Object.defineProperty(originalColumn, 'scrollTop', { configurable: true, writable: true, value: 780 })
+
+    fireEvent.scroll(originalColumn)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/documents/doc-lazy-reader/reader/segments?offset=2&limit=2'),
+        expect.anything(),
+      )
+    })
+
+    await waitFor(() => {
+      expect(useDocumentStore.getState().currentDocument?.readerContent?.loadedSegmentCount).toBe(4)
+    })
   })
 })
 

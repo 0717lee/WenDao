@@ -1,4 +1,4 @@
-import { startTransition, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { startTransition, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, BookPlus, Menu, NotebookPen, Sparkles } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
@@ -11,6 +11,8 @@ import { ReaderTocPanel } from './ReaderTocPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
+import { countLoadedReaderParagraphs, countTotalReaderParagraphs, mergeReaderSegmentChunk } from '../lib/readerDocument';
+import { computeSyncedScrollTop, shouldLoadMoreReaderContent } from '../lib/readerScroll';
 import {
   buildReaderBlocks,
   buildReaderParagraphs,
@@ -41,6 +43,7 @@ const columnItemVariants = {
 
 const DEFAULT_VISIBLE_BLOCKS = 18;
 const RANGE_OVERSCAN = 6;
+const READER_SEGMENT_WINDOW_DEFAULT = 6;
 
 type RenderRange = {
   start: number;
@@ -62,6 +65,7 @@ function createRangeMap(range: RenderRange): ReaderRangeMap {
 export function ThreeColumnReader() {
   const {
     currentDocument,
+    updateDocument,
     consumePendingAnchorText,
     consumePendingResumeParagraph,
     consumePendingReaderPanel,
@@ -80,14 +84,23 @@ export function ThreeColumnReader() {
   const [progressSyncError, setProgressSyncError] = useState(false);
   const [readerNotice, setReaderNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
+  const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
+  const [segmentLoading, setSegmentLoading] = useState(false);
+  const [segmentLoadError, setSegmentLoadError] = useState(false);
+  const [pendingSegmentIndex, setPendingSegmentIndex] = useState<number | null>(null);
   const [wordLookup, setWordLookup] = useState<{ word: string; position: { x: number; y: number } } | null>(null);
   const progressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentParagraphRef = useRef(1);
+  const currentDocumentRef = useRef(currentDocument);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const resumeOriginalParagraphRef = useRef<HTMLDivElement | null>(null);
   const resumePunctuatedParagraphRef = useRef<HTMLDivElement | null>(null);
   const resumeTranslatedParagraphRef = useRef<HTMLParagraphElement | null>(null);
   const hasMountedProgressRef = useRef<string | null>(null);
+  const segmentLoadingRef = useRef(false);
+  const syncLockRef = useRef<ReaderColumn | null>(null);
+  const originalScrollerRef = useRef<HTMLDivElement | null>(null);
+  const punctuatedScrollerRef = useRef<HTMLDivElement | null>(null);
   const scrollFrameRef = useRef<Record<'mobile' | ReaderColumn, number | null>>({
     mobile: null,
     original: null,
@@ -102,6 +115,10 @@ export function ThreeColumnReader() {
     }
     return trimmed
   }
+
+  useEffect(() => {
+    currentDocumentRef.current = currentDocument;
+  }, [currentDocument]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -131,6 +148,12 @@ export function ThreeColumnReader() {
     setSidePanel(null);
     setReaderNotice(null);
     setWordLookup(null);
+    setSyncScrollEnabled(true);
+    setSegmentLoading(false);
+    setSegmentLoadError(false);
+    setPendingSegmentIndex(null);
+    segmentLoadingRef.current = false;
+    syncLockRef.current = null;
 
     const nextAnchor = consumePendingAnchorText();
     if (nextAnchor) {
@@ -165,6 +188,14 @@ export function ThreeColumnReader() {
   const translatedMetrics = useMemo(() => buildReaderVirtualMetrics(readerBlocks, 'translated'), [readerBlocks]);
   const [desktopRanges, setDesktopRanges] = useState<ReaderRangeMap>(createRangeMap(EMPTY_RANGE));
   const [mobileRanges, setMobileRanges] = useState<ReaderRangeMap>(createRangeMap(EMPTY_RANGE));
+  const loadedParagraphCount = useMemo(
+    () => countLoadedReaderParagraphs(currentDocument?.segments),
+    [currentDocument?.segments],
+  );
+  const totalParagraphEstimate = useMemo(() => {
+    const segmentParagraphs = countTotalReaderParagraphs(currentDocument?.segments);
+    return Math.max(segmentParagraphs, readerParagraphs.length);
+  }, [currentDocument?.segments, readerParagraphs.length]);
 
   const buildInitialRange = (index: number): RenderRange => {
     const safeIndex = Math.max(0, index);
@@ -224,6 +255,107 @@ export function ThreeColumnReader() {
     });
   };
 
+  const loadMoreReaderContent = useCallback(
+    async (options?: { untilParagraph?: number; untilSegmentIndex?: number | null; untilAnchorText?: string }) => {
+      const initialDocument = currentDocumentRef.current;
+      const initialReaderContent = initialDocument?.readerContent;
+      if (!initialDocument || !initialReaderContent?.hasMore || initialReaderContent.nextOffset == null || segmentLoadingRef.current) {
+        return;
+      }
+
+      const meetsTarget = (document: typeof initialDocument) => {
+        if (!document) return true;
+        if (options?.untilParagraph && countLoadedReaderParagraphs(document.segments) < options.untilParagraph) {
+          return false;
+        }
+        if (
+          options?.untilSegmentIndex != null &&
+          (document.readerContent?.loadedSegmentCount ?? 0) <= options.untilSegmentIndex
+        ) {
+          return false;
+        }
+        if (options?.untilAnchorText) {
+          const needle = options.untilAnchorText.trim();
+          if (needle && !(document.originalText?.includes(needle) || document.punctuatedText?.includes(needle))) {
+            return false;
+          }
+        }
+        return true;
+      };
+
+      segmentLoadingRef.current = true;
+      setSegmentLoading(true);
+      setSegmentLoadError(false);
+      try {
+        let workingDocument = initialDocument;
+        while (workingDocument?.readerContent?.hasMore && workingDocument.readerContent.nextOffset != null) {
+          const response = await fetch(
+            `${API_BASE}/api/v1/documents/${workingDocument.id}/reader/segments?offset=${workingDocument.readerContent.nextOffset}&limit=${workingDocument.readerContent.limit || READER_SEGMENT_WINDOW_DEFAULT}`,
+            authFetchOptions(),
+          );
+          if (!response.ok) {
+            throw new Error('reader segment load failed');
+          }
+          const payload = await response.json();
+          const updates = mergeReaderSegmentChunk(workingDocument, payload);
+          workingDocument = { ...workingDocument, ...updates };
+          currentDocumentRef.current = workingDocument;
+          updateDocument(updates);
+          if (!options || meetsTarget(workingDocument)) {
+            break;
+          }
+        }
+      } catch {
+        setSegmentLoadError(true);
+      } finally {
+        segmentLoadingRef.current = false;
+        setSegmentLoading(false);
+      }
+    },
+    [updateDocument],
+  );
+
+  const maybeLoadMoreReaderContent = useCallback(
+    (scrollTop: number, clientHeight: number, scrollHeight: number) => {
+      const readerContent = currentDocumentRef.current?.readerContent;
+      if (
+        shouldLoadMoreReaderContent({
+          scrollTop,
+          clientHeight,
+          scrollHeight,
+          hasMore: Boolean(readerContent?.hasMore),
+          isLoading: segmentLoadingRef.current,
+        })
+      ) {
+        void loadMoreReaderContent();
+      }
+    },
+    [loadMoreReaderContent],
+  );
+
+  const syncDesktopScroll = useCallback(
+    (column: ReaderColumn, scrollTop: number) => {
+      if (!syncScrollEnabled || column === 'translated') return;
+      const targetColumn = column === 'original' ? 'punctuated' : 'original';
+      const targetNode = targetColumn === 'original' ? originalScrollerRef.current : punctuatedScrollerRef.current;
+      if (!targetNode) return;
+      const sourceMetrics = column === 'original' ? originalMetrics : punctuatedMetrics;
+      const targetMetrics = targetColumn === 'original' ? originalMetrics : punctuatedMetrics;
+      syncLockRef.current = targetColumn;
+      targetNode.scrollTop = computeSyncedScrollTop({
+        sourceMetrics,
+        targetMetrics,
+        scrollTop,
+      });
+      requestAnimationFrame(() => {
+        if (syncLockRef.current === targetColumn) {
+          syncLockRef.current = null;
+        }
+      });
+    },
+    [originalMetrics, punctuatedMetrics, syncScrollEnabled],
+  );
+
   const anchorBlockIndex = useMemo(
     () => findReaderBlockIndexForAnchor(readerBlocks, anchorText),
     [anchorText, readerBlocks],
@@ -260,6 +392,33 @@ export function ThreeColumnReader() {
   }, [anchorText, resumeParagraph, activeReaderTab, readerBlocks.length]);
 
   useEffect(() => {
+    if (!currentDocument?.readerContent?.hasMore || !resumeParagraph) return;
+    if (loadedParagraphCount >= resumeParagraph) return;
+    void loadMoreReaderContent({ untilParagraph: resumeParagraph });
+  }, [currentDocument?.id, currentDocument?.readerContent?.hasMore, loadedParagraphCount, loadMoreReaderContent, resumeParagraph]);
+
+  useEffect(() => {
+    if (pendingSegmentIndex == null) return;
+    if ((currentDocument?.readerContent?.loadedSegmentCount ?? 0) > pendingSegmentIndex) {
+      setPendingSegmentIndex(null);
+      return;
+    }
+    if (!currentDocument?.readerContent?.hasMore) return;
+    void loadMoreReaderContent({ untilSegmentIndex: pendingSegmentIndex });
+  }, [
+    currentDocument?.id,
+    currentDocument?.readerContent?.hasMore,
+    currentDocument?.readerContent?.loadedSegmentCount,
+    loadMoreReaderContent,
+    pendingSegmentIndex,
+  ]);
+
+  useEffect(() => {
+    if (!anchorText || anchorBlockIndex >= 0 || !currentDocument?.readerContent?.hasMore) return;
+    void loadMoreReaderContent({ untilAnchorText: anchorText });
+  }, [anchorBlockIndex, anchorText, currentDocument?.id, currentDocument?.readerContent?.hasMore, loadMoreReaderContent]);
+
+  useEffect(() => {
     if (!currentDocument) return
     const hasFullTranslation = Boolean(currentDocument.translatedText?.trim())
     if (!hasFullTranslation && activeReaderTab === 'translated') {
@@ -273,9 +432,9 @@ export function ThreeColumnReader() {
     if (isSampleDocument) return
     if (hasMountedProgressRef.current === currentDocument.id) return
     hasMountedProgressRef.current = currentDocument.id
-    const paragraphCount = Math.max(1, readerParagraphs.length)
+    const paragraphCount = Math.max(1, totalParagraphEstimate)
     persistProgress(1, { immediate: true, totalParagraphsOverride: paragraphCount })
-  }, [currentDocument, readerParagraphs.length])
+  }, [currentDocument, totalParagraphEstimate])
 
   if (!currentDocument) return null;
 
@@ -287,6 +446,7 @@ export function ThreeColumnReader() {
     currentDocument.chapterCount ? `${currentDocument.chapterCount}篇` : null,
   ].filter(Boolean).join(' · ')
   const tocEntries = currentDocument.segments?.map((segment, index) => ({
+    index: segment.index ?? index,
     title: segment.title,
     displayTitle: formatSectionTitle(segment.title, index),
     excerpt: segment.excerpt,
@@ -295,12 +455,13 @@ export function ThreeColumnReader() {
     .slice(0, 5)
     .map((title, index) => {
       const displayTitle = formatSectionTitle(title, index)
-      return { title: title ?? displayTitle, displayTitle }
+      return { index, title: title ?? displayTitle, displayTitle }
     })
 
-  const totalParagraphs = Math.max(1, readerParagraphs.length);
+  const totalParagraphs = Math.max(1, totalParagraphEstimate);
   const selectedSentenceText = selectedSentence?.punctuated || selectedSentence?.original || '';
   const hasFullTranslation = Boolean(currentDocument.translatedText?.trim());
+  const readerContentState = currentDocument.readerContent;
 
   const persistProgress = (
     currentParagraph: number,
@@ -412,9 +573,10 @@ export function ThreeColumnReader() {
     setSelectedChapterTitle(null);
   };
 
-  const handleTocSelect = (entry: { title: string; displayTitle?: string; excerpt?: string; summary?: string }) => {
+  const handleTocSelect = (entry: { index?: number; title: string; displayTitle?: string; excerpt?: string; summary?: string }) => {
     setSelectedChapterTitle(entry.displayTitle ?? entry.title);
     setAnchorText(entry.excerpt || entry.title);
+    setPendingSegmentIndex(entry.index ?? null);
     setActiveReaderTab('punctuated');
     setTocOpen(false);
   };
@@ -637,6 +799,18 @@ export function ThreeColumnReader() {
           <BookPlus className="mr-1 inline h-3.5 w-3.5" />
           {favoriteSaving ? '正在收藏...' : '收藏这篇'}
         </button>
+        {!isMobile && (
+          <button
+            onClick={() => setSyncScrollEnabled((previous) => !previous)}
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            style={{
+              backgroundColor: syncScrollEnabled ? 'rgba(201,160,99,0.12)' : 'rgba(26,30,35,0.06)',
+              color: syncScrollEnabled ? 'var(--gf-gold)' : 'rgba(26,30,35,0.66)',
+            }}
+          >
+            {syncScrollEnabled ? '同步滚动：开' : '同步滚动：关'}
+          </button>
+        )}
         {selectedSentence && (
           <button
             onClick={clearSentenceSelection}
@@ -653,6 +827,26 @@ export function ThreeColumnReader() {
       >
         查词提示：在原文里拖选一个词，系统会弹出查词卡，也能顺手加入字词记录。
       </div>
+      {readerContentState && readerContentState.totalSegments > 0 && (
+        <div
+          className="mt-2 rounded-[16px] px-3 py-2 text-xs leading-6"
+          style={{ backgroundColor: 'rgba(255,255,255,0.66)', color: 'rgba(26,30,35,0.5)', border: '1px solid rgba(26,30,35,0.05)' }}
+        >
+          {segmentLoading
+            ? `正在继续加载正文，已到第 ${readerContentState.loadedSegmentCount} / ${readerContentState.totalSegments} 节。`
+            : readerContentState.hasMore
+              ? `当前已加载第 ${readerContentState.loadedSegmentCount} / ${readerContentState.totalSegments} 节，往下滚动会自动续读。`
+              : `这篇内容已经全部载入，共 ${readerContentState.totalSegments} 节。`}
+        </div>
+      )}
+      {segmentLoadError && (
+        <div
+          className="mt-2 rounded-[16px] px-3 py-2 text-xs"
+          style={{ backgroundColor: 'rgba(176,58,58,0.08)', color: '#b03a3a' }}
+        >
+          后续章节这次没有拉下来，继续下滑时会再试一次。
+        </div>
+      )}
       {readerNotice && readerNotice.tone !== 'info' && (
         <div
           className="mt-3 rounded-[16px] px-3 py-2 text-xs"
@@ -736,6 +930,7 @@ export function ThreeColumnReader() {
           onScroll={(e) => {
             const target = e.currentTarget;
             scheduleRangeUpdate('mobile', activeReaderTab, target.scrollTop, target.clientHeight);
+            maybeLoadMoreReaderContent(target.scrollTop, target.clientHeight, target.scrollHeight);
           }}
         >
           <div className="mb-4">{renderReaderGuideCard()}</div>
@@ -827,23 +1022,39 @@ export function ThreeColumnReader() {
         <motion.div
           layout
           variants={columnItemVariants}
-            className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
-            onScroll={(e) => {
-              const target = e.currentTarget;
-              scheduleRangeUpdate('desktop', 'original', target.scrollTop, target.clientHeight);
-            }}
-          >
+          ref={originalScrollerRef}
+          className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
+          onScroll={(e) => {
+            const target = e.currentTarget;
+            scheduleRangeUpdate('desktop', 'original', target.scrollTop, target.clientHeight);
+            maybeLoadMoreReaderContent(target.scrollTop, target.clientHeight, target.scrollHeight);
+            if (syncLockRef.current === 'original') {
+              syncLockRef.current = null;
+              return;
+            }
+            syncDesktopScroll('original', target.scrollTop);
+          }}
+          data-testid="reader-column-original"
+        >
           {renderColumn('原文', renderInteractiveParagraphs('original', desktopRanges.original))}
         </motion.div>
 
         <motion.div
           layout
           variants={columnItemVariants}
+          ref={punctuatedScrollerRef}
           className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
           onScroll={(e) => {
             const target = e.currentTarget;
             scheduleRangeUpdate('desktop', 'punctuated', target.scrollTop, target.clientHeight);
+            maybeLoadMoreReaderContent(target.scrollTop, target.clientHeight, target.scrollHeight);
+            if (syncLockRef.current === 'punctuated') {
+              syncLockRef.current = null;
+              return;
+            }
+            syncDesktopScroll('punctuated', target.scrollTop);
           }}
+          data-testid="reader-column-punctuated"
         >
           {renderColumn(
             '标点文',
@@ -861,7 +1072,9 @@ export function ThreeColumnReader() {
             onScroll={(e) => {
               const target = e.currentTarget;
               scheduleRangeUpdate('desktop', 'translated', target.scrollTop, target.clientHeight);
+              maybeLoadMoreReaderContent(target.scrollTop, target.clientHeight, target.scrollHeight);
             }}
+            data-testid="reader-column-translated"
           >
             {renderColumn(
               '白话解读',

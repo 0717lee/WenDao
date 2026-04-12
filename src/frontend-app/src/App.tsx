@@ -3,11 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { Drawer } from './components/Drawer';
-import { useDocumentStore, type Document } from './store/useDocumentStore';
+import { useDocumentStore } from './store/useDocumentStore';
 import { useGraphStore } from './store/useGraphStore';
 import { authFetchOptions, useAuthStore } from './store/useAuthStore';
 import { useStore } from './store/useStore';
 import { API_BASE } from './lib/api';
+import { buildReaderDocument } from './lib/readerDocument';
 
 const DashboardHome = lazy(() => import('./components/DashboardHome'));
 const ChatInterface = lazy(() => import('./components/ChatInterface').then((m) => ({ default: m.ChatInterface })));
@@ -55,43 +56,6 @@ function App() {
     const [authChecking, setAuthChecking] = useState(true);
     const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
 
-    const buildReaderDocument = useCallback((data: any): Document => ({
-        id: data.id,
-        title: data.title,
-        author: data.author ?? undefined,
-        dynasty: data.dynasty ?? undefined,
-        category: data.category ?? undefined,
-        sourceName: data.source_name ?? data.sourceName ?? undefined,
-        sourceUrl: data.source_url ?? data.sourceUrl ?? undefined,
-        chapterTitles: data.chapter_titles ?? data.chapterTitles ?? undefined,
-        chapterCount: data.chapter_count ?? data.chapterCount ?? undefined,
-        featuredExcerpt: data.featured_excerpt ?? data.featuredExcerpt ?? undefined,
-        difficulty: data.difficulty ?? undefined,
-        guideSummary: data.guide_summary ?? data.guideSummary ?? undefined,
-        readingTip: data.reading_tip ?? data.readingTip ?? undefined,
-        recommendedChapters: data.recommended_chapters ?? data.recommendedChapters ?? undefined,
-        segmentGuides: data.segment_guides ?? data.segmentGuides ?? undefined,
-        segments: Array.isArray(data.segments)
-          ? data.segments.map((segment: any) => ({
-              index: segment.index ?? 0,
-              title: segment.title ?? '',
-              text: segment.text ?? '',
-              excerpt: segment.excerpt ?? undefined,
-              summary: segment.summary ?? undefined,
-              charCount: segment.char_count ?? segment.charCount ?? undefined,
-              lineCount: segment.line_count ?? segment.lineCount ?? undefined,
-            }))
-          : undefined,
-        translationCache: data.translation_cache ?? data.translationCache ?? undefined,
-        translationStatus: data.translation_status ?? data.translationStatus ?? undefined,
-        originalText: data.original_text ?? data.originalText,
-        punctuatedText: data.punctuated_text ?? data.punctuatedText ?? '',
-        translatedText: data.translated_text ?? data.translatedText ?? '',
-        confidence: data.ocr_confidence ?? data.confidence,
-        imageUrl: data.image_data ?? data.imageUrl ?? undefined,
-        sourceType: data.source_type ?? data.sourceType ?? 'user',
-    }), []);
-
     useEffect(() => {
         let cancelled = false;
 
@@ -123,7 +87,7 @@ function App() {
             setPendingResumeParagraph(options?.resumeParagraph && options.resumeParagraph > 0 ? options.resumeParagraph : null);
             setActiveTab('reader');
             try {
-                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}`, authFetchOptions());
+                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}/reader`, authFetchOptions());
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
                 const nextDocument = buildReaderDocument(data);

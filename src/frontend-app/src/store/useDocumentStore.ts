@@ -10,6 +10,16 @@ export interface DocumentSegment {
   lineCount?: number;
 }
 
+export interface ReaderContentState {
+  offset: number;
+  limit: number;
+  returned: number;
+  loadedSegmentCount: number;
+  totalSegments: number;
+  nextOffset: number | null;
+  hasMore: boolean;
+}
+
 export interface Document {
   id: string;
   title: string;
@@ -29,6 +39,7 @@ export interface Document {
   segments?: DocumentSegment[];
   translationCache?: Array<{ title: string; punctuated: string; translated: string }>;
   translationStatus?: string;
+  readerContent?: ReaderContentState;
   originalText: string;
   punctuatedText?: string;
   translatedText?: string;

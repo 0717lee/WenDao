@@ -299,6 +299,63 @@ class TestBookshelfEndpoints:
         assert result["title"] == "论语节选"
 
     @pytest.mark.asyncio
+    async def test_get_reader_document_returns_initial_segment_window(self):
+        from routers.document import get_reader_document
+
+        corpus_document = {
+            "id": "doc-1",
+            "title": "论语节选",
+            "source_type": "corpus",
+            "segments": [
+                {"index": 0, "title": "学而上", "text": "学而时习之。\n有朋自远方来。", "excerpt": "学而时习之", "summary": "先看学习。", "char_count": 14, "line_count": 2},
+                {"index": 1, "title": "学而下", "text": "人不知而不愠。\n不亦君子乎。", "excerpt": "人不知而不愠", "summary": "再看处世。", "char_count": 14, "line_count": 2},
+                {"index": 2, "title": "为政", "text": "为政以德。\n譬如北辰。", "excerpt": "为政以德", "summary": "再看为政。", "char_count": 10, "line_count": 2},
+            ],
+            "translation_cache": [],
+            "original_text": "整本原文",
+            "punctuated_text": "整本标点",
+            "translated_text": "",
+        }
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value=corpus_document)):
+            result = await get_reader_document("doc-1", segment_limit=2, _user={"sub": "user-1"})
+
+        assert result["reader_content"]["loaded_segment_count"] == 2
+        assert result["reader_content"]["total_segments"] == 3
+        assert result["reader_content"]["next_offset"] == 2
+        assert result["segments"][0]["text"] == "学而时习之。\n有朋自远方来。"
+        assert result["segments"][2]["text"] == ""
+        assert "为政以德" not in result["punctuated_text"]
+
+    @pytest.mark.asyncio
+    async def test_get_reader_document_segments_returns_follow_up_chunk(self):
+        from routers.document import get_reader_document_segments
+
+        corpus_document = {
+            "id": "doc-1",
+            "title": "论语节选",
+            "source_type": "corpus",
+            "segments": [
+                {"index": 0, "title": "学而上", "text": "学而时习之。\n有朋自远方来。", "excerpt": "学而时习之", "summary": "先看学习。", "char_count": 14, "line_count": 2},
+                {"index": 1, "title": "学而下", "text": "人不知而不愠。\n不亦君子乎。", "excerpt": "人不知而不愠", "summary": "再看处世。", "char_count": 14, "line_count": 2},
+                {"index": 2, "title": "为政", "text": "为政以德。\n譬如北辰。", "excerpt": "为政以德", "summary": "再看为政。", "char_count": 10, "line_count": 2},
+            ],
+            "translation_cache": [],
+            "original_text": "整本原文",
+            "punctuated_text": "整本标点",
+            "translated_text": "",
+        }
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value=corpus_document)):
+            result = await get_reader_document_segments("doc-1", offset=2, limit=2, _user={"sub": "user-1"})
+
+        assert len(result["segments"]) == 1
+        assert result["segments"][0]["title"] == "为政"
+        assert result["segments"][0]["text"] == "为政以德。\n譬如北辰。"
+        assert result["reader_content"]["loaded_segment_count"] == 3
+        assert result["reader_content"]["has_more"] is False
+
+    @pytest.mark.asyncio
     async def test_get_document_not_found_raises_404(self):
         from fastapi import HTTPException
         from routers.document import get_document

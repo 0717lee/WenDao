@@ -47,6 +47,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 MAX_UPLOAD_FILE_SIZE = 5 * 1024 * 1024
+READER_SEGMENT_WINDOW_DEFAULT = 6
+READER_SEGMENT_WINDOW_MAX = 24
 
 
 def _extract_user_id(user: Any) -> str | None:
@@ -100,6 +102,122 @@ def _normalize_document_payload(row: dict[str, Any]) -> dict[str, Any]:
         elif value is None:
             row[key] = []
     return row
+
+
+def _normalize_document_segments(segments: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for index, segment in enumerate(segments or []):
+        if not isinstance(segment, dict):
+            continue
+        normalized.append(
+            {
+                "index": int(segment.get("index", index)),
+                "title": str(segment.get("title") or f"第{index + 1}节"),
+                "text": str(segment.get("text") or ""),
+                "excerpt": str(segment.get("excerpt") or ""),
+                "summary": str(segment.get("summary") or ""),
+                "char_count": int(segment.get("char_count") or segment.get("charCount") or 0),
+                "line_count": int(segment.get("line_count") or segment.get("lineCount") or 0),
+            }
+        )
+    return normalized
+
+
+def _serialize_reader_segment(segment: dict[str, Any], include_text: bool) -> dict[str, Any]:
+    return {
+        "index": int(segment.get("index", 0)),
+        "title": str(segment.get("title") or ""),
+        "text": str(segment.get("text") or "") if include_text else "",
+        "excerpt": str(segment.get("excerpt") or ""),
+        "summary": str(segment.get("summary") or ""),
+        "char_count": int(segment.get("char_count") or 0),
+        "line_count": int(segment.get("line_count") or 0),
+    }
+
+
+def _build_reader_content_state(offset: int, limit: int, returned: int, total_segments: int) -> dict[str, int | bool | None]:
+    loaded_segment_count = min(total_segments, max(0, offset) + max(0, returned))
+    next_offset = loaded_segment_count if loaded_segment_count < total_segments else None
+    return {
+        "offset": max(0, offset),
+        "limit": max(1, min(limit, READER_SEGMENT_WINDOW_MAX)),
+        "returned": max(0, returned),
+        "loaded_segment_count": loaded_segment_count,
+        "total_segments": max(0, total_segments),
+        "next_offset": next_offset,
+        "has_more": next_offset is not None,
+    }
+
+
+def _build_reader_window_texts(
+    segments: list[dict[str, Any]],
+    translation_cache: list[dict[str, Any]] | None,
+) -> tuple[str, str, str]:
+    punctuated_text = "\n\n".join(str(segment.get("text") or "").strip() for segment in segments if str(segment.get("text") or "").strip()).strip()
+    original_text = build_original_text(punctuated_text) if punctuated_text else ""
+    translated_text = build_translated_text(segments, translation_cache)
+    return original_text, punctuated_text, translated_text
+
+
+def _build_reader_document_payload(
+    document: dict[str, Any],
+    *,
+    offset: int = 0,
+    limit: int = READER_SEGMENT_WINDOW_DEFAULT,
+) -> dict[str, Any]:
+    normalized = _normalize_document_payload(dict(document))
+    segments = _normalize_document_segments(normalized.get("segments"))
+    safe_limit = max(1, min(limit, READER_SEGMENT_WINDOW_MAX))
+    safe_offset = max(0, offset)
+
+    if normalized.get("source_type") != "corpus" or not segments:
+        total_segments = len(segments)
+        normalized["reader_content"] = _build_reader_content_state(0, safe_limit, total_segments, total_segments)
+        return normalized
+
+    visible_segments = segments[safe_offset:safe_offset + safe_limit]
+    content_state = _build_reader_content_state(safe_offset, safe_limit, len(visible_segments), len(segments))
+    loaded_indexes = {int(segment["index"]) for segment in visible_segments}
+    reader_segments = [
+        _serialize_reader_segment(segment, int(segment["index"]) in loaded_indexes)
+        for segment in segments
+    ]
+    original_text, punctuated_text, translated_text = _build_reader_window_texts(
+        visible_segments,
+        normalized.get("translation_cache"),
+    )
+
+    normalized["segments"] = reader_segments
+    normalized["original_text"] = original_text
+    normalized["punctuated_text"] = punctuated_text
+    normalized["translated_text"] = translated_text
+    normalized["reader_content"] = content_state
+    return normalized
+
+
+def _build_reader_segment_window_payload(
+    document: dict[str, Any],
+    *,
+    offset: int,
+    limit: int,
+) -> dict[str, Any]:
+    normalized = _normalize_document_payload(dict(document))
+    segments = _normalize_document_segments(normalized.get("segments"))
+    safe_limit = max(1, min(limit, READER_SEGMENT_WINDOW_MAX))
+    safe_offset = max(0, offset)
+    visible_segments = segments[safe_offset:safe_offset + safe_limit]
+    original_text, punctuated_text, translated_text = _build_reader_window_texts(
+        visible_segments,
+        normalized.get("translation_cache"),
+    )
+
+    return {
+        "segments": [_serialize_reader_segment(segment, include_text=True) for segment in visible_segments],
+        "original_text": original_text,
+        "punctuated_text": punctuated_text,
+        "translated_text": translated_text,
+        "reader_content": _build_reader_content_state(safe_offset, safe_limit, len(visible_segments), len(segments)),
+    }
 
 
 def _has_document_body(row: dict[str, Any] | None) -> bool:
@@ -1299,8 +1417,31 @@ async def generate_translation_cache(request: Request, document_id: str, body: T
 
 @router.get("/{document_id}")
 async def get_document(document_id: str, _user: dict = Depends(require_auth)):
-    """Return one document with full text content for reader/book shelf navigation."""
+    """Return the canonical full document payload for non-reader views and compatibility paths."""
     return _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
+
+
+@router.get("/{document_id}/reader")
+async def get_reader_document(
+    document_id: str,
+    segment_limit: int = Query(READER_SEGMENT_WINDOW_DEFAULT, ge=1, le=READER_SEGMENT_WINDOW_MAX),
+    _user: dict = Depends(require_auth),
+):
+    """Return a reader-first payload with metadata plus the first segment window."""
+    document = _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
+    return _build_reader_document_payload(document, limit=segment_limit)
+
+
+@router.get("/{document_id}/reader/segments")
+async def get_reader_document_segments(
+    document_id: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(READER_SEGMENT_WINDOW_DEFAULT, ge=1, le=READER_SEGMENT_WINDOW_MAX),
+    _user: dict = Depends(require_auth),
+):
+    """Return the next reader segment window so the client can lazy-load long corpus texts."""
+    document = _ensure_document_access(await _get_document(document_id), _extract_user_id(_user))
+    return _build_reader_segment_window_payload(document, offset=offset, limit=limit)
 
 
 @router.get("/{document_id}/note")
