@@ -66,6 +66,8 @@ export function ThreeColumnReader() {
   const {
     currentDocument,
     updateDocument,
+    comparisonDocuments,
+    toggleComparisonDocument,
     consumePendingAnchorText,
     consumePendingResumeParagraph,
     consumePendingReaderPanel,
@@ -189,6 +191,10 @@ export function ThreeColumnReader() {
   const loadedParagraphCount = useMemo(
     () => countLoadedReaderParagraphs(currentDocument?.segments),
     [currentDocument?.segments],
+  );
+  const isCurrentDocumentCompared = useMemo(
+    () => Boolean(currentDocument && comparisonDocuments.some((item) => item.id === currentDocument.id)),
+    [comparisonDocuments, currentDocument],
   );
   const totalParagraphEstimate = useMemo(() => {
     const segmentParagraphs = countTotalReaderParagraphs(currentDocument?.segments);
@@ -563,6 +569,27 @@ export function ThreeColumnReader() {
     }
   };
 
+  const handleToggleCompare = () => {
+    if (!currentDocument) return;
+    if (isCurrentDocumentCompared) {
+      const existing = comparisonDocuments.find((item) => item.id === currentDocument.id);
+      if (existing) {
+        toggleComparisonDocument(existing);
+        setReaderNotice({ tone: 'success', message: '这篇已从对照阅读中移出。' });
+      }
+      return;
+    }
+    toggleComparisonDocument(currentDocument);
+    setReaderNotice({
+      tone: 'success',
+      message: comparisonDocuments.length >= 1 ? '这篇已加入对照，可以直接进入对照阅读。' : '这篇已加入对照，再选一篇就能并排阅读。',
+    });
+  };
+
+  const handleOpenCompare = () => {
+    setAppTab('compare');
+  };
+
   const clearSentenceSelection = () => {
     setSelectedSentence(null);
     setSelectedChapterTitle(null);
@@ -716,7 +743,16 @@ export function ThreeColumnReader() {
         >
           {label}
         </h3>
-        <div className="space-y-2 leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
+        <div
+          className="space-y-2 whitespace-pre-wrap"
+          style={{
+            color: 'var(--gf-text)',
+            fontFamily: '"Source Han Serif SC", "Noto Serif SC", "Songti SC", STSong, SimSun, serif',
+            fontSize: '1rem',
+            lineHeight: 1.95,
+            letterSpacing: '0.01em',
+          }}
+        >
           {content}
         </div>
       </div>
@@ -794,6 +830,25 @@ export function ThreeColumnReader() {
           <BookPlus className="mr-1 inline h-3.5 w-3.5" />
           {favoriteSaving ? '正在收藏...' : '收藏这篇'}
         </button>
+        <button
+          onClick={handleToggleCompare}
+          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          style={{
+            backgroundColor: isCurrentDocumentCompared ? 'rgba(201,160,99,0.15)' : 'rgba(26,30,35,0.06)',
+            color: isCurrentDocumentCompared ? 'var(--gf-gold)' : 'rgba(26,30,35,0.66)',
+          }}
+        >
+          {isCurrentDocumentCompared ? '已在对照中' : '加入对照'}
+        </button>
+        {comparisonDocuments.length > 0 && (
+          <button
+            onClick={handleOpenCompare}
+            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
+          >
+            去对照阅读
+          </button>
+        )}
         {!isMobile && (
           <button
             onClick={() => setSyncScrollEnabled((previous) => !previous)}

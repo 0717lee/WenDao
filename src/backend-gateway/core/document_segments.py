@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 from collections import OrderedDict
+from functools import lru_cache
 from typing import Any
 
 try:
@@ -12,8 +13,29 @@ try:
 except ImportError:  # pragma: no cover - optional at runtime
     jieba_analyse = None  # type: ignore[assignment]
 
+try:
+    from opencc import OpenCC
+except ImportError:  # pragma: no cover - optional at runtime
+    OpenCC = None  # type: ignore[assignment]
+
 
 PUNCTUATION_PATTERN = re.compile(r"[，。！？：；、“”‘’「」『』（）()《》〈〉【】〔〕—…·,.!?;:\"'\\-]")
+
+
+@lru_cache(maxsize=1)
+def get_display_converter():
+    return OpenCC("t2s") if OpenCC else None
+
+
+def normalize_display_text(text: str | None) -> str:
+    payload = str(text or "")
+    converter = get_display_converter()
+    if not payload or not converter:
+        return payload
+    try:
+        return converter.convert(payload)
+    except Exception:
+        return payload
 
 
 def build_original_text(punctuated_text: str) -> str:

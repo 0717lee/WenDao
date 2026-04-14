@@ -33,4 +33,18 @@ describe('readerSentences performance helpers', () => {
     expect(range.end).toBeGreaterThan(0)
     expect(range.end).toBeLessThan(blocks.length)
   })
+
+  it('derives corpus original paragraphs from punctuated text to keep script and line breaks aligned', () => {
+    const paragraphs = buildReaderParagraphs({
+      id: 'doc-corpus',
+      title: '论语',
+      sourceType: 'corpus',
+      originalText: '學而時習之\n舊底稿',
+      punctuatedText: '学而时习之。\n人不知而不愠。',
+      translatedText: '',
+    })
+
+    expect(paragraphs[0].original).toBe('学而时习之')
+    expect(paragraphs[1].original).toBe('人不知而不愠')
+  })
 })

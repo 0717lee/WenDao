@@ -342,7 +342,8 @@ export default function BookshelfPanel({
   }, [history])
 
   const primaryContinueItem = continueReadingItems[0] ?? null
-  const secondaryContinueItems = primaryContinueItem ? continueReadingItems.slice(1) : continueReadingItems
+  const recentHistoryItems = continueReadingItems
+  const shouldShowRecentHistory = recentHistoryItems.length > 1
 
   const recommendedStart = useMemo(() => {
     return pickFeaturedCorpusDocuments(corpusDocuments, selectedCorpusCategory, 4)[0] ?? null
@@ -660,8 +661,8 @@ export default function BookshelfPanel({
           )}
         </section>
 
-        <section className={`grid items-stretch gap-5 ${secondaryContinueItems.length > 0 ? 'xl:grid-cols-[0.82fr_1.18fr]' : ''}`}>
-          {secondaryContinueItems.length > 0 && (
+        <section className={`grid items-stretch gap-5 ${shouldShowRecentHistory ? 'xl:grid-cols-[0.82fr_1.18fr]' : ''}`}>
+          {shouldShowRecentHistory && (
             <div
               ref={continueReadingRef}
               className="h-full rounded-[28px] p-5"
@@ -679,7 +680,7 @@ export default function BookshelfPanel({
               </div>
 
               <div className="space-y-3">
-                {secondaryContinueItems.map((item) => (
+                {recentHistoryItems.map((item) => (
                   <button
                     key={item.document_id ?? item.id}
                     onClick={() => onOpenDocument(item.document_id ?? item.id, { resumeParagraph: item.current_paragraph ?? null })}

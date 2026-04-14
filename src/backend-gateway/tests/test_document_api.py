@@ -441,6 +441,40 @@ class TestStudyCards:
         assert len(result["quiz"]) >= 1
         assert result["cards"][0]["front"]
 
+    @pytest.mark.asyncio
+    async def test_study_cards_skip_heading_noise_and_sample_across_document(self):
+        from routers.document import get_study_cards
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={
+            "id": "doc-2",
+            "punctuated_text": "\n".join([
+                "1.1 子曰：",
+                "《诗》云：如切如磋，如琢如磨。",
+                "贫而无谄，富而无骄。",
+                "未若贫而乐道，富而好礼者也。",
+                "人不知而不愠，不亦君子乎。",
+                "君子周而不比，小人比而不周。",
+                "学而不思则罔，思而不学则殆。",
+                "知之者不如好之者，好之者不如乐之者。",
+            ]),
+            "translated_text": "\n".join([
+                "要像打磨玉石一样反复琢磨学问。",
+                "贫穷时不谄媚，富有时不骄纵。",
+                "更好的是安贫乐道、富而好礼。",
+                "别人不了解你也不怨恨，这才像君子。",
+                "君子讲原则，不拉帮结派。",
+                "只学不想会迷茫，只想不学会危险。",
+                "知道不如喜欢，喜欢不如真正乐在其中。",
+            ]),
+            "source_type": "corpus",
+        })):
+            result = await get_study_cards("doc-2", {"sub": "user-1"})
+
+        assert len(result["cards"]) == 5
+        assert all(not card["front"].startswith("1.1") for card in result["cards"])
+        assert any("君子周而不比" in card["front"] for card in result["cards"])
+        assert any("安贫乐道" in card["back"] or "君子讲原则" in card["back"] for card in result["cards"])
+
 
 class TestStudyProgress:
     """Study progress endpoints."""

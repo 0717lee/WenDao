@@ -8,6 +8,7 @@ import asyncio
 import base64
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -27,6 +28,7 @@ from core.document_segments import (
     build_translated_text,
     get_translation_progress,
     merge_translation_cache,
+    normalize_display_text,
     pick_translation_segments,
 )
 from core.kanripo_catalog import load_kanripo_catalog
@@ -101,6 +103,33 @@ def _normalize_document_payload(row: dict[str, Any]) -> dict[str, Any]:
                 row[key] = []
         elif value is None:
             row[key] = []
+    if row.get("source_type") == "corpus":
+        for key in ("title", "author", "dynasty", "category", "source_name", "guide_summary", "reading_tip", "featured_excerpt", "original_text", "punctuated_text", "translated_text"):
+            if key in row:
+                row[key] = normalize_display_text(row.get(key))
+        row["chapter_titles"] = [normalize_display_text(item) for item in row.get("chapter_titles", [])]
+        row["recommended_chapters"] = [normalize_display_text(item) for item in row.get("recommended_chapters", [])]
+        row["segment_guides"] = [
+            {
+                **item,
+                "title": normalize_display_text(item.get("title")),
+                "excerpt": normalize_display_text(item.get("excerpt")),
+                "summary": normalize_display_text(item.get("summary")),
+            }
+            for item in row.get("segment_guides", [])
+            if isinstance(item, dict)
+        ]
+        row["segments"] = [
+            {
+                **item,
+                "title": normalize_display_text(item.get("title")),
+                "text": normalize_display_text(item.get("text")),
+                "excerpt": normalize_display_text(item.get("excerpt")),
+                "summary": normalize_display_text(item.get("summary")),
+            }
+            for item in row.get("segments", [])
+            if isinstance(item, dict)
+        ]
     return row
 
 
@@ -362,11 +391,86 @@ class SentenceExplainRequest(BaseModel):
     chapter_title: str = Field(default="", max_length=120)
 
 
+LEARNING_SENTENCE_SPLIT_RE = re.compile(r"[^。！？；!?;]+[。！？；!?;]?")
+LEARNING_SENTENCE_PREFIX_RE = re.compile(r"^(?:[A-Za-z]+)?\d+(?:\.\d+)*\s*")
+LEARNING_SENTENCE_NOISE_RE = re.compile(r"^[\[\]【】「」『』〔〕（）()<>《》〈〉]+|[\[\]【】「」『』〔〕（）()<>《》〈〉]+$")
+LEARNING_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _clean_learning_sentence(text: str) -> str:
+    cleaned = text.replace("\u3000", " ").replace("\t", " ").replace("\r", " ").strip()
+    cleaned = LEARNING_SENTENCE_PREFIX_RE.sub("", cleaned)
+    cleaned = LEARNING_SENTENCE_NOISE_RE.sub("", cleaned).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
+
+
+def _is_learning_sentence_candidate(text: str) -> bool:
+    cjk_chars = LEARNING_CJK_RE.findall(text)
+    if len(cjk_chars) < 6:
+        return False
+    stripped = text.strip("：:，,；;。！？!?、 ")
+    if len(stripped) < 6:
+        return False
+    if stripped.endswith(("篇", "卷", "章", "第一", "第二", "第三")) and len(stripped) <= 12:
+        return False
+    return True
+
+
+def _dedupe_preserving_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        deduped.append(item)
+    return deduped
+
+
+def _extract_learning_sentences(text: str) -> list[str]:
+    candidates: list[str] = []
+    for line in text.replace("\r", "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = LEARNING_SENTENCE_SPLIT_RE.findall(line) or [line]
+        for part in parts:
+            cleaned = _clean_learning_sentence(part)
+            if _is_learning_sentence_candidate(cleaned):
+                candidates.append(cleaned)
+    return _dedupe_preserving_order(candidates)
+
+
+def _pick_learning_indices(total: int, limit: int) -> list[int]:
+    if total <= 0 or limit <= 0:
+        return []
+    if total <= limit:
+        return list(range(total))
+    if limit == 1:
+        return [0]
+    step = (total - 1) / (limit - 1)
+    picks = [round(index * step) for index in range(limit)]
+    return sorted(set(min(total - 1, max(0, item)) for item in picks))
+
+
 def _split_learning_sentences(text: str) -> list[str]:
-    chunks = [segment.strip() for segment in text.replace("\r", "").splitlines() if segment.strip()]
-    if not chunks:
-        chunks = [segment.strip() for segment in text.replace("。", "。\n").splitlines() if segment.strip()]
-    return chunks[:6]
+    candidates = _extract_learning_sentences(text)
+    return [candidates[index] for index in _pick_learning_indices(len(candidates), 5)]
+
+
+def _pick_translation_answer(
+    selected_index: int,
+    total_source: int,
+    translated_sentences: list[str],
+) -> str:
+    if not translated_sentences:
+        return "先试着用自己的话解释这一句，再结合逐句讲解核对。"
+    if total_source <= 1 or len(translated_sentences) == 1:
+        return translated_sentences[0]
+    ratio = selected_index / max(total_source - 1, 1)
+    mapped_index = round(ratio * (len(translated_sentences) - 1))
+    return translated_sentences[min(len(translated_sentences) - 1, max(0, mapped_index))]
 
 
 def _make_image_data_url(content_type: str, image_bytes: bytes) -> str:
@@ -1467,14 +1571,16 @@ async def get_study_cards(document_id: str, _user: dict = Depends(require_auth))
     translated_text = document.get("translated_text") or ""
     cards = []
 
-    sentences = _split_learning_sentences(base_text)
-    translated_chunks = _split_learning_sentences(translated_text)
+    sentences = _extract_learning_sentences(base_text)
+    translated_chunks = _extract_learning_sentences(translated_text)
+    selected_indices = _pick_learning_indices(len(sentences), 5)
 
-    for index, sentence in enumerate(sentences[:5]):
+    for order, sentence_index in enumerate(selected_indices):
+        sentence = sentences[sentence_index]
         cards.append({
-            "id": f"card-{index + 1}",
+            "id": f"card-{order + 1}",
             "front": sentence,
-            "back": translated_chunks[index] if index < len(translated_chunks) else "请结合上下文尝试用白话复述这句话。",
+            "back": _pick_translation_answer(sentence_index, len(sentences), translated_chunks),
             "hint": "先尝试自己解释，再翻看背面答案。",
         })
 

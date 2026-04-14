@@ -201,6 +201,60 @@ describe('ThreeColumnReader', () => {
     expect(screen.getByRole('button', { name: '同步滚动：开' })).toBeInTheDocument()
   })
 
+  it('lets people add the current document to comparison from the reader page', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-compare-entry',
+      title: 'compare entry',
+      originalText: '原文内容',
+      punctuatedText: '原文内容。',
+      translatedText: '',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    fireEvent.click(screen.getByRole('button', { name: '加入对照' }))
+
+    expect(useDocumentStore.getState().comparisonDocuments.map((item) => item.id)).toContain('doc-compare-entry')
+    expect(screen.getByText('这篇已加入对照，再选一篇就能并排阅读。')).toBeInTheDocument()
+  })
+
+  it('opens compare view from the reader page when comparison content exists', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1024,
+    })
+
+    useDocumentStore.getState().setDocument({
+      id: 'doc-compare-open',
+      title: 'compare open',
+      originalText: '当前文档原文',
+      punctuatedText: '当前文档原文。',
+      translatedText: '',
+    })
+    useDocumentStore.getState().toggleComparisonDocument({
+      id: 'other-doc',
+      title: 'other',
+      originalText: '另一篇',
+      punctuatedText: '另一篇。',
+      translatedText: '',
+    })
+
+    const { ThreeColumnReader } = await import('../components/ThreeColumnReader')
+    render(<ThreeColumnReader />)
+
+    fireEvent.click(screen.getByRole('button', { name: '去对照阅读' }))
+
+    expect(mockGraphStoreState.setActiveTab).toHaveBeenCalledWith('compare')
+  })
+
   it('returns to reader hub when opened from the reader tab', async () => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,

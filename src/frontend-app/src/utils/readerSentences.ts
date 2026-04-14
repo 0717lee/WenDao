@@ -123,11 +123,13 @@ export function buildReaderParagraphs(document: Document): ReaderParagraph[] {
   const punctuatedParagraphs = splitParagraphs(document.punctuatedText || document.originalText)
   const originalParagraphs = splitParagraphs(document.originalText)
   const translatedParagraphs = splitParagraphs(document.translatedText)
+  const usePunctuatedAsSource = document.sourceType === 'corpus'
 
   return punctuatedParagraphs.map((punctuatedParagraph, paragraphIndex) => {
     const originalParagraph =
-      originalParagraphs[paragraphIndex] ??
-      stripReaderPunctuation(punctuatedParagraph)
+      usePunctuatedAsSource
+        ? stripReaderPunctuation(punctuatedParagraph)
+        : (originalParagraphs[paragraphIndex] ?? stripReaderPunctuation(punctuatedParagraph))
     const translatedParagraph = translatedParagraphs[paragraphIndex] ?? ''
 
     return {

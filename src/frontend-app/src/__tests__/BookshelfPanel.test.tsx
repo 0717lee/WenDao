@@ -98,6 +98,36 @@ describe('BookshelfPanel', () => {
     expect(props.onOpenCompare).toHaveBeenCalled()
   })
 
+  it('keeps the most recent history item visible inside 最近读过 when there are multiple records', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+      }
+
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            { id: 'history-doc-1', title: '《世说新语》', current_paragraph: 8, total_paragraphs: 20, last_read_at: '2026-04-14T00:00:00Z' },
+            { id: 'history-doc-2', title: '《神仙传》', current_paragraph: 3, total_paragraphs: 11, last_read_at: '2026-04-12T00:00:00Z' },
+          ],
+        })
+      }
+
+      if (url.includes('/api/v1/documents/catalog?')) {
+        return Promise.resolve({ ok: true, json: async () => ({ entries: [], total: 0 }) })
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+
+    expect(await screen.findByText('《世说新语》')).toBeInTheDocument()
+    expect(screen.getByText('最近读过')).toBeInTheDocument()
+    expect(screen.getByText('《神仙传》')).toBeInTheDocument()
+  })
+
   it('keeps featured picks diverse for 全部 and narrows after selecting a category', async () => {
     ;(global.fetch as any).mockImplementation((url: string) => {
       if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
