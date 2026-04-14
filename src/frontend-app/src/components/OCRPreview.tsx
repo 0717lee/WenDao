@@ -104,7 +104,7 @@ export function OCRPreview() {
           </div>
           <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>先看一眼识别结果，再继续处理</h2>
           <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-            如果识别得不太对，可以先直接改。确认后再继续整理，系统会补标点并生成白话。
+            如果识别得不太对，可以先直接改。确认后再继续整理，系统会补标点并整理成可继续阅读的文本。
           </p>
         </div>
 

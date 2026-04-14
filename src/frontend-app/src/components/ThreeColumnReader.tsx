@@ -76,7 +76,7 @@ export function ThreeColumnReader() {
   const readerReturnTab = useGraphStore((state) => state.readerReturnTab);
   const setAppTab = useGraphStore((state) => state.setActiveTab);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activeReaderTab, setActiveReaderTab] = useState<'original' | 'punctuated' | 'translated'>('original');
+  const [activeReaderTab, setActiveReaderTab] = useState<'original' | 'punctuated'>('original');
   const [sidePanel, setSidePanel] = useState<'notes' | 'study' | 'explain' | null>(null);
   const [selectedSentence, setSelectedSentence] = useState<ReaderSentence | null>(null);
   const [selectedChapterTitle, setSelectedChapterTitle] = useState<string | null>(null);
@@ -96,7 +96,6 @@ export function ThreeColumnReader() {
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const resumeOriginalParagraphRef = useRef<HTMLDivElement | null>(null);
   const resumePunctuatedParagraphRef = useRef<HTMLDivElement | null>(null);
-  const resumeTranslatedParagraphRef = useRef<HTMLParagraphElement | null>(null);
   const hasMountedProgressRef = useRef<string | null>(null);
   const segmentLoadingRef = useRef(false);
   const syncLockRef = useRef<ReaderColumn | null>(null);
@@ -179,13 +178,11 @@ export function ThreeColumnReader() {
     currentDocument?.id,
     currentDocument?.originalText,
     currentDocument?.punctuatedText,
-    currentDocument?.translatedText,
   ]);
 
   const readerBlocks = useMemo(() => buildReaderBlocks(readerParagraphs), [readerParagraphs]);
   const originalMetrics = useMemo(() => buildReaderVirtualMetrics(readerBlocks, 'original'), [readerBlocks]);
   const punctuatedMetrics = useMemo(() => buildReaderVirtualMetrics(readerBlocks, 'punctuated'), [readerBlocks]);
-  const translatedMetrics = useMemo(() => buildReaderVirtualMetrics(readerBlocks, 'translated'), [readerBlocks]);
   const [desktopRanges, setDesktopRanges] = useState<ReaderRangeMap>(createRangeMap(EMPTY_RANGE));
   const [mobileRanges, setMobileRanges] = useState<ReaderRangeMap>(createRangeMap(EMPTY_RANGE));
   const loadedParagraphCount = useMemo(
@@ -211,9 +208,7 @@ export function ThreeColumnReader() {
   const getMetricsForColumn = (column: ReaderColumn) => (
     column === 'original'
       ? originalMetrics
-      : column === 'punctuated'
-        ? punctuatedMetrics
-        : translatedMetrics
+      : punctuatedMetrics
   );
 
   const getEndOffset = (column: ReaderColumn, end: number) => {
@@ -386,7 +381,6 @@ export function ThreeColumnReader() {
     const targets = [
       resumeOriginalParagraphRef.current,
       resumePunctuatedParagraphRef.current,
-      resumeTranslatedParagraphRef.current,
     ].filter(Boolean);
     if (targets.length === 0) return;
     targets.forEach((target) => target?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
@@ -422,14 +416,6 @@ export function ThreeColumnReader() {
 
   useEffect(() => {
     if (!currentDocument) return
-    const hasFullTranslation = Boolean(currentDocument.translatedText?.trim())
-    if (!hasFullTranslation && activeReaderTab === 'translated') {
-      setActiveReaderTab('punctuated')
-    }
-  }, [activeReaderTab, currentDocument])
-
-  useEffect(() => {
-    if (!currentDocument) return
     const isSampleDocument = (currentDocument as any).sourceType === 'sample'
     if (isSampleDocument) return
     if (hasMountedProgressRef.current === currentDocument.id) return
@@ -462,7 +448,6 @@ export function ThreeColumnReader() {
 
   const totalParagraphs = Math.max(1, totalParagraphEstimate);
   const selectedSentenceText = selectedSentence?.punctuated || selectedSentence?.original || '';
-  const hasFullTranslation = Boolean(currentDocument.translatedText?.trim());
 
   const persistProgress = (
     currentParagraph: number,
@@ -696,44 +681,6 @@ export function ThreeColumnReader() {
     )
   };
 
-  const renderTranslatedParagraphs = (range: RenderRange) => {
-    const topSpacerHeight = range.start < readerBlocks.length ? translatedMetrics.offsets[range.start] ?? 0 : 0;
-    const bottomSpacerHeight = Math.max(0, translatedMetrics.totalHeight - getEndOffset('translated', range.end));
-    return (
-      <>
-        {topSpacerHeight > 0 && <div aria-hidden style={{ height: topSpacerHeight }} />}
-        {readerBlocks.slice(range.start, range.end).map((block) => {
-          const translatedBlock = block.translated;
-          const isActiveParagraph =
-            selectedSentence != null &&
-            selectedSentence.paragraphIndex >= block.startParagraphIndex &&
-            selectedSentence.paragraphIndex <= block.endParagraphIndex;
-          if (!translatedBlock) return null;
-          return (
-            <p
-              key={`translated-${block.id}`}
-              ref={
-                Math.max((resumeParagraph ?? 1) - 1, 0) >= block.startParagraphIndex &&
-                Math.max((resumeParagraph ?? 1) - 1, 0) <= block.endParagraphIndex
-                  ? resumeTranslatedParagraphRef
-                  : undefined
-              }
-              className="rounded-lg px-2 py-1"
-              style={{
-                backgroundColor: isActiveParagraph ? 'rgba(140,26,17,0.08)' : 'transparent',
-                contentVisibility: 'auto',
-                containIntrinsicSize: '320px',
-              }}
-            >
-              {translatedBlock}
-            </p>
-          );
-        })}
-        {bottomSpacerHeight > 0 && <div aria-hidden style={{ height: bottomSpacerHeight }} />}
-      </>
-    );
-  };
-
   const renderColumn = (label: string, content: ReactNode) => {
     return (
       <div className="space-y-2 relative z-10">
@@ -944,7 +891,6 @@ export function ThreeColumnReader() {
           {[
             { key: 'original' as const, label: '原文' },
             { key: 'punctuated' as const, label: '标点文' },
-            ...(hasFullTranslation ? [{ key: 'translated' as const, label: '白话解读' }] : []),
           ].map(tab => (
             <button
               key={tab.key}
@@ -974,7 +920,6 @@ export function ThreeColumnReader() {
           <div className="mb-4">{renderReaderGuideCard()}</div>
           {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original', mobileRanges.original))}
           {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated', mobileRanges.punctuated) : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>)}
-          {hasFullTranslation && activeReaderTab === 'translated' && renderColumn('白话解读', renderTranslatedParagraphs(mobileRanges.translated))}
         </div>
 
         {sidePanel === 'notes' && (
@@ -1053,8 +998,8 @@ export function ThreeColumnReader() {
         transition={{ type: "spring", bounce: 0.15, duration: 0.6 }}
         className={`grid min-h-0 flex-1 gap-4 p-4 ${
           sidePanel
-            ? (hasFullTranslation ? 'grid-cols-[1fr_1fr_1fr_320px]' : 'grid-cols-[1fr_1fr_320px]')
-            : (hasFullTranslation ? 'grid-cols-3' : 'grid-cols-2')
+            ? 'grid-cols-[1fr_1fr_320px]'
+            : 'grid-cols-2'
         }`}
       >
         <motion.div
@@ -1101,25 +1046,6 @@ export function ThreeColumnReader() {
               : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>
           )}
         </motion.div>
-
-        {hasFullTranslation && (
-          <motion.div
-            layout
-            variants={columnItemVariants}
-            className="reader-paper-panel relative h-full min-h-0 overflow-y-auto overflow-x-hidden rounded-[20px] p-5 glass-card"
-            onScroll={(e) => {
-              const target = e.currentTarget;
-              scheduleRangeUpdate('desktop', 'translated', target.scrollTop, target.clientHeight);
-              maybeLoadMoreReaderContent(target.scrollTop, target.clientHeight, target.scrollHeight);
-            }}
-            data-testid="reader-column-translated"
-          >
-            {renderColumn(
-              '白话解读',
-              renderTranslatedParagraphs(desktopRanges.translated)
-            )}
-          </motion.div>
-        )}
 
         <AnimatePresence mode="wait">
           {sidePanel && (

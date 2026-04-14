@@ -1,16 +1,14 @@
 import { useDocumentStore } from '../store/useDocumentStore'
 import { useGraphStore } from '../store/useGraphStore'
 
-const COLUMN_LABELS: Array<keyof Pick<NonNullable<ReturnType<typeof useDocumentStore.getState>['comparisonDocuments'][number]>, 'originalText' | 'punctuatedText' | 'translatedText'>> = [
+const COLUMN_LABELS: Array<keyof Pick<NonNullable<ReturnType<typeof useDocumentStore.getState>['comparisonDocuments'][number]>, 'originalText' | 'punctuatedText'>> = [
   'originalText',
   'punctuatedText',
-  'translatedText',
 ]
 
 const COLUMN_TITLES: Record<string, string> = {
   originalText: '原文',
   punctuatedText: '标点文',
-  translatedText: '白话',
 }
 
 export default function ComparePanel() {
@@ -61,7 +59,7 @@ export default function ComparePanel() {
               对照阅读
             </h2>
             <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              适合把 1–2 篇文章放在一起，直接比较原文、标点和白话。
+              适合把 1–2 篇文章放在一起，直接比较原文和标点文。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -107,7 +105,7 @@ export default function ComparePanel() {
                 </button>
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className={`grid gap-3 ${doc.punctuatedText ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                 {COLUMN_LABELS.map((field) => (
                   <div
                     key={`${doc.id}-${field}`}

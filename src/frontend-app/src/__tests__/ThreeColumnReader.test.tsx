@@ -67,12 +67,11 @@ describe('ThreeColumnReader', () => {
     // Text is split into individual characters, so check for presence in DOM
     expect(container.textContent).toContain('original text here')
     expect(container.textContent).toContain('punctuated text here')
-    expect(container.textContent).toContain('translated text here')
 
     // Verify three-column layout exists
     expect(screen.getByText('原文')).toBeTruthy()
     expect(screen.getByText('标点文')).toBeTruthy()
-    expect(screen.getByText('白话解读')).toBeTruthy()
+    expect(screen.queryByText('白话解读')).toBeNull()
     expect(screen.getAllByText('返回').length).toBeGreaterThan(0)
   })
 
@@ -104,7 +103,7 @@ describe('ThreeColumnReader', () => {
     const tabTexts = tabButtons.map(b => b.textContent)
     expect(tabTexts).toContain('原文')
     expect(tabTexts).toContain('标点文')
-    expect(tabTexts).toContain('白话解读')
+    expect(tabTexts).not.toContain('白话解读')
   })
 
   it('renders empty container when document has empty text fields', async () => {
@@ -157,7 +156,7 @@ describe('ThreeColumnReader', () => {
     expect(container.textContent).toContain('punctuated tab content')
   })
 
-  it('hides the translation column when there is no full translated text', async () => {
+  it('does not render a translation column even if translated text is present', async () => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
       configurable: true,
@@ -169,7 +168,7 @@ describe('ThreeColumnReader', () => {
       title: 'no translation',
       originalText: '原文内容',
       punctuatedText: '原文内容。',
-      translatedText: '',
+      translatedText: '这里有翻译内容',
     })
 
     const { ThreeColumnReader } = await import('../components/ThreeColumnReader')

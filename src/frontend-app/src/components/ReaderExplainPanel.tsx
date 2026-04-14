@@ -27,7 +27,7 @@ interface ReaderExplainPanelProps {
 
 const INITIAL_STEPS: ReasoningStep[] = [
   { step: 'gloss', label: '逐字解析', status: 'pending' },
-  { step: 'translation', label: '白话翻译', status: 'pending' },
+  { step: 'translation', label: '句子解释', status: 'pending' },
   { step: 'reference', label: '出处参考', status: 'pending' },
   { step: 'follow_up', label: '修辞与追问', status: 'pending' },
 ]
@@ -254,7 +254,7 @@ export function ReaderExplainPanel({
       {translation && (
         <div className="mt-4">
           <div className="mb-2 text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
-            白话翻译
+            句子解释
           </div>
           <div className="rounded-xl px-3 py-3 text-sm leading-7" style={{ backgroundColor: 'rgba(255,255,255,0.78)', color: 'rgba(26,30,35,0.62)', border: '1px solid rgba(26,30,35,0.05)' }}>
             {translation}

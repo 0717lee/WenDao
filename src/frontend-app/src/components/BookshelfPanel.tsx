@@ -969,7 +969,7 @@ export default function BookshelfPanel({
                           </div>
                           {renderMetaLine(doc)}
                           <div className="line-clamp-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
-                            {doc.preview || '翻开后可继续对照原文、标点和白话。'}
+                            {doc.preview || '翻开后可继续对照原文和标点文。'}
                           </div>
                           <div className="mt-2 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
                             {progressLabel(doc)}
@@ -1045,7 +1045,7 @@ export default function BookshelfPanel({
               <br />
               2. 想先把图片变成可以直接读的文字。
               <br />
-              3. 后面还想继续补标点、看白话和查词。
+                3. 后面还想继续补标点、查词和做阅读整理。
             </div>
               </div>
             </section>

@@ -17,4 +17,20 @@ describe('ComparePanel', () => {
 
     expect(useGraphStore.getState().activeTab).toBe('reader')
   })
+
+  it('renders only original and punctuated columns for comparison', () => {
+    useDocumentStore.getState().toggleComparisonDocument({
+      id: 'doc-1',
+      title: '《论语》',
+      originalText: '学而时习之',
+      punctuatedText: '学而时习之。',
+      translatedText: '学习后经常复习它。',
+    })
+
+    render(<ComparePanel />)
+
+    expect(screen.getByText('原文')).toBeInTheDocument()
+    expect(screen.getByText('标点文')).toBeInTheDocument()
+    expect(screen.queryByText('白话')).toBeNull()
+  })
 })

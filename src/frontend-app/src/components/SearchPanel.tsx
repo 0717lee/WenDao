@@ -147,8 +147,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
   const jumpToChatExplanation = () => {
     const nextPrompt = query.trim()
-      ? `请用白话解释“${query.trim()}”相关的古籍内容，并说明它为什么重要`
-      : '请用白话解释一段古文，并顺手补充它的背景和关键词';
+      ? `请用最简单的话解释“${query.trim()}”相关的古籍内容，并说明它为什么重要`
+      : '请用最简单的话解释一段古文，并顺手补充它的背景和关键词';
     openQuestionAnswer(nextPrompt);
   };
 
