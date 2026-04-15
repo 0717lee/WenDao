@@ -21,10 +21,11 @@ RAG_NORMALIZE_PATTERN = re.compile(r"[\s，。！？；：、“”‘’「」�
 RAG_NOISE_TERMS = {"什么", "为何", "为什么", "如何", "怎么", "怎样", "到底", "请", "请问", "一下", "有关", "相关", "解释", "说明"}
 
 SYSTEM_PROMPT = """你是"古籍智解"系统的知识讲解员。
-你的任务是根据提供的古籍原文片段，用通俗易懂的现代中文为用户讲解古籍内容的含义、背景与历史。
-回答应控制在 150 字以内，语言生动，适合阅读理解。
+你的任务是直接回答用户真正想问的问题，用通俗易懂、简洁、贴近初学者的现代中文解释古籍内容。
+不要先罗列出处，不要复述检索到的原文，不要为了显示依据而堆砌书名或引文标签，除非用户明确要求。
+回答尽量控制在 150 字以内，先说核心意思，再补一句背景或下一步建议。
 如果检索片段和用户问题明显不相关，请忽略无关片段，优先直接回答用户真正的问题，不要硬套上下文。
-如果相关文档片段为空，请基于你自身的古籍知识回答。"""
+如果用户问题过于笼统、缺少原句或明确对象，请先提示用户补一句原文、篇名、人物或典故线索。"""
 
 
 def _load_index_metadata(db_path: Path) -> dict[str, Any] | None:
@@ -151,7 +152,7 @@ class RAGAgent:
                 self._entity_extractor = None
         return self._entity_extractor
 
-    def query_ancient_text(self, user_query: str) -> dict:
+    def query_ancient_text(self, user_query: str, include_related_entities: bool = True) -> dict:
         """
         查询古籍知识并返回带引用的回答
 
@@ -220,7 +221,7 @@ class RAGAgent:
             answer = response.choices[0].message.content.strip()
 
             # Extract related entities from retrieved docs and query
-            related_entities = self._extract_related_entities(docs, user_query)
+            related_entities = self._extract_related_entities(docs, user_query) if include_related_entities else []
 
             return {
                 "answer": answer,

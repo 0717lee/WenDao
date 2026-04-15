@@ -62,7 +62,7 @@ class TestStreamChatResponse:
 
     @pytest.mark.asyncio
     async def test_reasoning_steps_in_correct_order(self):
-        """Reasoning steps emitted in order: retrieval -> entity_extraction -> knowledge_linking -> generation."""
+        """Reasoning steps emitted in order: retrieval -> generation."""
         mock_rag = MagicMock()
         mock_rag.query_ancient_text.return_value = {
             "answer": "test",
@@ -81,8 +81,6 @@ class TestStreamChatResponse:
 
             assert steps_seen == [
                 "retrieval",
-                "entity_extraction",
-                "knowledge_linking",
                 "generation",
             ]
 
@@ -162,5 +160,5 @@ class TestStreamChatResponse:
                 if event.startswith("event: reasoning"):
                     reasoning_events.append(event)
 
-            # Should still emit reasoning events for the pipeline stages
-            assert len(reasoning_events) >= 4  # at least 4 running events
+            # Should still emit reasoning events for the remaining pipeline stages
+            assert len(reasoning_events) >= 2

@@ -128,7 +128,7 @@ describe('Chat Integration E2E', () => {
         })
     })
 
-    it('测试4: 验证引用来源卡片渲染', async () => {
+    it('测试4: 即使后端返回 citations 事件，也不再展示引用卡片', async () => {
         const mockReader = {
             read: vi.fn()
                 .mockResolvedValueOnce({
@@ -157,8 +157,37 @@ describe('Chat Integration E2E', () => {
         fireEvent.click(screen.getByRole('button', { name: '发送' }))
 
         await waitFor(() => {
-            expect(screen.getByText(/孟子/)).toBeInTheDocument()
+            expect(screen.getByText('回答内容')).toBeInTheDocument()
         }, { timeout: 3000 })
+        expect(screen.queryByText(/梁惠王上/)).toBeNull()
+    })
+
+    it('测试4-1: 对模糊起手式会先追问，不会乱答', async () => {
+        const mockReader = {
+            read: vi.fn()
+                .mockResolvedValueOnce({
+                    done: false,
+                    value: new TextEncoder().encode('data: {"content":"可以。先把你记得的那一句原文直接贴给我。"}\n'),
+                })
+                .mockResolvedValueOnce({
+                    done: false,
+                    value: new TextEncoder().encode('data: [DONE]\n'),
+                })
+                .mockResolvedValueOnce({ done: true }),
+        }
+
+        mockChatFetch(mockReader)
+
+        render(<App />)
+        await openChatTab()
+
+        const input = await screen.findByPlaceholderText(chatPlaceholder)
+        fireEvent.change(input, { target: { value: '我只记得一句古文，请带我从一句话开始' } })
+        fireEvent.click(screen.getByRole('button', { name: '发送' }))
+
+        await waitFor(() => {
+            expect(screen.getByText(/先把你记得的那一句原文直接贴给我/)).toBeInTheDocument()
+        })
     })
 
     it('测试5: 后端不可用时显示在线服务失败提示', async () => {

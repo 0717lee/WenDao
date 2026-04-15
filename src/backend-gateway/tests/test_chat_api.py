@@ -39,9 +39,9 @@ class TestChatRouterFunctions:
         # 验证事件序列
         all_events = "".join(events)
         assert "event: progress" in all_events
-        assert "检索古籍" in all_events
+        assert "理解问题" in all_events
         assert "data:" in all_events
-        assert "event: citations" in all_events
+        assert "event: citations" not in all_events
         assert "event: done" in all_events
 
 
@@ -79,6 +79,20 @@ class TestChatRouterFunctions:
         assert "检索古籍知识库" not in all_events
         assert "event: citations" not in all_events
         assert "event: done" in all_events
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_response_asks_for_quote_when_query_is_too_generic(self):
+        from routers.chat import stream_chat_response, rag_agent
+
+        rag_agent.query_ancient_text = Mock(side_effect=AssertionError("should not call rag for vague guidance"))
+
+        events = []
+        async for event in stream_chat_response("我只记得一句古文，请带我从一句话开始", rag_agent):
+            events.append(event)
+
+        all_events = "".join(events)
+        assert "先把你记得的那一句原文直接贴给我" in all_events
+        assert "理解问题" not in all_events
 
 
 class TestChatRequestValidation:
@@ -142,6 +156,7 @@ class TestAnswerContext:
         payload = _build_answer_context("测试问题", citations=[], related_entities=[])
 
         assert all(action["id"] != "open-primary" for action in payload["suggestedActions"])
+        assert payload["citationCount"] == 0
 
 
 class TestChatRouteErrors:

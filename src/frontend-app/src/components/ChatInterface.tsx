@@ -7,15 +7,12 @@ import { useVoiceRecorder } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
 import { useGraphStore } from '../store/useGraphStore'
-import { useDocumentStore } from '../store/useDocumentStore'
 import type { ReasoningStep } from './ReasoningTimeline'
 
 // Default reasoning steps template
 const INITIAL_REASONING_STEPS: ReasoningStep[] = [
-    { step: 'retrieval', label: '查找相关原文', status: 'pending' },
-    { step: 'entity_extraction', label: '提取关键信息', status: 'pending' },
-    { step: 'knowledge_linking', label: '联系上下文', status: 'pending' },
-    { step: 'generation', label: '生成讲解', status: 'pending' },
+    { step: 'retrieval', label: '理解问题', status: 'pending' },
+    { step: 'generation', label: '生成回答', status: 'pending' },
 ]
 
 const QUICK_CHAT_PROMPTS = [
@@ -30,11 +27,8 @@ export function ChatInterface() {
     const streamBufferRef = useRef('')
     const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const assistantContentRef = useRef('')
-    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageCitations, updateLastMessageAnswerContext, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage } = useStore()
-    const { setDocument, setUploadStatus, setPendingAnchorText } = useDocumentStore()
+    const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageAnswerContext, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage } = useStore()
     const setActiveTab = useGraphStore((state) => state.setActiveTab)
-    const setReaderReturnTab = useGraphStore((state) => state.setReaderReturnTab)
-    const queueSearchQuery = useGraphStore((state) => state.queueSearchQuery)
     const { isRecording, isTranscribing, toggleRecording } = useVoiceRecorder()
 
     useEffect(() => {
@@ -73,75 +67,6 @@ export function ChatInterface() {
             streamFlushTimerRef.current = setTimeout(applyFlush, 40)
         },
         [updateLastMessage]
-    )
-
-    const handleCitationClick = useCallback(
-        async (citation: { title: string; source: string; excerpt?: string }) => {
-            try {
-                const params = new URLSearchParams({
-                    title: citation.title,
-                    source: citation.source,
-                })
-                if (citation.excerpt) params.set('excerpt', citation.excerpt)
-
-                const resolveRes = await fetch(`${API_BASE}/api/v1/documents/resolve-citation?${params.toString()}`, authFetchOptions())
-                const resolveData = resolveRes.ok ? await resolveRes.json() : { match: null }
-
-                if (resolveData.match?.document_id) {
-                    const documentRes = await fetch(`${API_BASE}/api/v1/documents/${resolveData.match.document_id}`, authFetchOptions())
-                    if (documentRes.ok) {
-                        const data = await documentRes.json()
-                        setDocument({
-                            id: data.id,
-                            title: data.title,
-                            author: data.author ?? undefined,
-                            dynasty: data.dynasty ?? undefined,
-                            category: data.category ?? undefined,
-                            sourceName: data.source_name ?? undefined,
-                            sourceUrl: data.source_url ?? undefined,
-                            chapterTitles: data.chapter_titles ?? undefined,
-                            chapterCount: data.chapter_count ?? undefined,
-                            featuredExcerpt: data.featured_excerpt ?? undefined,
-                            difficulty: data.difficulty ?? undefined,
-                            guideSummary: data.guide_summary ?? undefined,
-                            readingTip: data.reading_tip ?? undefined,
-                            recommendedChapters: data.recommended_chapters ?? undefined,
-                            segmentGuides: data.segment_guides ?? undefined,
-                            segments: Array.isArray(data.segments)
-                                ? data.segments.map((segment: any) => ({
-                                      index: segment.index ?? 0,
-                                      title: segment.title ?? '',
-                                      text: segment.text ?? '',
-                                      excerpt: segment.excerpt ?? undefined,
-                                      summary: segment.summary ?? undefined,
-                                      charCount: segment.char_count ?? segment.charCount ?? undefined,
-                                      lineCount: segment.line_count ?? segment.lineCount ?? undefined,
-                                  }))
-                                : undefined,
-                            translationCache: data.translation_cache ?? undefined,
-                            translationStatus: data.translation_status ?? undefined,
-                            originalText: data.original_text,
-                            punctuatedText: data.punctuated_text || '',
-                            translatedText: data.translated_text || '',
-                            confidence: data.ocr_confidence,
-                            imageUrl: data.image_data || undefined,
-                            sourceType: data.source_type || 'user',
-                        })
-                        setUploadStatus(data.punctuated_text ? 'done' : 'idle')
-                        setPendingAnchorText(resolveData.match.anchor_text || citation.excerpt || citation.source)
-                        setReaderReturnTab('chat')
-                        setActiveTab('reader')
-                        return
-                    }
-                }
-            } catch (error) {
-                console.error('Citation resolution failed:', error)
-            }
-
-            queueSearchQuery(`${citation.title} ${citation.source}`)
-            setActiveTab('search')
-        },
-        [queueSearchQuery, setActiveTab, setDocument, setPendingAnchorText, setReaderReturnTab, setUploadStatus]
     )
 
     const handleVoiceToggle = useCallback(() => {
@@ -388,11 +313,6 @@ export function ChatInterface() {
                             setProgress(event.status || event.text || '')
                         } else if (currentEventType === 'answer_context') {
                             updateLastMessageAnswerContext(event)
-                        } else if (currentEventType === 'citations') {
-                            const citationData = Array.isArray(event) ? event : event.citations
-                            if (citationData) {
-                                updateLastMessageCitations(citationData)
-                            }
                         } else if (currentEventType === 'done') {
                             flushStreamBuffer(true)
                             setLoading(false)
@@ -431,7 +351,6 @@ export function ChatInterface() {
                 },
             ]
             updateLastMessageReasoning([])
-            updateLastMessageCitations([])
             updateLastMessageAnswerContext({
                 trustLabel: '未完成',
                 trustPoints: ['当前问答服务暂时不可用，请稍后重试，或先改用原文检索。'],
@@ -493,7 +412,7 @@ export function ChatInterface() {
             )}
 
             {/* Messages */}
-            <MessageList messages={messages} onCitationClick={handleCitationClick} loadingLabel={currentProgress} />
+            <MessageList messages={messages} loadingLabel={currentProgress} />
 
             {/* Voice recognition error message */}
             {voiceError && (

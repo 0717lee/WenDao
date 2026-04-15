@@ -1,4 +1,4 @@
-import asyncio, json, logging, time
+import asyncio, json, logging, re, time
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
@@ -13,6 +13,15 @@ logger = logging.getLogger(__name__)
 SMALL_TALK_TRIGGERS = {
     "你好", "您好", "嗨", "哈喽", "hello", "hi", "在吗", "在嘛", "有人吗", "谢谢", "多谢", "再见", "拜拜",
 }
+GUIDANCE_ONLY_PATTERNS = (
+    "我只记得一句古文",
+    "只记得一句古文",
+    "带我从一句话开始",
+    "从一句话开始",
+    "下一步可以读什么",
+    "下一步该读什么",
+)
+QUOTE_HINT_RE = re.compile(r"[“”「」『』《》]|[:：]")
 
 def _create_rag_agent() -> RAGAgent:
     return RAGAgent()
@@ -32,23 +41,10 @@ def sse_reasoning(step: str, label: str, status: str, duration: float = None, mo
 
 
 def _build_answer_context(query: str, citations: list[dict], related_entities: list[str]) -> dict:
-    citation_count = len(citations)
-    primary_citation = citations[0] if citations else None
-    trust_points: list[str] = []
-
-    if citation_count > 0:
-        trust_points.append(f"本次回答引用了 {citation_count} 条古籍片段，可继续点开原文核对。")
-    else:
-        trust_points.append("本次回答没有检索到直接引文，建议再回到原文或检索页核对。")
-
-    if related_entities:
-        trust_points.append(f"系统同时关联了 {len(related_entities)} 个知识实体，适合继续追人物、典故与背景。")
-
-    if primary_citation:
-        trust_points.append(f"优先依据《{primary_citation['title']}》中的片段展开讲解。")
+    trust_points: list[str] = ["这次回答优先直接解释你的问题，不再额外展示原文引用。"]
 
     follow_prompt = (
-        f"请把刚才关于“{query}”的解释再说得更白话一些，像老师给初学者讲课一样，并补一个生活化例子。"
+        f"请把刚才关于“{query}”的解释换个更容易理解的说法，并补一个生活化例子。"
     )
     entity_prompt = (
         f"请继续围绕“{query}”讲相关人物、典故和背景脉络，按容易理解的顺序展开。"
@@ -56,19 +52,10 @@ def _build_answer_context(query: str, citations: list[dict], related_entities: l
         else f"请继续围绕“{query}”补充背景和前后文，让我更容易读懂原文。"
     )
 
-    actions = []
-    if primary_citation:
-        actions.append({
-            "id": "open-primary",
-            "label": "定位原文",
-            "kind": "reader",
-            "citation": primary_citation,
-        })
-
-    actions.extend([
+    actions = [
         {
             "id": "simplify-answer",
-            "label": "换成更白话",
+            "label": "换个说法",
             "kind": "chat",
             "prompt": follow_prompt,
         },
@@ -78,14 +65,14 @@ def _build_answer_context(query: str, citations: list[dict], related_entities: l
             "kind": "chat",
             "prompt": entity_prompt,
         },
-    ])
+    ]
 
     return {
-        "trustLabel": "有原文依据" if citation_count > 0 else "建议继续核对",
+        "trustLabel": "直接解读",
         "trustPoints": trust_points,
-        "citationCount": citation_count,
+        "citationCount": 0,
         "relatedEntityCount": len(related_entities),
-        "primaryCitation": primary_citation,
+        "primaryCitation": None,
         "suggestedActions": actions,
     }
 
@@ -104,6 +91,32 @@ def _small_talk_response(query: str) -> str | None:
     return None
 
 
+def _guidance_only_response(query: str) -> str | None:
+    compact = query.strip()
+    if not compact:
+        return None
+    if any(pattern in compact for pattern in GUIDANCE_ONLY_PATTERNS) and not QUOTE_HINT_RE.search(compact):
+        return "可以。先把你记得的那一句原文直接贴给我，或者告诉我篇名、人物、典故中的任意一个线索，我再按那一句带你往下读。"
+    return None
+
+
+def _iter_answer_chunks(answer: str, chunk_size: int = 24) -> list[str]:
+    if not answer:
+        return []
+    parts = [part for part in re.split(r"(?<=[。！？；!?；])", answer) if part]
+    chunks: list[str] = []
+    for part in parts:
+        text = part.strip()
+        if not text:
+            continue
+        if len(text) <= chunk_size:
+            chunks.append(text)
+            continue
+        for start in range(0, len(text), chunk_size):
+            chunks.append(text[start:start + chunk_size])
+    return chunks or [answer]
+
+
 async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerator[str, None]:
     """
     Generate SSE streaming response with reasoning events.
@@ -116,56 +129,39 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
         small_talk_answer = _small_talk_response(query)
         if small_talk_answer:
             yield f'event: progress\ndata: {json.dumps({"status": "正在回应..."}, ensure_ascii=False)}\n\n'
-            for i, char in enumerate(small_talk_answer):
-                yield f'data: {json.dumps({"content": char}, ensure_ascii=False)}\n\n'
-                if (i + 1) % 12 == 0:
-                    await asyncio.sleep(0.01)
+            for chunk in _iter_answer_chunks(small_talk_answer):
+                yield f'data: {json.dumps({"content": chunk}, ensure_ascii=False)}\n\n'
+            yield 'event: done\ndata: {}\n\n'
+            return
+
+        guidance_only_answer = _guidance_only_response(query)
+        if guidance_only_answer:
+            yield f'event: progress\ndata: {json.dumps({"status": "先确认你记得的原句..."}, ensure_ascii=False)}\n\n'
+            for chunk in _iter_answer_chunks(guidance_only_answer):
+                yield f'data: {json.dumps({"content": chunk}, ensure_ascii=False)}\n\n'
             yield 'event: done\ndata: {}\n\n'
             return
 
         # -- Step 1: Retrieval --
-        yield sse_reasoning("retrieval", "检索古籍知识库", "running", model="Kimi-8k")
+        yield sse_reasoning("retrieval", "理解问题", "running", model="Kimi-8k")
         yield f'event: progress\ndata: {json.dumps({"status": "正在整理线索..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
-        result = await asyncio.to_thread(rag_agent.query_ancient_text, query)
+        result = await asyncio.to_thread(rag_agent.query_ancient_text, query, False)
         answer = result["answer"]
-        citations = result["citations"]
-        yield sse_reasoning("retrieval", "检索古籍知识库", "complete", time.time() - t0, model="Kimi-8k")
-
-        # -- Step 2: Entity extraction --
-        yield sse_reasoning("entity_extraction", "抽取关联实体", "running", model="GLM-4-Flash")
-        t0 = time.time()
         related_entities = result.get("related_entities", [])
-        yield sse_reasoning("entity_extraction", "抽取关联实体", "complete", time.time() - t0, model="GLM-4-Flash")
+        yield sse_reasoning("retrieval", "理解问题", "complete", time.time() - t0, model="Kimi-8k")
 
-        # -- Step 3: Knowledge linking --
-        yield sse_reasoning("knowledge_linking", "知识关联推理", "running", model="GraphRAG")
-        t0 = time.time()
-        # GraphRAG linking already performed inside query_ancient_text
-        await asyncio.sleep(0.05)  # brief pause for visual feedback
-        yield sse_reasoning("knowledge_linking", "知识关联推理", "complete", time.time() - t0, model="GraphRAG")
-
-        # -- Step 4: Generation (streaming) --
-        yield sse_reasoning("generation", "生成通俗解读", "running", model="Kimi-8k")
+        # -- Step 2: Generation (streaming) --
+        yield sse_reasoning("generation", "生成回答", "running", model="Kimi-8k")
         yield f'event: progress\ndata: {json.dumps({"status": "正在组织回答..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
 
-        for i, char in enumerate(answer):
-            yield f'data: {json.dumps({"content": char}, ensure_ascii=False)}\n\n'
-            if (i + 1) % 10 == 0:
-                await asyncio.sleep(0.004)
+        for chunk in _iter_answer_chunks(answer):
+            yield f'data: {json.dumps({"content": chunk}, ensure_ascii=False)}\n\n'
 
-        yield sse_reasoning("generation", "生成通俗解读", "complete", time.time() - t0, model="Kimi-8k")
+        yield sse_reasoning("generation", "生成回答", "complete", time.time() - t0, model="Kimi-8k")
 
-        # -- Citations --
-        if citations:
-            yield f'event: citations\ndata: {json.dumps(citations, ensure_ascii=False)}\n\n'
-
-        # -- Related entities (GraphRAG) --
-        if related_entities:
-            yield f'event: entities\ndata: {json.dumps({"entity_ids": related_entities}, ensure_ascii=False)}\n\n'
-
-        answer_context = _build_answer_context(query=query, citations=citations, related_entities=related_entities)
+        answer_context = _build_answer_context(query=query, citations=[], related_entities=related_entities)
         yield f'event: answer_context\ndata: {json.dumps(answer_context, ensure_ascii=False)}\n\n'
 
         # -- Done --
@@ -178,7 +174,7 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
                     """INSERT INTO conversations
                        (user_message, ai_response, citations_json, timestamp)
                        VALUES (?, ?, ?, datetime('now'))""",
-                    (query, answer, json.dumps(citations, ensure_ascii=False))
+                    (query, answer, json.dumps([], ensure_ascii=False))
                 )
                 await db.commit()
         except Exception as db_error:

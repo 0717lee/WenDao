@@ -1,16 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Message } from '../store/useStore'
-import { CitationCard } from './CitationCard'
 import { PoemScrollCard } from './PoemScrollCard'
 
 interface MessageListProps {
     messages: Message[]
-    onCitationClick?: (citation: { title: string; source: string; excerpt?: string }) => void
     loadingLabel?: string
 }
 
-export function MessageList({ messages, onCitationClick, loadingLabel }: MessageListProps) {
+export function MessageList({ messages, loadingLabel }: MessageListProps) {
     const endRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -65,19 +63,6 @@ export function MessageList({ messages, onCitationClick, loadingLabel }: Message
                             <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
                         )}
 
-                        {/* Citations */}
-                        {message.citations && message.citations.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                                {message.citations.map((citation, idx) => (
-                                    <CitationCard
-                                        key={`${citation.title}-${citation.source}-${idx}`}
-                                        title={citation.title}
-                                        source={citation.source}
-                                        onClick={() => onCitationClick?.(citation)}
-                                    />
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </motion.div>
             ))}
