@@ -183,7 +183,7 @@ function pickFeaturedCorpusDocuments(
 ): BookshelfItem[] {
   const scoped = selectedCategory === '全部'
     ? documents
-    : documents.filter((item) => item.category === selectedCategory)
+    : documents.filter((item) => inferFeaturedBucket(item) === selectedCategory)
 
   if (scoped.length === 0) return []
 
@@ -374,7 +374,7 @@ export default function BookshelfPanel({
   const corpusCategories = useMemo(() => {
     const items = new Set(
       corpusDocuments
-        .map((item) => item.category)
+        .map((item) => inferFeaturedBucket(item))
         .filter((value): value is string => Boolean(value))
     )
     return ['全部', ...Array.from(items)]

@@ -155,7 +155,7 @@ describe('BookshelfPanel', () => {
 
     expect(await screen.findByText('《史记》')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByDisplayValue('全部门类'), { target: { value: '文学总集' } })
+    fireEvent.change(screen.getByDisplayValue('全部门类'), { target: { value: '集部' } })
 
     expect(await screen.findByText('《国秀集》')).toBeInTheDocument()
     expect(screen.queryByText('《史记》')).not.toBeInTheDocument()
