@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import BookshelfPanel from '../components/BookshelfPanel'
 
 describe('BookshelfPanel', () => {
@@ -201,5 +201,88 @@ describe('BookshelfPanel', () => {
     expect(screen.queryByRole('button', { name: /^精选篇目$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^我的上传$/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^图片识读$/ })).not.toBeInTheDocument()
+  })
+
+  it('requests the next catalog page when clicking 下一页 in 更多篇目', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      if (url.includes('/api/v1/documents/catalog?')) {
+        const params = new URL(url, 'https://example.com').searchParams
+        const offset = params.get('offset') || '0'
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            entries: [
+              {
+                repo_id: `repo-${offset}`,
+                title: `目录-${offset}`,
+                family: '史部',
+                imported: false,
+              },
+            ],
+            total: 72,
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /更多来源与工具/i }))
+    await screen.findByText('目录-0')
+
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+
+    await waitFor(() => {
+      expect((global.fetch as any).mock.calls.some(([url]: [string]) => url.includes('offset=36'))).toBe(true)
+    })
+  })
+
+  it('uses the same family mapping for 更多篇目 labels as 精选篇目 filters', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            documents: [
+              { id: 'd', title: '《论语》', category: '四书', difficulty: '入门', preview: '儒家入门', has_processed: true, has_note: false, status: 'done', current_paragraph: 0, total_paragraphs: 6, source_type: 'corpus' },
+            ],
+            total: 1,
+          }),
+        })
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      if (url.includes('/api/v1/documents/catalog?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            entries: [
+              {
+                repo_id: 'repo-1',
+                title: '《大学衍义》',
+                category: '四书',
+                imported: false,
+              },
+            ],
+            total: 1,
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /更多来源与工具/i }))
+
+    expect(await screen.findAllByText('经学')).not.toHaveLength(0)
   })
 })

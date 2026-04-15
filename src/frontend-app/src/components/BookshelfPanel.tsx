@@ -71,6 +71,7 @@ interface CatalogEntry {
   dynasty?: string | null
   family?: string | null
   section?: string | null
+  category?: string | null
   imported: boolean
   imported_document_id?: string | null
 }
@@ -92,30 +93,9 @@ const FAMILY_LABELS: Record<string, string> = {
   佛部: '佛学',
 }
 
-function progressLabel(item: BookshelfItem): string {
-  if (!item.total_paragraphs) return item.has_processed ? '已经整理好，可以直接开始读' : '还在继续处理'
-  return `读到 ${item.current_paragraph}/${item.total_paragraphs}`
-}
-
-function formatTimeLabel(value?: string): string {
-  if (!value) return '刚刚整理'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '刚刚整理'
-  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
-}
-
-function rankDocumentForStart(doc: BookshelfItem, index: number) {
-  return {
-    doc,
-    index,
-    starterRank: FEATURED_STARTER_REPO_RANK.get(doc.repo_id || '') ?? Number.MAX_SAFE_INTEGER,
-    difficultyRank: DIFFICULTY_RANK[doc.difficulty || ''] ?? 99,
-    chapterRank: doc.chapter_count ?? Number.MAX_SAFE_INTEGER,
-  }
-}
-
-function inferFeaturedBucket(doc: BookshelfItem): string {
-  switch (doc.category) {
+function normalizeFamilyKey(category?: string | null, family?: string | null) {
+  if (family && FAMILY_LABELS[family]) return family
+  switch (category) {
     case '四书':
     case '经学典籍':
       return '经部'
@@ -145,8 +125,34 @@ function inferFeaturedBucket(doc: BookshelfItem): string {
     case '佛学':
       return '佛部'
     default:
-      return doc.category || `__${doc.id}`
+      return null
   }
+}
+
+function progressLabel(item: BookshelfItem): string {
+  if (!item.total_paragraphs) return item.has_processed ? '已经整理好，可以直接开始读' : '还在继续处理'
+  return `读到 ${item.current_paragraph}/${item.total_paragraphs}`
+}
+
+function formatTimeLabel(value?: string): string {
+  if (!value) return '刚刚整理'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '刚刚整理'
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+}
+
+function rankDocumentForStart(doc: BookshelfItem, index: number) {
+  return {
+    doc,
+    index,
+    starterRank: FEATURED_STARTER_REPO_RANK.get(doc.repo_id || '') ?? Number.MAX_SAFE_INTEGER,
+    difficultyRank: DIFFICULTY_RANK[doc.difficulty || ''] ?? 99,
+    chapterRank: doc.chapter_count ?? Number.MAX_SAFE_INTEGER,
+  }
+}
+
+function inferFeaturedBucket(doc: BookshelfItem): string {
+  return normalizeFamilyKey(doc.category, null) ?? doc.category ?? `__${doc.id}`
 }
 
 function buildFeaturedGuideSummary(doc: BookshelfItem): string {
@@ -240,6 +246,7 @@ export default function BookshelfPanel({
   const [catalogLoading, setCatalogLoading] = useState(false)
   const [catalogImportingId, setCatalogImportingId] = useState<string | null>(null)
   const [selectedCatalogFamily, setSelectedCatalogFamily] = useState('全部')
+  const [catalogPage, setCatalogPage] = useState(1)
   const [uploadErrorMessage, setUploadErrorMessage] = useState('')
   const [panelNotice, setPanelNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null)
   const [showMoreOptions, setShowMoreOptions] = useState(false)
@@ -393,6 +400,11 @@ export default function BookshelfPanel({
   }
 
   const catalogFamilies = ['全部', '经部', '史部', '子部', '集部', '道部', '佛部']
+  const catalogTotalPages = Math.max(1, Math.ceil(catalogTotal / CATALOG_PAGE_SIZE))
+
+  useEffect(() => {
+    setCatalogPage(1)
+  }, [catalogQuery, selectedCatalogFamily])
 
   useEffect(() => {
     if (!showMoreOptions) return
@@ -403,6 +415,7 @@ export default function BookshelfPanel({
       try {
         const params = new URLSearchParams({
           limit: String(CATALOG_PAGE_SIZE),
+          offset: String((catalogPage - 1) * CATALOG_PAGE_SIZE),
           primary_only: 'true',
         })
         if (catalogQuery.trim()) params.set('q', catalogQuery.trim())
@@ -428,7 +441,7 @@ export default function BookshelfPanel({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [catalogQuery, selectedCatalogFamily, showMoreOptions])
+  }, [catalogPage, catalogQuery, selectedCatalogFamily, showMoreOptions])
 
   useEffect(() => {
     if (!panelNotice) return
@@ -865,37 +878,70 @@ export default function BookshelfPanel({
               正在找可读篇目...
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {catalogEntries.map((entry) => (
-                <button
-                  key={entry.repo_id}
-                  onClick={() => openCatalogEntry(entry)}
-                  className="rounded-[22px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                      {entry.title}
-                    </span>
-                    <span
-                      className="rounded-full px-2 py-0.5 text-[11px]"
-                      style={{
-                        backgroundColor: entry.imported ? 'rgba(201,160,99,0.14)' : 'rgba(26,30,35,0.06)',
-                        color: entry.imported ? 'var(--gf-gold)' : 'rgba(26,30,35,0.55)',
-                      }}
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {catalogEntries.map((entry) => (
+                  <button
+                    key={entry.repo_id}
+                    onClick={() => openCatalogEntry(entry)}
+                    className="rounded-[22px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
+                        {entry.title}
+                      </span>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[11px]"
+                        style={{
+                          backgroundColor: entry.imported ? 'rgba(201,160,99,0.14)' : 'rgba(26,30,35,0.06)',
+                          color: entry.imported ? 'var(--gf-gold)' : 'rgba(26,30,35,0.55)',
+                        }}
+                      >
+                        {catalogImportingId === entry.repo_id ? '正在加入' : entry.imported ? '已加入' : '可加入阅读'}
+                      </span>
+                    </div>
+                    <div className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                      {([
+                        FAMILY_LABELS[normalizeFamilyKey(entry.category, entry.family) || ''] || normalizeFamilyKey(entry.category, entry.family),
+                        entry.section,
+                        entry.dynasty,
+                        entry.author,
+                      ].filter(Boolean).join(' · ') || '目录条目')}
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
+                      {catalogImportingId === entry.repo_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                      <span>{entry.imported ? '打开此篇' : '加入阅读并打开'}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {catalogTotal > CATALOG_PAGE_SIZE && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+                    第 {catalogPage} / {catalogTotalPages} 页
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCatalogPage((page) => Math.max(1, page - 1))}
+                      disabled={catalogPage <= 1}
+                      className="rounded-full px-3 py-1.5 text-xs disabled:opacity-45"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
                     >
-                      {catalogImportingId === entry.repo_id ? '正在加入' : entry.imported ? '已加入' : '可加入阅读'}
-                    </span>
+                      上一页
+                    </button>
+                    <button
+                      onClick={() => setCatalogPage((page) => Math.min(catalogTotalPages, page + 1))}
+                      disabled={catalogPage >= catalogTotalPages}
+                      className="rounded-full px-3 py-1.5 text-xs disabled:opacity-45"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.08)', color: 'rgba(26,30,35,0.62)' }}
+                    >
+                      下一页
+                    </button>
                   </div>
-                  <div className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                    {([FAMILY_LABELS[entry.family || ''] || entry.family, entry.section, entry.dynasty, entry.author].filter(Boolean).join(' · ') || '目录条目')}
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                    {catalogImportingId === entry.repo_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                    <span>{entry.imported ? '打开此篇' : '加入阅读并打开'}</span>
-                  </div>
-                </button>
-              ))}
+                </div>
+              )}
             </div>
           )}
             </section>
