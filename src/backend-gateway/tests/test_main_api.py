@@ -15,6 +15,20 @@ def test_health_endpoint_returns_minimal_payload():
     assert response.json() == {"status": "ok"}
 
 
+def test_health_endpoint_accepts_trailing_slash():
+    response = client.get("/health/")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_health_endpoint_supports_head_requests():
+    response = client.head("/health")
+
+    assert response.status_code == 200
+    assert response.text == ""
+
+
 def test_global_exception_handler_hides_internal_details():
     route_path = "/__test/boom"
     if not any(getattr(route, "path", None) == route_path for route in app.routes):
