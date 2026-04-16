@@ -1,12 +1,14 @@
 declare global {
   interface Window {
     __WENDAO_API_URL__?: string
+    __WENDAO_FETCH_FAILOVER_INSTALLED__?: boolean
   }
 }
 
 /** Shared API base URL — prefer runtime override, then Vite env, otherwise use same-origin in production and localhost during local development. */
 const envApiBase = import.meta.env.VITE_API_URL?.trim()
 const legacyApiHostHints = ['api.example.com']
+const API_FAILOVER_TIMEOUT_MS = 8000
 
 function normalizeApiBase(value?: string | null) {
   const trimmed = value?.trim()
@@ -34,6 +36,15 @@ function shouldUseSameOriginProxy(apiBase: string) {
   } catch {
     return false
   }
+}
+
+function resolveFallbackApiBase() {
+  const runtimeApiBase = readRuntimeApiBase()
+  if (runtimeApiBase) return ''
+
+  const explicitEnvApiBase = normalizeApiBase(envApiBase)
+  if (!explicitEnvApiBase) return ''
+  return shouldUseSameOriginProxy(explicitEnvApiBase) ? explicitEnvApiBase : ''
 }
 
 function warnIfLegacyApiBase(apiBase: string) {
@@ -73,3 +84,108 @@ function resolveApiBase() {
 }
 
 export const API_BASE = resolveApiBase()
+export const API_FALLBACK_BASE = resolveFallbackApiBase()
+
+function resolveRequestUrl(input: RequestInfo | URL) {
+  if (typeof window === 'undefined') return ''
+  if (typeof input === 'string') return new URL(input, window.location.origin).toString()
+  if (input instanceof URL) return input.toString()
+  return input.url
+}
+
+function shouldFailoverRequest(urlString: string) {
+  if (!API_FALLBACK_BASE || typeof window === 'undefined') return false
+
+  const url = new URL(urlString, window.location.origin)
+  if (url.origin !== window.location.origin) return false
+
+  return url.pathname === '/health' || url.pathname.startsWith('/health/') || url.pathname.startsWith('/api/')
+}
+
+function buildFallbackUrl(urlString: string) {
+  const url = new URL(urlString, window.location.origin)
+  return `${API_FALLBACK_BASE}${url.pathname}${url.search}`
+}
+
+function createTimedAbortSignal(originalSignal?: AbortSignal) {
+  const controller = new AbortController()
+  let didTimeout = false
+
+  const abortFromOriginal = () => {
+    controller.abort(originalSignal?.reason)
+  }
+
+  if (originalSignal) {
+    if (originalSignal.aborted) {
+      controller.abort(originalSignal.reason)
+    } else {
+      originalSignal.addEventListener('abort', abortFromOriginal, { once: true })
+    }
+  }
+
+  const timeoutId = window.setTimeout(() => {
+    didTimeout = true
+    controller.abort(new DOMException('Timed out', 'AbortError'))
+  }, API_FAILOVER_TIMEOUT_MS)
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => didTimeout,
+    cleanup: () => {
+      window.clearTimeout(timeoutId)
+      if (originalSignal && !originalSignal.aborted) {
+        originalSignal.removeEventListener('abort', abortFromOriginal)
+      }
+    },
+  }
+}
+
+function shouldRetryWithFallback(error: unknown, didTimeout: boolean, originalSignal?: AbortSignal) {
+  if (!API_FALLBACK_BASE) return false
+  if (originalSignal?.aborted) return false
+
+  if (didTimeout) return true
+
+  return error instanceof TypeError
+}
+
+export function installApiFetchFailover() {
+  if (typeof window === 'undefined') return
+  if (window.__WENDAO_FETCH_FAILOVER_INSTALLED__) return
+  if (!API_FALLBACK_BASE) return
+
+  const originalFetch = window.fetch.bind(window)
+
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestUrl = resolveRequestUrl(input)
+    if (!shouldFailoverRequest(requestUrl)) {
+      return originalFetch(input, init)
+    }
+
+    const originalSignal = init?.signal ?? undefined
+    const timeout = createTimedAbortSignal(originalSignal)
+    const firstInit: RequestInit | undefined = init ? { ...init, signal: timeout.signal } : { signal: timeout.signal }
+
+    try {
+      const firstInput = input instanceof Request ? input.clone() : input
+      return await originalFetch(firstInput, firstInit)
+    } catch (error) {
+      if (!shouldRetryWithFallback(error, timeout.didTimeout(), originalSignal)) {
+        throw error
+      }
+
+      const fallbackUrl = buildFallbackUrl(requestUrl)
+      console.warn(`[WenDao] API request timed out via same-origin proxy, retrying direct backend: ${fallbackUrl}`)
+
+      if (input instanceof Request) {
+        return originalFetch(new Request(fallbackUrl, input.clone()), init)
+      }
+
+      return originalFetch(fallbackUrl, init)
+    } finally {
+      timeout.cleanup()
+    }
+  }
+
+  window.__WENDAO_FETCH_FAILOVER_INSTALLED__ = true
+}
