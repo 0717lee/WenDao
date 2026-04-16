@@ -8,7 +8,7 @@ declare global {
 /** Shared API base URL — prefer runtime override, then Vite env, otherwise use same-origin in production and localhost during local development. */
 const envApiBase = import.meta.env.VITE_API_URL?.trim()
 const legacyApiHostHints = ['api.example.com']
-const API_FAILOVER_TIMEOUT_MS = 8000
+const API_FAILOVER_TIMEOUT_MS = 2500
 
 function normalizeApiBase(value?: string | null) {
   const trimmed = value?.trim()
