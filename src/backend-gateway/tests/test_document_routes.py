@@ -17,6 +17,41 @@ sys.modules['agents.speech'] = MagicMock()
 
 
 class TestDocumentRouterPaths:
+    def test_public_document_routes_allow_anonymous_catalog_browsing(self):
+        from routers.document import router
+
+        app = FastAPI()
+        app.include_router(router)
+        client = TestClient(app)
+
+        with patch("routers.document._list_documents", new=AsyncMock(return_value=[
+            {
+                "id": "corpus-1",
+                "title": "《论语》",
+                "source_type": "corpus",
+                "preview": "学而时习之",
+                "status": "done",
+                "current_paragraph": 0,
+                "total_paragraphs": 0,
+                "has_processed": True,
+                "has_note": False,
+            }
+        ])), patch("routers.document._count_documents", new=AsyncMock(return_value=1)), \
+             patch("routers.document._list_catalog_entries", new=AsyncMock(return_value={
+                 "entries": [{"repo_id": "KR1h0004", "title": "《论语》", "imported": True, "imported_document_id": "corpus-1"}],
+                 "total": 1,
+             })):
+            documents = client.get("/api/v1/documents?limit=12&source_type=corpus")
+            catalog = client.get("/api/v1/documents/catalog?limit=5&offset=0&primary_only=true")
+
+        assert documents.status_code == 200
+        assert documents.json()["total"] == 1
+        assert documents.json()["documents"][0]["id"] == "corpus-1"
+
+        assert catalog.status_code == 200
+        assert catalog.json()["total"] == 1
+        assert catalog.json()["entries"][0]["repo_id"] == "KR1h0004"
+
     def test_static_document_routes_are_not_shadowed_by_document_id(self):
         from routers.document import router
         from core.auth import require_auth
