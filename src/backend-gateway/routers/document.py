@@ -1410,7 +1410,7 @@ async def _update_document_results(
 async def list_documents(
     limit: int = Query(50, ge=1, le=200),
     source_type: str | None = Query(default=None),
-    _user: dict | None = Depends(maybe_auth),
+    _user: dict = Depends(require_auth),
 ):
     """List documents for the bookshelf/home views."""
     if not isinstance(source_type, str):
@@ -1453,7 +1453,7 @@ async def list_catalog(
     primary_only: bool = Query(default=True),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    _user: dict | None = Depends(maybe_auth),
+    _user: dict = Depends(require_auth),
 ):
     """Browse the full Kanripo catalog with lazy-import status."""
     return await _list_catalog_entries(

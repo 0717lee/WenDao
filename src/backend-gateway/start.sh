@@ -21,9 +21,4 @@ else
   echo "Skipping cloud-side corpus re-import on boot (set RUN_CORPUS_REIMPORT_ON_BOOT=1 to enable)."
 fi
 
-exec uvicorn main:app \
-  --host 0.0.0.0 \
-  --port $ACTUAL_PORT \
-  --log-level info \
-  --proxy-headers \
-  --forwarded-allow-ips='*'
+exec uvicorn main:app --host 0.0.0.0 --port $ACTUAL_PORT --log-level info

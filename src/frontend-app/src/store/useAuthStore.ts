@@ -13,50 +13,10 @@ interface AuthState {
 }
 
 const COOKIE_SESSION_TOKEN = '__cookie_session__'
-const AUTH_STORAGE_KEY = 'wendao_auth_state'
-
-interface PersistedAuthState {
-    token: string | null
-    username: string | null
-}
-
-function canUseStorage() {
-    return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
-}
-
-function readPersistedAuth(): PersistedAuthState {
-    if (!canUseStorage()) {
-        return { token: null, username: null }
-    }
-
-    try {
-        const raw = window.localStorage.getItem(AUTH_STORAGE_KEY)
-        if (!raw) return { token: null, username: null }
-        const parsed = JSON.parse(raw) as PersistedAuthState
-        return {
-            token: parsed.token ?? null,
-            username: parsed.username ?? null,
-        }
-    } catch {
-        return { token: null, username: null }
-    }
-}
-
-function persistAuthState(state: PersistedAuthState) {
-    if (!canUseStorage()) return
-    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state))
-}
-
-function clearPersistedAuthState() {
-    if (!canUseStorage()) return
-    window.localStorage.removeItem(AUTH_STORAGE_KEY)
-}
-
-const initialAuthState = readPersistedAuth()
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-    token: initialAuthState.token,
-    username: initialAuthState.username,
+    token: null,
+    username: null,
 
     login: async (username: string, password: string) => {
         const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
@@ -70,12 +30,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             throw new Error(err.detail || '登录失败')
         }
         const data = await res.json()
-        const nextState = {
-            token: data.token || COOKIE_SESSION_TOKEN,
-            username: data.username ?? username,
-        }
-        persistAuthState(nextState)
-        set(nextState)
+        set({ token: COOKIE_SESSION_TOKEN, username: data.username })
     },
 
     register: async (username: string, email: string, password: string) => {
@@ -90,12 +45,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             throw new Error(err.detail || '注册失败')
         }
         const data = await res.json()
-        const nextState = {
-            token: data.token || COOKIE_SESSION_TOKEN,
-            username: data.username ?? username,
-        }
-        persistAuthState(nextState)
-        set(nextState)
+        set({ token: COOKIE_SESSION_TOKEN, username: data.username })
     },
 
     validateStoredAuth: async (): Promise<boolean> => {
@@ -108,19 +58,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             })
 
             if (!res.ok) {
-                clearPersistedAuthState()
                 set({ token: null, username: null })
                 return false
             }
 
             const data = await res.json().catch(() => null)
             if (data?.username) {
-                const nextState = {
-                    token: token || COOKIE_SESSION_TOKEN,
-                    username: data.username,
-                }
-                persistAuthState(nextState)
-                set(nextState)
+                set({ token: token || COOKIE_SESSION_TOKEN, username: data.username })
                 return true
             }
             return Boolean(username)
@@ -139,7 +83,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } catch {
             // Best-effort logout; still clear local state.
         }
-        clearPersistedAuthState()
         set({ token: null, username: null })
         useDocumentStore.getState().reset()
         useStore.getState().clearMessages()
