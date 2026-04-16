@@ -19,6 +19,23 @@ function readRuntimeApiBase() {
   return normalizeApiBase(window.__WENDAO_API_URL__)
 }
 
+function isLocalHost(hostname: string) {
+  return ['localhost', '127.0.0.1', '0.0.0.0'].includes(hostname)
+}
+
+function shouldUseSameOriginProxy(apiBase: string) {
+  if (typeof window === 'undefined') return false
+  if (isLocalHost(window.location.hostname)) return false
+
+  try {
+    const apiHost = new URL(apiBase).hostname
+    const isLegacyHost = legacyApiHostHints.some((hint) => apiHost === hint || apiBase.includes(hint))
+    return isLegacyHost && apiHost !== window.location.hostname
+  } catch {
+    return false
+  }
+}
+
 function warnIfLegacyApiBase(apiBase: string) {
   if (typeof window === 'undefined') return
   const isLegacyHost = legacyApiHostHints.some((hint) => apiBase.includes(hint))
@@ -31,18 +48,28 @@ function warnIfLegacyApiBase(apiBase: string) {
 }
 
 function resolveApiBase() {
-  const explicitApiBase = readRuntimeApiBase() || normalizeApiBase(envApiBase)
-  if (explicitApiBase) {
-    warnIfLegacyApiBase(explicitApiBase)
-    return explicitApiBase
+  const runtimeApiBase = readRuntimeApiBase()
+  if (runtimeApiBase) {
+    warnIfLegacyApiBase(runtimeApiBase)
+    return runtimeApiBase
+  }
+
+  const explicitEnvApiBase = normalizeApiBase(envApiBase)
+  if (explicitEnvApiBase) {
+    if (shouldUseSameOriginProxy(explicitEnvApiBase)) {
+      console.info('[WenDao] Using same-origin /api proxy for the legacy Railway backend host.')
+      return ''
+    }
+
+    warnIfLegacyApiBase(explicitEnvApiBase)
+    return explicitEnvApiBase
   }
 
   if (typeof window === 'undefined') {
     return 'http://localhost:8000'
   }
 
-  const localHosts = new Set(['localhost', '127.0.0.1', '0.0.0.0'])
-  return localHosts.has(window.location.hostname) ? 'http://localhost:8000' : ''
+  return isLocalHost(window.location.hostname) ? 'http://localhost:8000' : ''
 }
 
 export const API_BASE = resolveApiBase()
