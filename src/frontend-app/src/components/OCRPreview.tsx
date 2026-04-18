@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { API_BASE } from '../lib/api';
+import { EmptyState } from './EmptyState';
 
 export function OCRPreview() {
   const { currentDocument, setDocument, uploadStatus, setUploadStatus, processProgress, setProcessProgress } = useDocumentStore();
@@ -128,7 +129,12 @@ export function OCRPreview() {
                   className="max-w-full max-h-full object-contain"
                 />
               ) : (
-                <p style={{ color: 'rgba(26,30,35,0.3)' }}>这里暂时没有可预览的图片</p>
+                <EmptyState
+                  illustration="scroll"
+                  title="这里暂时没有可预览的图片"
+                  description="回到书架上传一张影印页，识读完成后会在此显示。"
+                  compact
+                />
               )}
             </div>
           </div>

@@ -11,6 +11,8 @@ interface ReaderTocPanelProps {
   onSelect: (entry: TocEntry) => void
 }
 
+import { EmptyState } from './EmptyState'
+
 export function ReaderTocPanel({ entries, selectedTitle, onSelect }: ReaderTocPanelProps) {
   return (
     <div className="p-4 space-y-3">
@@ -24,9 +26,12 @@ export function ReaderTocPanel({ entries, selectedTitle, onSelect }: ReaderTocPa
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-2xl px-4 py-4 text-sm" style={{ backgroundColor: 'rgba(26,30,35,0.03)', color: 'rgba(26,30,35,0.45)' }}>
-          这篇内容暂时还没有可用目录。
-        </div>
+        <EmptyState
+          illustration="toc"
+          title="这篇内容暂时还没有可用目录"
+          description="整理完成后，章节索引会出现在这里。"
+          compact
+        />
       ) : (
         <div className="space-y-2">
           {entries.map((entry, index) => {

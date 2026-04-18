@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { ArrowRight, BookMarked, BookOpen, Clock3, LibraryBig, Loader2, ScanText, Search, Upload } from 'lucide-react'
+import { ArrowRight, BookMarked, BookOpen, Clock3, LibraryBig, ScanText, Search, Upload } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
 import { useDocumentStore } from '../store/useDocumentStore'
 import { useGraphStore } from '../store/useGraphStore'
+import { toast } from '../store/useToastStore'
+import { CatalogEntryCard } from './bookshelf/CatalogEntryCard'
+import { MyUploadsItem } from './bookshelf/MyUploadsItem'
 
 const BOOKSHELF_WARM_RETRY_MAX = 4
 const BOOKSHELF_WARM_RETRY_DELAY_MS = 900
@@ -248,7 +251,6 @@ export default function BookshelfPanel({
   const [selectedCatalogFamily, setSelectedCatalogFamily] = useState('全部')
   const [catalogPage, setCatalogPage] = useState(1)
   const [uploadErrorMessage, setUploadErrorMessage] = useState('')
-  const [panelNotice, setPanelNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null)
   const [showMoreOptions, setShowMoreOptions] = useState(false)
   const [moreOptionsLoaded, setMoreOptionsLoaded] = useState(false)
   const { setDocument, setUploadStatus, uploadStatus } = useDocumentStore()
@@ -443,12 +445,6 @@ export default function BookshelfPanel({
     }
   }, [catalogPage, catalogQuery, selectedCatalogFamily, showMoreOptions])
 
-  useEffect(() => {
-    if (!panelNotice) return
-    const timer = window.setTimeout(() => setPanelNotice(null), 3200)
-    return () => window.clearTimeout(timer)
-  }, [panelNotice])
-
   const openCatalogEntry = useCallback(async (entry: CatalogEntry) => {
     if (entry.imported_document_id) {
       onOpenDocument(entry.imported_document_id)
@@ -466,7 +462,7 @@ export default function BookshelfPanel({
       clearTimeout(timer)
       if (!response.ok) {
         const err = await response.json().catch(() => null)
-        setPanelNotice({ tone: 'error', message: err?.detail || '加入阅读没有成功，请稍后再试一次。' })
+        toast.error(err?.detail || '加入阅读没有成功，请稍后再试一次。')
         return
       }
       const data = await response.json()
@@ -479,15 +475,15 @@ export default function BookshelfPanel({
               : item
           )
         )
-        setPanelNotice({ tone: 'success', message: `《${entry.title}》已加入阅读，马上为你打开。` })
+        toast.success(`《${entry.title}》已加入阅读，马上为你打开。`)
         onOpenDocument(documentId)
       }
     } catch (e: any) {
       clearTimeout(timer)
       if (e.name === 'AbortError') {
-        setPanelNotice({ tone: 'error', message: '加入阅读超时了，请检查网络后再试一次。' })
+        toast.error('加入阅读超时了，请检查网络后再试一次。')
       } else {
-        setPanelNotice({ tone: 'error', message: `加入阅读没有成功：${e.message || '请稍后再试一次'}` })
+        toast.error(`加入阅读没有成功：${e.message || '请稍后再试一次'}`)
       }
     } finally {
       setCatalogImportingId(null)
@@ -525,7 +521,7 @@ export default function BookshelfPanel({
         sourceType: 'user',
       })
       setUploadStatus('done')
-      setPanelNotice({ tone: 'success', message: '图片已经识读完成，先核对文字，再继续整理。' })
+      toast.success('图片已经识读完成，先核对文字，再继续整理。')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed'
       setUploadErrorMessage(
@@ -586,7 +582,7 @@ export default function BookshelfPanel({
                 <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
                   继续阅读
                 </span>
-                <Clock3 className="h-4 w-4" style={{ color: '#5b8aab' }} />
+                <Clock3 className="h-4 w-4" style={{ color: 'var(--gf-gold)' }} />
               </div>
               <div className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
                 回到上次进度
@@ -880,41 +876,27 @@ export default function BookshelfPanel({
           ) : (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {catalogEntries.map((entry) => (
-                  <button
-                    key={entry.repo_id}
-                    onClick={() => openCatalogEntry(entry)}
-                    className="rounded-[22px] px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                        {entry.title}
-                      </span>
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[11px]"
-                        style={{
-                          backgroundColor: entry.imported ? 'rgba(201,160,99,0.14)' : 'rgba(26,30,35,0.06)',
-                          color: entry.imported ? 'var(--gf-gold)' : 'rgba(26,30,35,0.55)',
-                        }}
-                      >
-                        {catalogImportingId === entry.repo_id ? '正在加入' : entry.imported ? '已加入' : '可加入阅读'}
-                      </span>
-                    </div>
-                    <div className="text-xs leading-6" style={{ color: 'rgba(26,30,35,0.45)' }}>
-                      {([
-                        FAMILY_LABELS[normalizeFamilyKey(entry.category, entry.family) || ''] || normalizeFamilyKey(entry.category, entry.family),
-                        entry.section,
-                        entry.dynasty,
-                        entry.author,
-                      ].filter(Boolean).join(' · ') || '目录条目')}
-                    </div>
-                    <div className="mt-3 flex items-center gap-2 text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>
-                      {catalogImportingId === entry.repo_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                      <span>{entry.imported ? '打开此篇' : '加入阅读并打开'}</span>
-                    </div>
-                  </button>
-                ))}
+                {catalogEntries.map((entry) => {
+                  const metaLine =
+                    [
+                      FAMILY_LABELS[normalizeFamilyKey(entry.category, entry.family) || ''] || normalizeFamilyKey(entry.category, entry.family),
+                      entry.section,
+                      entry.dynasty,
+                      entry.author,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '目录条目'
+                  return (
+                    <CatalogEntryCard
+                      key={entry.repo_id}
+                      title={entry.title}
+                      metaLine={metaLine}
+                      imported={entry.imported}
+                      importing={catalogImportingId === entry.repo_id}
+                      onOpen={() => openCatalogEntry(entry)}
+                    />
+                  )
+                })}
               </div>
 
               {catalogTotal > CATALOG_PAGE_SIZE && (
@@ -983,59 +965,21 @@ export default function BookshelfPanel({
               </div>
             ) : (
               <div className="space-y-3">
-                {userDocuments.map((doc) => {
-                  const compared = comparedDocumentIds.includes(doc.id)
-
-                  return (
-                    <div
-                      key={doc.id}
-                      className="rounded-[22px] px-4 py-4"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.76)', border: '1px solid rgba(26,30,35,0.07)' }}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <button className="min-w-0 flex-1 text-left" onClick={() => onOpenDocument(doc.id)}>
-                          <div className="mb-2 flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-medium" style={{ color: 'var(--gf-text)' }}>
-                              {doc.title}
-                            </span>
-                            <span
-                              className="rounded-full px-2 py-0.5 text-[11px]"
-                              style={{
-                                backgroundColor: doc.has_processed ? 'rgba(201,160,99,0.14)' : 'rgba(26,30,35,0.06)',
-                                color: doc.has_processed ? 'var(--gf-gold)' : 'rgba(26,30,35,0.45)',
-                              }}
-                            >
-                              {doc.has_processed ? '已整理好' : '正在整理'}
-                            </span>
-                            {doc.has_note && (
-                              <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(60,138,81,0.12)', color: '#3c8a51' }}>
-                                有笔记
-                              </span>
-                            )}
-                          </div>
-                          {renderMetaLine(doc)}
-                          <div className="line-clamp-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.52)' }}>
-                            {doc.preview || '翻开后可继续对照原文和标点文。'}
-                          </div>
-                          <div className="mt-2 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                            {progressLabel(doc)}
-                            {doc.updated_at ? ` · 最近整理：${formatTimeLabel(doc.updated_at)}` : ''}
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => onToggleCompare(doc.id)}
-                          className="shrink-0 rounded-[18px] px-3 py-2 text-xs"
-                          style={{
-                            backgroundColor: compared ? 'rgba(201,160,99,0.15)' : 'rgba(26,30,35,0.05)',
-                            color: compared ? 'var(--gf-gold)' : 'rgba(26,30,35,0.55)',
-                          }}
-                        >
-                          {compared ? '已在对照中' : '加入对照'}
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
+                {userDocuments.map((doc) => (
+                  <MyUploadsItem
+                    key={doc.id}
+                    title={doc.title}
+                    processed={doc.has_processed}
+                    hasNote={doc.has_note}
+                    metaLine={renderMetaLine(doc)}
+                    preview={doc.preview}
+                    progressLabel={progressLabel(doc)}
+                    updatedAtLabel={doc.updated_at ? formatTimeLabel(doc.updated_at) : undefined}
+                    compared={comparedDocumentIds.includes(doc.id)}
+                    onOpen={() => onOpenDocument(doc.id)}
+                    onToggleCompare={() => onToggleCompare(doc.id)}
+                  />
+                ))}
               </div>
             )}
               </div>
@@ -1099,34 +1043,6 @@ export default function BookshelfPanel({
           )}
         </section>
       </div>
-
-      {panelNotice && (
-        <div
-          className="rounded-[22px] px-4 py-3 text-sm"
-          style={{
-            backgroundColor:
-              panelNotice.tone === 'success'
-                ? 'rgba(60,138,81,0.10)'
-                : panelNotice.tone === 'error'
-                  ? 'rgba(176,58,58,0.08)'
-                  : 'rgba(26,30,35,0.05)',
-            border:
-              panelNotice.tone === 'success'
-                ? '1px solid rgba(60,138,81,0.16)'
-                : panelNotice.tone === 'error'
-                  ? '1px solid rgba(176,58,58,0.15)'
-                  : '1px solid rgba(26,30,35,0.06)',
-            color:
-              panelNotice.tone === 'success'
-                ? '#2d8a56'
-                : panelNotice.tone === 'error'
-                  ? '#b03a3a'
-                  : 'rgba(26,30,35,0.62)',
-          }}
-        >
-          {panelNotice.message}
-        </div>
-      )}
     </div>
   )
 }

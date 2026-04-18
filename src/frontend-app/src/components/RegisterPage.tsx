@@ -1,8 +1,24 @@
 import { useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 
 interface RegisterPageProps {
     onSwitchToLogin: () => void
+}
+
+type PasswordStrength = { score: 0 | 1 | 2 | 3; label: string; color: string }
+
+function evaluatePassword(pw: string): PasswordStrength {
+    if (!pw) return { score: 0, label: '', color: 'transparent' }
+    let score = 0
+    if (pw.length >= 6) score += 1
+    if (pw.length >= 10) score += 1
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score += 1
+    if (/\d/.test(pw) && /[^\w]/.test(pw)) score += 1
+    const final = Math.min(3, score) as 0 | 1 | 2 | 3
+    if (final <= 1) return { score: final, label: '偏弱', color: 'var(--gf-gugong-red)' }
+    if (final === 2) return { score: final, label: '可用', color: 'var(--gf-gold)' }
+    return { score: final, label: '稳妥', color: '#5a8a5a' }
 }
 
 export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
@@ -15,6 +31,15 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const { register } = useAuthStore()
+
+    const strength = evaluatePassword(password)
+    const confirmMismatch = confirmPassword.length > 0 && password !== confirmPassword
+    const canSubmit =
+        username.length >= 2 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
+        password.length >= 6 &&
+        password === confirmPassword &&
+        !loading
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -140,19 +165,39 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                     onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/5 transition-colors"
                                     style={{ color: 'rgba(26,30,35,0.4)' }}
+                                    aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                                    aria-pressed={showPassword}
                                 >
                                     {showPassword ? (
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
                                         </svg>
                                     ) : (
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
                                     )}
                                 </button>
                             </div>
+                            {password.length > 0 && (
+                                <div className="mt-2" aria-live="polite">
+                                    <div className="flex h-1 gap-1">
+                                        {[0, 1, 2].map((i) => (
+                                            <div
+                                                key={i}
+                                                className="flex-1 rounded-full transition-colors"
+                                                style={{ backgroundColor: i < strength.score ? strength.color : 'rgba(26,30,35,0.08)' }}
+                                            />
+                                        ))}
+                                    </div>
+                                    {strength.label && (
+                                        <p className="mt-1 text-[11px]" style={{ color: strength.color }}>
+                                            密码强度：{strength.label}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
@@ -178,37 +223,44 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/5 transition-colors"
                                     style={{ color: 'rgba(26,30,35,0.4)' }}
+                                    aria-label={showConfirmPassword ? '隐藏确认密码' : '显示确认密码'}
+                                    aria-pressed={showConfirmPassword}
                                 >
                                     {showConfirmPassword ? (
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
                                         </svg>
                                     ) : (
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
                                     )}
                                 </button>
                             </div>
+                            {confirmMismatch && (
+                                <p className="mt-1.5 text-[11px]" style={{ color: 'var(--gf-gugong-red)' }}>两次输入的密码不一致</p>
+                            )}
                         </div>
 
                         {error && (
-                            <div className="px-4 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(171,31,34,0.08)', color: '#ab1f22' }}>
+                            <div className="px-4 py-2 rounded-lg text-xs" role="alert" style={{ backgroundColor: 'rgba(171,31,34,0.08)', color: '#ab1f22' }}>
                                 {error}
                             </div>
                         )}
 
                         <button
                             type="submit"
-                            disabled={loading}
-                            className="w-full py-3 rounded-lg text-sm text-white transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={!canSubmit}
+                            aria-busy={loading}
+                            className="w-full py-3 rounded-lg text-sm text-white transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                             style={{
                                 backgroundColor: '#ab1f22',
                                 fontFamily: '"Noto Serif SC", serif',
                                 fontWeight: 500,
                             }}
                         >
+                            {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                             {loading ? '正在注册...' : '注册'}
                         </button>
                     </form>

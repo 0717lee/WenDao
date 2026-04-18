@@ -3,10 +3,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
 import { Drawer } from './components/Drawer';
+import { SkeletonPage } from './components/Skeleton';
+import { ToastHost } from './components/Toast';
 import { useDocumentStore } from './store/useDocumentStore';
 import { useGraphStore } from './store/useGraphStore';
 import { authFetchOptions, useAuthStore } from './store/useAuthStore';
 import { useStore } from './store/useStore';
+import { toast } from './store/useToastStore';
 import { API_BASE } from './lib/api';
 import { buildReaderDocument } from './lib/readerDocument';
 
@@ -32,18 +35,8 @@ const TAB_ICONS: Record<string, string> = {
 
 type AuthPage = 'login' | 'register';
 
-function TabLoader({ label = '正在准备页面...' }: { label?: string }) {
-    return (
-        <div className="flex h-full items-center justify-center" style={{ backgroundColor: 'var(--gf-bg)' }}>
-            <div className="flex flex-col items-center gap-3">
-                <div
-                    className="h-10 w-10 rounded-full border-2 animate-spin"
-                    style={{ borderColor: 'rgba(140,26,17,0.15)', borderTopColor: 'var(--gf-gugong-red)' }}
-                />
-                <span className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>{label}</span>
-            </div>
-        </div>
-    );
+function TabLoader({ label = '正在准备页面...', variant = 'default' }: { label?: string; variant?: 'reader' | 'list' | 'default' }) {
+    return <SkeletonPage label={label} variant={variant} />;
 }
 
 function App() {
@@ -98,6 +91,7 @@ function App() {
                 }
             } catch (error) {
                 console.error('Failed to open document:', error);
+                toast.error('打开古籍没有成功，请稍后再试');
             } finally {
                 setOpeningDocumentId(null);
             }
@@ -141,6 +135,7 @@ function App() {
                 toggleComparisonDocument(buildReaderDocument(data));
             } catch (error) {
                 console.error('Failed to add document to comparison:', error);
+                toast.error('加入对照阅读失败，请稍后再试');
             }
         },
         [buildReaderDocument, comparisonDocuments, toggleComparisonDocument]
@@ -173,7 +168,7 @@ function App() {
                 return <SearchPanel onOpenDocument={openDocument} onAsk={jumpToChat} />;
             case 'reader':
                 if (openingDocumentId) {
-                    return <TabLoader label="正在打开古籍..." />;
+                    return <TabLoader label="正在打开古籍..." variant="reader" />;
                 }
                 if (getReaderView() === 'hub') {
                     return (
@@ -200,6 +195,7 @@ function App() {
 
     return (
         <div className="w-full h-screen flex flex-col" style={{ backgroundColor: 'var(--gf-bg)' }}>
+            <ToastHost />
             {authChecking ? (
                 <TabLoader />
             ) : !username ? (
@@ -231,9 +227,10 @@ function App() {
                                     </svg>
                                 </button>
                                 <div className="flex items-center gap-3">
-                                    <button 
+                                    <button
                                         className="flex items-center gap-3 transition-opacity hover:opacity-80"
                                         onClick={() => setActiveTab('home')}
+                                        aria-label="返回首页"
                                     >
                                         <img src="/logo.svg" alt="古籍智解" className="hidden sm:flex h-8 w-8 rounded-lg" />
                                         <h1
@@ -247,16 +244,17 @@ function App() {
                                         className="text-[11px] tracking-[0.24em] hidden md:inline-flex rounded-full px-2.5 py-1"
                                         style={{ color: 'rgba(26,30,35,0.42)', backgroundColor: 'rgba(255,255,255,0.62)' }}
                                     >
-                                        遇到疑难处，可随时请 AI 讲解
+                                        疑处，可请 AI 释之
                                     </span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }}>{username}</span>
+                                <span className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }} aria-label={`当前用户：${username}`}>{username}</span>
                                 <button
                                     onClick={() => { void logout(); }}
                                     className="text-xs px-2 py-1 rounded transition-colors hover:bg-black/5"
                                     style={{ color: 'rgba(26,30,35,0.45)' }}
+                                    aria-label="退出登录"
                                 >
                                     退出
                                 </button>
@@ -269,6 +267,8 @@ function App() {
                             <motion.div
                                 key={activeTab}
                                 className="h-full"
+                                role="main"
+                                aria-label={`${tabs.find((t) => t.key === activeTab)?.label ?? ''}页面`}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -6 }}
@@ -290,7 +290,7 @@ function App() {
                             </svg>
                         }
                     >
-                        <div className="p-4 space-y-2">
+                        <nav className="p-4 space-y-2" aria-label="页面导航">
                             {tabs.map((tab) => {
                                 const isActive = activeTab === tab.key;
                                 return (
@@ -300,7 +300,9 @@ function App() {
                                             setActiveTab(tab.key);
                                             setDrawerOpen(false);
                                         }}
-                                        className="stagger-fade-up w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200"
+                                        aria-current={isActive ? 'page' : undefined}
+                                        aria-label={`切换到${tab.label}`}
+                                        className="stagger-fade-up w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gf-gugong-red)]/40"
                                         style={{
                                             '--stagger-delay': `${0.05 + tabs.indexOf(tab) * 0.04}s`,
                                             color: isActive ? '#fff' : 'rgba(26,30,35,0.7)',
@@ -309,14 +311,14 @@ function App() {
                                             fontFamily: '"Noto Serif SC", serif',
                                         } as React.CSSProperties}
                                     >
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive ? 2 : 1.5}>
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isActive ? 2 : 1.5} aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" d={TAB_ICONS[tab.key]} />
                                         </svg>
                                         <span>{tab.label}</span>
                                     </button>
                                 );
                             })}
-                        </div>
+                        </nav>
                     </Drawer>
                 </>
             )}

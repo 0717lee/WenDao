@@ -260,7 +260,7 @@ describe('DashboardHome', () => {
 
     render(<DashboardHome {...props} />)
 
-    expect(screen.getByText(/古籍库中 准备中/i)).toBeInTheDocument()
-    expect(screen.getByText(/当前可读 准备中/i)).toBeInTheDocument()
+    expect(screen.getByText('古籍库中')).toBeInTheDocument()
+    expect(screen.getByText('当前可读')).toBeInTheDocument()
   })
 })

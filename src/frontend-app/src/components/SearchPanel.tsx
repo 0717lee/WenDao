@@ -6,6 +6,7 @@ import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
 import { authFetchOptions } from '../store/useAuthStore';
+import { EmptyState } from './EmptyState';
 
 interface SearchResult {
   id: string;
@@ -318,33 +319,36 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       {/* Search Results */}
       <div className="relative flex-1 overflow-y-auto p-4 md:p-6">
         {results.length === 0 && !loading && !error && !query && (
-          <div className="text-center mt-20 opacity-35">
-            <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p style={{ color: 'var(--gf-text)' }}>贴一句原文，或输入你记得的人物、典故，开始检索。</p>
+          <div className="mt-12">
+            <EmptyState
+              illustration="search"
+              title="从一句原文开始"
+              description="贴一句原文，或输入你记得的人物、典故。"
+            />
           </div>
         )}
 
         {results.length === 0 && !loading && !error && !!query && (
-          <div className="text-center mt-20 opacity-45">
-            <Search className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--gf-text)' }} />
-            <p className="mb-3" style={{ color: 'var(--gf-text)' }}>
-              没找到和“{query}”直接相关的内容
-            </p>
-            <p className="text-sm mb-4" style={{ color: 'rgba(26,30,35,0.45)' }}>
-              可以试试人物名、典故名，或把原句写得更完整一点。
-            </p>
-            <div className="flex justify-center flex-wrap gap-2">
-              {suggestedQueries.map((item) => (
-                <button
-                  key={`empty-${item}`}
-                  onClick={() => handleSearch(item)}
-                  className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.18)]"
-                  style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
+          <div className="mt-12">
+            <EmptyState
+              illustration="search"
+              title={`没找到和「${query}」直接相关的内容`}
+              description="可以试试人物名、典故名，或把原句写得更完整一点。"
+              action={
+                <div className="flex justify-center flex-wrap gap-2">
+                  {suggestedQueries.map((item) => (
+                    <button
+                      key={`empty-${item}`}
+                      onClick={() => handleSearch(item)}
+                      className="rounded-full px-3 py-1.5 text-xs transition-colors hover:bg-[rgba(201,160,99,0.18)]"
+                      style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)' }}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
           </div>
         )}
 

@@ -16,9 +16,9 @@ const INITIAL_REASONING_STEPS: ReasoningStep[] = [
 ]
 
 const QUICK_CHAT_PROMPTS = [
-    '帮我解释这句：“学而时习之，不亦说乎？”',
-    '我想从孔子和孟子的关系问起',
-    '我想问“逍遥游”里鲲鹏的寓意',
+    '解释：学而时习之，不亦说乎？',
+    '对比：孔孟之别',
+    '意象：鲲鹏之喻',
 ]
 
 export function ChatInterface() {

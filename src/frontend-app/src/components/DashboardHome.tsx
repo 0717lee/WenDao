@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
+import { Skeleton } from './Skeleton'
 
 const DASHBOARD_WARM_RETRY_MAX = 4
 const DASHBOARD_WARM_RETRY_DELAY_MS = 900
@@ -118,8 +119,8 @@ export default function DashboardHome({
   const firstCorpus = corpusDocuments[0]
   const latestHistoryDocumentId = history[0]?.document_id ?? history[0]?.id ?? null
   const recommendedStart = firstCorpus ?? null
-  const corpusCountLabel = corpusTotal === null ? '准备中' : corpusTotal
-  const documentsCountLabel = documentsTotal === null ? '准备中' : documentsTotal
+  const corpusCountLoading = corpusTotal === null
+  const documentsCountLoading = documentsTotal === null
 
   const openRecommendedStart = () => {
     if (recommendedStart) {
@@ -303,7 +304,7 @@ export default function DashboardHome({
             <div
               className="rounded-[24px] px-4 py-4"
               style={{
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(237,244,247,0.96) 100%)',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(248,244,233,0.96) 100%)',
                 border: '1px solid rgba(26,30,35,0.06)',
                 boxShadow: '0 10px 24px rgba(26,30,35,0.04)',
               }}
@@ -355,11 +356,13 @@ export default function DashboardHome({
                 {recommendedStart?.preview || '如果暂时没有明确目标，建议先从篇幅较短、容易进入的内容开始。'}
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                  古籍库中 {corpusCountLabel}
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
+                  古籍库中
+                  {corpusCountLoading ? <Skeleton width={28} height={10} rounded={5} /> : <span>{corpusTotal}</span>}
                 </span>
-                <span className="rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
-                  当前可读 {documentsCountLabel}
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.72)', color: 'rgba(26,30,35,0.62)' }}>
+                  当前可读
+                  {documentsCountLoading ? <Skeleton width={28} height={10} rounded={5} /> : <span>{documentsTotal}</span>}
                 </span>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">

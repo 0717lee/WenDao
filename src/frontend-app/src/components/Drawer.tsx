@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 interface DrawerProps {
@@ -11,6 +11,32 @@ interface DrawerProps {
 }
 
 export function Drawer({ side, open, onClose, title, icon, children }: DrawerProps) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      previouslyFocusedRef.current?.focus?.();
+    };
+  }, [open, onClose]);
+
   return (
     <>
       {/* 背景遮罩 */}
@@ -21,10 +47,16 @@ export function Drawer({ side, open, onClose, title, icon, children }: DrawerPro
           ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}
         `}
         onClick={onClose}
+        aria-hidden="true"
       />
 
       {/* 抽屉面板 */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        aria-hidden={!open}
         className={`
           fixed top-0 ${side === 'left' ? 'left-0' : 'right-0'}
           h-full w-[24rem] z-40
@@ -49,10 +81,12 @@ export function Drawer({ side, open, onClose, title, icon, children }: DrawerPro
             {title}
           </h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="关闭抽屉"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-[#1a1e23]/40 hover:text-[#1a1e23] hover:bg-black/5 transition-all"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 

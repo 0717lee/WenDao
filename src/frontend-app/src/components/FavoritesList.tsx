@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Folder, FolderPlus, Star, ChevronRight, ChevronDown, NotebookText } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { authFetchOptions } from '../store/useAuthStore';
+import { toast } from '../store/useToastStore';
+import { SkeletonPage } from './Skeleton';
 
 interface FolderItem {
   id: string;
@@ -81,19 +83,16 @@ const FavoritesList: React.FC<FavoritesListProps> = ({ onNavigate }) => {
       if (!response.ok) throw new Error('Failed to create folder');
       setNewFolderName('');
       await fetchFolders();
+      toast.success(`已创建分组「${name}」`);
     } catch {
-      // Could add error toast here
+      toast.error('创建分组没有成功，请稍后再试');
     } finally {
       setCreating(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
-        <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(26,30,35,0.1)', borderTopColor: 'var(--gf-gugong-red)' }} />
-      </div>
-    );
+    return <SkeletonPage label="正在加载收藏" variant="list" />;
   }
 
   return (
