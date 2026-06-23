@@ -1,10 +1,11 @@
 import { startTransition, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, BookPlus, Menu, NotebookPen, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookPlus, Menu, Network, NotebookPen, Sparkles } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { Drawer } from './Drawer';
+import { KnowledgeGraphPanel } from './KnowledgeGraphPanel';
 import { ReaderExplainPanel } from './ReaderExplainPanel';
 import { ReaderNotesPanel } from './ReaderNotesPanel';
 import { ReaderTocPanel } from './ReaderTocPanel';
@@ -77,7 +78,7 @@ export function ThreeColumnReader() {
   const setAppTab = useGraphStore((state) => state.setActiveTab);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeReaderTab, setActiveReaderTab] = useState<'original' | 'punctuated'>('original');
-  const [sidePanel, setSidePanel] = useState<'notes' | 'study' | 'explain' | null>(null);
+  const [sidePanel, setSidePanel] = useState<'notes' | 'study' | 'explain' | 'graph' | null>(null);
   const [selectedSentence, setSelectedSentence] = useState<ReaderSentence | null>(null);
   const [selectedChapterTitle, setSelectedChapterTitle] = useState<string | null>(null);
   const [tocOpen, setTocOpen] = useState(false);
@@ -448,6 +449,12 @@ export function ThreeColumnReader() {
 
   const totalParagraphs = Math.max(1, totalParagraphEstimate);
   const selectedSentenceText = selectedSentence?.punctuated || selectedSentence?.original || '';
+  // Combine the selected sentence with the document title so the graph panel
+  // can match both sentence-level entities (e.g. 孔子) and document-level
+  // entities (e.g. 论语) even when the sentence alone lacks full labels.
+  const graphText = selectedSentenceText
+    ? `${selectedSentenceText} ${currentDocument.title}`
+    : (currentDocument.title || '');
 
   const persistProgress = (
     currentParagraph: number,
@@ -761,6 +768,17 @@ export function ThreeColumnReader() {
           学习卡片
         </button>
         <button
+          onClick={() => setSidePanel((prev) => (prev === 'graph' ? null : 'graph'))}
+          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          style={{
+            backgroundColor: sidePanel === 'graph' ? 'rgba(140,26,17,0.10)' : 'rgba(26,30,35,0.06)',
+            color: sidePanel === 'graph' ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.66)',
+          }}
+        >
+          <Network className="mr-1 inline h-3.5 w-3.5" />
+          知识图谱
+        </button>
+        <button
           onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
           className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
@@ -932,6 +950,11 @@ export function ThreeColumnReader() {
             <StudyCardsPanel documentId={currentDocument.id} />
           </div>
         )}
+        {sidePanel === 'graph' && (
+          <div className="border-t p-4" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
+            <KnowledgeGraphPanel text={graphText} documentTitle={currentDocument.title} />
+          </div>
+        )}
         {sidePanel === 'explain' && selectedSentence && (
           <div className="border-t p-4" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
             <ReaderExplainPanel
@@ -1068,6 +1091,8 @@ export function ThreeColumnReader() {
                   context={selectedSentence.context}
                   chapterTitle={selectedChapterTitle ?? undefined}
                 />
+              ) : sidePanel === 'graph' ? (
+                <KnowledgeGraphPanel text={graphText} documentTitle={currentDocument.title} />
               ) : (
                 <StudyCardsPanel documentId={currentDocument.id} />
               )}

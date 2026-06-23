@@ -15,7 +15,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from routers import chat, search, document, reader, speech_api, creative, auth
+from routers import chat, search, document, reader, speech_api, creative, auth, graph
 from core.database import count_corpus_documents, init_database
 from core.pg_database import pg_lifespan, init_pg_database
 import uvicorn
@@ -162,6 +162,7 @@ app.include_router(document.router)
 app.include_router(reader.router)
 app.include_router(speech_api.router)
 app.include_router(creative.router)
+app.include_router(graph.router)
 
 
 @app.exception_handler(HTTPException)
