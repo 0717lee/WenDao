@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from main import app
 from main import _make_json_safe
-from main import _resolve_pg_seed_mode
+from main import _resolve_pg_seed_mode, _should_sync_sqlite_corpus
 
 
 client = TestClient(app, raise_server_exceptions=False)
@@ -58,3 +58,16 @@ def test_login_empty_fields_returns_422_instead_of_500():
     assert response.status_code == 422
     assert data["detail"] == "验证错误"
     assert data["details"][0]["ctx"]["error"] == "字段不能为空"
+
+
+def test_should_sync_sqlite_corpus_respects_free_deploy_mode(monkeypatch):
+    monkeypatch.setenv("SQLITE_CORPUS_SEED_MODE", "none")
+
+    assert _should_sync_sqlite_corpus(0) is False
+
+
+def test_should_sync_sqlite_corpus_keeps_default_background_sync(monkeypatch):
+    monkeypatch.delenv("SQLITE_CORPUS_SEED_MODE", raising=False)
+
+    assert _should_sync_sqlite_corpus(0) is True
+    assert _should_sync_sqlite_corpus(10) is False

@@ -57,6 +57,14 @@ def _track_background_task(app: FastAPI, task: asyncio.Task[None]) -> None:
     task.add_done_callback(_clear_task_reference)
 
 
+
+def _sqlite_corpus_seed_mode() -> str:
+    return os.getenv("SQLITE_CORPUS_SEED_MODE", "auto").strip().lower()
+
+
+def _should_sync_sqlite_corpus(corpus_count: int) -> bool:
+    return corpus_count == 0 and _sqlite_corpus_seed_mode() != "none"
+
 def _resolve_pg_seed_mode(corpus_count: int) -> str | None:
     return "none" if corpus_count == 0 else None
 
@@ -91,11 +99,14 @@ async def combined_lifespan(app: FastAPI):
     logger.info("SQLite数据库基础结构初始化完成")
 
     corpus_count = await count_corpus_documents()
-    needs_sqlite_corpus_sync = corpus_count == 0
+    needs_sqlite_corpus_sync = _should_sync_sqlite_corpus(corpus_count)
     if corpus_count > 0:
         logger.info("SQLite 已存在 %d 条 corpus 文档，启动阶段跳过后台同步", corpus_count)
     else:
-        logger.warning("SQLite 当前无 corpus 文档，将在服务就绪后后台分批同步，避免阻塞服务启动")
+        if needs_sqlite_corpus_sync:
+            logger.warning("SQLite 当前无 corpus 文档，将在服务就绪后后台分批同步，避免阻塞服务启动")
+        else:
+            logger.info("SQLite corpus 同步已由 SQLITE_CORPUS_SEED_MODE=none 关闭，将按需读取内置 JSON 快照")
 
     pg_seed_mode = _resolve_pg_seed_mode(corpus_count)
 

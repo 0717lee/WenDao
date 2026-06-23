@@ -33,6 +33,7 @@ from core.document_segments import (
 )
 from core.kanripo_catalog import load_kanripo_catalog
 from core.kanripo_source import CURATED_WORKS, build_repo_record
+from core.corpus_documents import iter_corpus_document_batches
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
@@ -257,6 +258,84 @@ def _has_document_body(row: dict[str, Any] | None) -> bool:
     return bool(str(row.get("original_text") or "").strip() or str(row.get("punctuated_text") or "").strip())
 
 
+
+def _corpus_preview(record: dict[str, Any]) -> str:
+    return str(
+        record.get("featured_excerpt")
+        or record.get("translated_text")
+        or record.get("punctuated_text")
+        or record.get("original_text")
+        or ""
+    )[:140]
+
+
+def _normalize_corpus_snapshot_record(record: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalize_document_payload(dict(record))
+    normalized["source_type"] = "corpus"
+    normalized.setdefault("status", "done")
+    normalized.setdefault("translation_status", "none")
+    normalized.setdefault("owner_user_id", None)
+    normalized.setdefault("created_at", None)
+    normalized.setdefault("updated_at", None)
+    return normalized
+
+
+def _serialize_corpus_snapshot_list_item(record: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalize_corpus_snapshot_record(record)
+    return {
+        "id": normalized.get("id"),
+        "title": normalized.get("title"),
+        "repo_id": normalized.get("repo_id"),
+        "author": normalized.get("author"),
+        "dynasty": normalized.get("dynasty"),
+        "category": normalized.get("category"),
+        "source_name": normalized.get("source_name"),
+        "source_url": normalized.get("source_url"),
+        "chapter_count": int(normalized.get("chapter_count") or 0),
+        "difficulty": normalized.get("difficulty"),
+        "guide_summary": normalized.get("guide_summary"),
+        "translation_status": normalized.get("translation_status") or "none",
+        "status": normalized.get("status") or "done",
+        "source_type": "corpus",
+        "owner_user_id": None,
+        "created_at": normalized.get("created_at"),
+        "updated_at": normalized.get("updated_at"),
+        "preview": _corpus_preview(normalized),
+        "current_paragraph": 0,
+        "total_paragraphs": 0,
+        "has_processed": bool(normalized.get("punctuated_text")),
+        "has_note": False,
+    }
+
+
+def _get_corpus_snapshot_document(document_id: str | None = None, repo_id: str | None = None) -> dict[str, Any] | None:
+    if not document_id and not repo_id:
+        return None
+    for batch in iter_corpus_document_batches():
+        for record in batch:
+            if document_id and str(record.get("id")) == str(document_id):
+                return _normalize_corpus_snapshot_record(record)
+            if repo_id and str(record.get("repo_id")) == str(repo_id):
+                return _normalize_corpus_snapshot_record(record)
+    return None
+
+
+def _list_corpus_snapshot_documents(limit: int = 50) -> list[dict[str, Any]]:
+    documents: list[dict[str, Any]] = []
+    for batch in iter_corpus_document_batches():
+        for record in batch:
+            documents.append(_serialize_corpus_snapshot_list_item(record))
+            if len(documents) >= limit:
+                return documents
+    return documents
+
+
+def _count_corpus_snapshot_documents() -> int:
+    total = 0
+    for batch in iter_corpus_document_batches():
+        total += len(batch)
+    return total
+
 async def _get_sqlite_document_row(document_id: str | None = None, repo_id: str | None = None) -> dict[str, Any] | None:
     if not document_id and not repo_id:
         return None
@@ -283,7 +362,10 @@ async def _get_sqlite_document_row(document_id: str | None = None, repo_id: str 
     async with get_db() as db:
         cursor = await db.execute(sql.format(where_clause=where_clause), params)
         row = await cursor.fetchone()
-        return _normalize_document_payload(dict(row)) if row else None
+        if row:
+            return _normalize_document_payload(dict(row))
+
+    return _get_corpus_snapshot_document(document_id=document_id, repo_id=repo_id)
 
 
 async def _hydrate_public_document(row: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -577,7 +659,9 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
         pass
 
     sqlite_row = await _get_sqlite_document_row(repo_id=repo_id)
-    return await _hydrate_public_document(sqlite_row)
+    if sqlite_row:
+        return await _hydrate_public_document(sqlite_row)
+    return _get_corpus_snapshot_document(repo_id=repo_id)
 
 
 async def _list_documents_sqlite(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
@@ -664,10 +748,13 @@ async def _count_documents_sqlite(source_type: str | None = None, user_id: str |
 async def _list_documents(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
     """Return bookshelf-ready document metadata ordered by most recently updated."""
     if source_type == "corpus":
-        return await _list_documents_sqlite(limit=limit, source_type=source_type, user_id=user_id)
+        corpus_documents = await _list_documents_sqlite(limit=limit, source_type=source_type, user_id=user_id)
+        return corpus_documents or _list_corpus_snapshot_documents(limit=limit)
 
     if source_type is None:
         corpus_documents = await _list_documents_sqlite(limit=limit, source_type="corpus", user_id=user_id)
+        if not corpus_documents:
+            corpus_documents = _list_corpus_snapshot_documents(limit=limit)
         remaining_limit = max(limit - len(corpus_documents), 0)
     else:
         corpus_documents = []
@@ -748,9 +835,12 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
 async def _count_documents(source_type: str | None = None, user_id: str | None = None) -> int:
     """Return total count of documents ignoring limit and offset."""
     if source_type == "corpus":
-        return await _count_documents_sqlite(source_type=source_type, user_id=user_id)
+        sqlite_count = await _count_documents_sqlite(source_type=source_type, user_id=user_id)
+        return sqlite_count or _count_corpus_snapshot_documents()
 
     sqlite_corpus_count = await _count_documents_sqlite(source_type="corpus", user_id=user_id) if source_type is None else 0
+    if source_type is None and sqlite_corpus_count == 0:
+        sqlite_corpus_count = _count_corpus_snapshot_documents()
     where_clause = (
         "WHERE ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)"
     )
