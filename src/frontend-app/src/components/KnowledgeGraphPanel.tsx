@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Network, RefreshCw } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
@@ -59,9 +59,64 @@ export function KnowledgeGraphPanel({ text, documentTitle }: KnowledgeGraphPanel
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<EntityDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [refreshCounter, setRefreshCounter] = useState(0)
 
+  // Single ref to hold the latest AbortController for extract requests,
+  // so text changes and refresh share one in-flight request lifecycle.
+  const extractControllerRef = useRef<AbortController | null>(null)
+
+  /**
+   * Unified extract request: used by both text changes and refresh button.
+   * Cancels any previous in-flight request before starting a new one.
+   */
+  const runExtract = useCallback(async (extractText: string) => {
+    // Cancel any previous request.
+    extractControllerRef.current?.abort()
+    const controller = new AbortController()
+    extractControllerRef.current = controller
+
+    setLoading(true)
+    setError('')
+    setSelectedId(null)
+    setDetail(null)
+
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/graph/extract`, {
+        ...authFetchOptions({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+        body: JSON.stringify({ text: extractText, max_nodes: 30 }),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        throw new Error('extract failed')
+      }
+      const payload: ExtractResponse = await response.json()
+      if (controller.signal.aborted) return
+      setData(payload)
+      // Auto-select the first matched entity to show detail immediately.
+      if (payload.entities.length > 0) {
+        setSelectedId(payload.entities[0].id)
+      }
+    } catch {
+      if (controller.signal.aborted) return
+      setError('图谱加载失败，请稍后再试')
+      setData(null)
+    } finally {
+      if (!controller.signal.aborted) setLoading(false)
+    }
+  }, [])
+
+  // Single useEffect for both text changes and refresh.
+  // - text change: refreshCounter stays the same, text differs → triggers.
+  // - refresh button: refreshCounter increments → triggers.
+  // Both share the same runExtract function and AbortController ref,
+  // so there is never a duplicate request.
   useEffect(() => {
     if (!text.trim()) {
+      // Cancel any in-flight request when text becomes empty.
+      extractControllerRef.current?.abort()
       setData(null)
       setError('')
       setSelectedId(null)
@@ -69,51 +124,12 @@ export function KnowledgeGraphPanel({ text, documentTitle }: KnowledgeGraphPanel
       return
     }
 
-    const controller = new AbortController()
-    let active = true
-
-    async function loadSubgraph() {
-      setLoading(true)
-      setError('')
-      setSelectedId(null)
-      setDetail(null)
-
-      try {
-        const response = await fetch(`${API_BASE}/api/v1/graph/extract`, {
-          ...authFetchOptions({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          }),
-          body: JSON.stringify({ text, max_nodes: 30 }),
-          signal: controller.signal,
-        })
-        if (!response.ok) {
-          throw new Error('extract failed')
-        }
-        const payload: ExtractResponse = await response.json()
-        if (!active) return
-        setData(payload)
-        // Auto-select the first matched entity to show detail immediately.
-        if (payload.entities.length > 0) {
-          setSelectedId(payload.entities[0].id)
-        }
-      } catch (err) {
-        if (controller.signal.aborted) return
-        if (!active) return
-        setError('图谱加载失败，请稍后再试')
-        setData(null)
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-
-    void loadSubgraph()
+    void runExtract(text)
 
     return () => {
-      active = false
-      controller.abort()
+      extractControllerRef.current?.abort()
     }
-  }, [text])
+  }, [text, refreshCounter, runExtract])
 
   // Load entity detail when selection changes.
   useEffect(() => {
@@ -190,50 +206,15 @@ export function KnowledgeGraphPanel({ text, documentTitle }: KnowledgeGraphPanel
 
   const handleRefresh = () => {
     if (!text.trim()) return
-    // Re-trigger the extract effect by toggling via a no-op state change.
-    // The simplest way is to reuse the same text: we force a remount of the
-    // effect by depending on a refresh counter.
     setRefreshCounter((c) => c + 1)
   }
 
-  const [refreshCounter, setRefreshCounter] = useState(0)
-
-  // Re-run extract when refresh counter changes.
-  useEffect(() => {
-    if (refreshCounter === 0) return
-    if (!text.trim()) return
-    const controller = new AbortController()
-    let active = true
-    setLoading(true)
-    setError('')
-    async function reload() {
-      try {
-        const response = await fetch(`${API_BASE}/api/v1/graph/extract`, {
-          ...authFetchOptions({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          }),
-          body: JSON.stringify({ text, max_nodes: 30 }),
-          signal: controller.signal,
-        })
-        if (!response.ok) throw new Error('extract failed')
-        const payload: ExtractResponse = await response.json()
-        if (!active) return
-        setData(payload)
-        if (payload.entities.length > 0) setSelectedId(payload.entities[0].id)
-      } catch {
-        if (!active) return
-        setError('图谱加载失败，请稍后再试')
-      } finally {
-        if (active) setLoading(false)
-      }
+  const handleNodeKeyDown = (e: React.KeyboardEvent, nodeId: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setSelectedId(nodeId)
     }
-    void reload()
-    return () => {
-      active = false
-      controller.abort()
-    }
-  }, [refreshCounter, text])
+  }
 
   const hasContent = Boolean(data && data.nodes.length > 0)
   const matchedCount = data?.stats.matched_entities ?? 0
@@ -266,6 +247,7 @@ export function KnowledgeGraphPanel({ text, documentTitle }: KnowledgeGraphPanel
           )}
         </div>
         <button
+          type="button"
           onClick={handleRefresh}
           disabled={loading || !text.trim()}
           aria-label="刷新图谱"
@@ -308,7 +290,7 @@ export function KnowledgeGraphPanel({ text, documentTitle }: KnowledgeGraphPanel
         </div>
       )}
 
-      {!loading && !error && hasContent && layout && (
+      {!loading && !error && hasContent && layout && data && (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* SVG radial graph */}
           <div className="flex justify-center">
@@ -321,7 +303,7 @@ export function KnowledgeGraphPanel({ text, documentTitle }: KnowledgeGraphPanel
               aria-label="实体关系图"
             >
               {/* Edges */}
-              {data!.edges.map((edge, idx) => {
+              {data.edges.map((edge, idx) => {
                 const sourcePos = layout.positions.get(edge.source)
                 const targetPos = layout.positions.get(edge.target)
                 if (!sourcePos || !targetPos) return null
@@ -348,9 +330,11 @@ export function KnowledgeGraphPanel({ text, documentTitle }: KnowledgeGraphPanel
                   <g
                     key={`node-${node.id}`}
                     onClick={() => setSelectedId(node.id)}
+                    onKeyDown={(e) => handleNodeKeyDown(e, node.id)}
+                    tabIndex={0}
                     style={{ cursor: 'pointer' }}
                     role="button"
-                    aria-label={`实体：${node.label}`}
+                    aria-label={`实体：${node.label}，按 Enter 查看详情`}
                   >
                     <circle
                       cx={pos.x}

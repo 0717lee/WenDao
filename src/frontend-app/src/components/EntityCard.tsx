@@ -37,7 +37,7 @@ const GROUP_COLORS: Record<string, string> = {
   '人物': 'var(--gf-gugong-red)',
   '典籍': 'var(--gf-gold)',
   '概念': '#3c8a51',
-  '篇章': '#7a5a8c',
+  '篇章': '#8b6f47',
   '典故': '#b85c00',
 }
 
@@ -99,6 +99,7 @@ export function EntityCard({ entity, relations, neighbors, onSelectNeighbor, onC
         </div>
         {onClose && (
           <button
+            type="button"
             onClick={onClose}
             aria-label="关闭实体卡片"
             className="rounded-lg px-2 py-1 text-xs transition-colors hover:bg-black/5"
@@ -141,6 +142,7 @@ export function EntityCard({ entity, relations, neighbors, onSelectNeighbor, onC
                   <ArrowRight className="h-3 w-3 shrink-0" style={{ color: 'rgba(26,30,35,0.3)' }} />
                   {neighbor ? (
                     <button
+                      type="button"
                       onClick={() => onSelectNeighbor?.(neighbor.id)}
                       className="font-medium transition-colors hover:underline"
                       style={{ color: 'var(--gf-text)' }}
@@ -178,6 +180,7 @@ export function EntityCard({ entity, relations, neighbors, onSelectNeighbor, onC
                 >
                   {neighbor ? (
                     <button
+                      type="button"
                       onClick={() => onSelectNeighbor?.(neighbor.id)}
                       className="font-medium transition-colors hover:underline"
                       style={{ color: 'var(--gf-text)' }}

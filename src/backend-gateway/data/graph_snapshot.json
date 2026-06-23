@@ -26,6 +26,7 @@
     { "id": "shiji", "label": "史记", "group": "典籍", "desc": "纪传体通史，司马迁著", "era": "西汉", "aliases": ["太史公书"] },
     { "id": "zhanguoce", "label": "战国策", "group": "典籍", "desc": "战国纵横家文献，刘向编定", "era": "战国", "aliases": [] },
     { "id": "zuozhuan", "label": "左传", "group": "典籍", "desc": "春秋史书，左丘明传", "era": "春秋", "aliases": ["左氏春秋"] },
+    { "id": "chunqiu", "label": "春秋", "group": "典籍", "desc": "鲁国史书，相传孔子编定，五经之一", "era": "春秋", "aliases": ["麟经"] },
     { "id": "zhiguanzhengyao", "label": "贞观政要", "group": "典籍", "desc": "唐代政论史料，吴兢撰", "era": "唐代", "aliases": [] },
     { "id": "zizhitongjian", "label": "资治通鉴", "group": "典籍", "desc": "编年体通史，司马光主编", "era": "北宋", "aliases": ["通鉴"] },
     { "id": "shijing", "label": "诗经", "group": "典籍", "desc": "中国最早诗歌总集", "era": "西周", "aliases": ["诗", "诗三百"] },

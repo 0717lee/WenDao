@@ -13,7 +13,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.auth import maybe_auth
 from core.knowledge_graph import KnowledgeGraph, get_knowledge_graph
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/v1/graph", tags=["graph"])
 
 class ExtractRequest(BaseModel):
     """Request body for text-driven subgraph extraction."""
-    text: str
+    text: str = Field(..., max_length=10000, description="Text to extract entities from")
     max_nodes: int = 30
 
 

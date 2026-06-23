@@ -164,7 +164,7 @@ describe('KnowledgeGraphPanel', () => {
     })
 
     // Click on the 论语 node group (role=button with aria-label).
-    const lunyuNode = screen.getByRole('button', { name: '实体：论语' })
+    const lunyuNode = screen.getByRole('button', { name: /实体：论语/ })
     fireEvent.click(lunyuNode)
 
     // Entity card should now show 论语 details.
@@ -195,6 +195,46 @@ describe('KnowledgeGraphPanel', () => {
 
     await waitFor(() => {
       expect(vi.mocked(global.fetch).mock.calls.length).toBeGreaterThan(initialCallCount)
+    })
+  })
+
+  it('does not issue duplicate extract requests when text changes after refresh', async () => {
+    // Regression test: previously two useEffects both depended on `text`,
+    // causing a duplicate /extract call after refresh. Now a single
+    // useEffect handles both text changes and refresh.
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response(JSON.stringify(SAMPLE_EXTRACT_RESPONSE), { status: 200 }),
+    )
+
+    const { rerender } = render(<KnowledgeGraphPanel text="孔子" />)
+
+    // Wait for initial load (1 extract request).
+    await waitFor(() => {
+      expect(screen.getByText('儒家创始人')).toBeTruthy()
+    })
+    const callsAfterInitial = vi.mocked(global.fetch).mock.calls.filter(
+      (c) => c[0]?.toString().includes('/graph/extract'),
+    ).length
+    expect(callsAfterInitial).toBe(1)
+
+    // Click refresh (1 more extract request).
+    fireEvent.click(screen.getByLabelText('刷新图谱'))
+    await waitFor(() => {
+      const callsAfterRefresh = vi.mocked(global.fetch).mock.calls.filter(
+        (c) => c[0]?.toString().includes('/graph/extract'),
+      ).length
+      expect(callsAfterRefresh).toBe(2)
+    })
+
+    // Now change text — should trigger exactly 1 more extract, not 2.
+    rerender(<KnowledgeGraphPanel text="论语" />)
+
+    await waitFor(() => {
+      const callsAfterTextChange = vi.mocked(global.fetch).mock.calls.filter(
+        (c) => c[0]?.toString().includes('/graph/extract'),
+      ).length
+      // Should be 3 total (1 initial + 1 refresh + 1 text change), not 4.
+      expect(callsAfterTextChange).toBe(3)
     })
   })
 })

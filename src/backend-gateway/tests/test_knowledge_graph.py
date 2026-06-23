@@ -166,25 +166,40 @@ class TestExtractSubgraph:
 
         This guards against regressing into per-open ZHIPUAI quota consumption
         when the sidebar view extracts entities from the current paragraph.
+
+        We assert both sides of the contract:
+        - extract_entities_fast IS called (positive proof)
+        - extract_entities (the LLM-capable entry) is NOT called (negative proof)
         """
         with patch.object(
-            graph._extractor, "_extract_with_llm", wraps=graph._extractor._extract_with_llm
-        ) as spy_llm:
+            graph._extractor, "extract_entities_fast",
+            wraps=graph._extractor.extract_entities_fast,
+        ) as spy_fast, patch.object(
+            graph._extractor, "extract_entities",
+            wraps=graph._extractor.extract_entities,
+        ) as spy_full:
             result = graph.extract_subgraph("孔子编撰了论语")
             # Must have produced a result via fast path...
             assert "kongzi" in [e["id"] for e in result["entities"]]
-            # ...without ever invoking the LLM enhanced path.
-            assert spy_llm.call_count == 0
+            # ...by calling extract_entities_fast exactly once...
+            assert spy_fast.call_count == 1
+            # ...and never calling the LLM-capable extract_entities.
+            assert spy_full.call_count == 0
 
     def test_uses_fast_path_even_with_api_key(self, graph, monkeypatch):
         """Even when ZHIPUAI_API_KEY is configured, extract_subgraph stays local."""
         monkeypatch.setenv("ZHIPUAI_API_KEY", "fake-key-for-test")
         with patch.object(
-            graph._extractor, "_extract_with_llm", return_value=None
-        ) as mock_llm:
+            graph._extractor, "extract_entities_fast",
+            wraps=graph._extractor.extract_entities_fast,
+        ) as spy_fast, patch.object(
+            graph._extractor, "extract_entities",
+            wraps=graph._extractor.extract_entities,
+        ) as spy_full:
             result = graph.extract_subgraph("孔子")
             assert "kongzi" in [e["id"] for e in result["entities"]]
-            assert mock_llm.call_count == 0
+            assert spy_fast.call_count == 1
+            assert spy_full.call_count == 0
 
 
 class TestRealSnapshot:
