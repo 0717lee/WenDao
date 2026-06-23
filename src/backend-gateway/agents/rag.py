@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, Any
 from openai import OpenAI
 import jieba
+from core.runtime_checks import get_zhipu_api_key
 
 logger = logging.getLogger(__name__)
 INDEX_METADATA_FILE = "index.meta.json"
@@ -26,6 +27,44 @@ SYSTEM_PROMPT = """你是"古籍智解"系统的知识讲解员。
 回答尽量控制在 150 字以内，先说核心意思，再补一句背景或下一步建议。
 如果检索片段和用户问题明显不相关，请忽略无关片段，优先直接回答用户真正的问题，不要硬套上下文。
 如果用户问题过于笼统、缺少原句或明确对象，请先提示用户补一句原文、篇名、人物或典故线索。"""
+
+RAG_PROVIDER_CONFIGS = {
+    "moonshot": {
+        "api_key_env": "MOONSHOT_API_KEY",
+        "base_url": "https://api.moonshot.cn/v1",
+        "model_env": "RAG_MOONSHOT_MODEL",
+        "default_model": "moonshot-v1-8k",
+    },
+    "kimi": {
+        "api_key_env": "MOONSHOT_API_KEY",
+        "base_url": "https://api.moonshot.cn/v1",
+        "model_env": "RAG_MOONSHOT_MODEL",
+        "default_model": "moonshot-v1-8k",
+    },
+    "deepseek": {
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "base_url": "https://api.deepseek.com",
+        "model_env": "RAG_DEEPSEEK_MODEL",
+        "default_model": "deepseek-chat",
+    },
+    "zhipu": {
+        "api_key_env": "ZHIPUAI_API_KEY",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "model_env": "RAG_ZHIPU_MODEL",
+        "default_model": "glm-4-flash",
+    },
+}
+
+
+def _resolve_rag_provider_config() -> tuple[str, dict[str, str]]:
+    requested = (os.getenv("RAG_PROVIDER") or "moonshot").strip().lower()
+    if requested not in RAG_PROVIDER_CONFIGS:
+        logger.warning("Unsupported RAG_PROVIDER=%s, fallback to moonshot", requested)
+        requested = "moonshot"
+    provider = "moonshot" if requested == "kimi" else requested
+    config = RAG_PROVIDER_CONFIGS[requested]
+    model = os.getenv(config["model_env"], config["default_model"])
+    return provider, {**config, "model": model}
 
 
 def _load_index_metadata(db_path: Path) -> dict[str, Any] | None:
@@ -125,17 +164,22 @@ def inspect_faiss_index_compatibility() -> dict[str, Any]:
 
 
 class RAGAgent:
-    """真实接入 Moonshot Kimi 的 RAG 知识代理"""
+    """真实接入可配置 OpenAI 兼容 LLM 的 RAG 知识代理"""
 
     def __init__(self):
-        api_key = os.getenv("MOONSHOT_API_KEY", "")
+        self.provider, provider_config = _resolve_rag_provider_config()
+        self.model = provider_config["model"]
+        if provider_config["api_key_env"] == "ZHIPUAI_API_KEY":
+            api_key = get_zhipu_api_key()
+        else:
+            api_key = os.getenv(provider_config["api_key_env"], "")
         if not api_key:
-            logger.warning("MOONSHOT_API_KEY 未配置，RAG功能将降级")
+            logger.warning("%s 未配置，RAG功能将降级", provider_config["api_key_env"])
             self.client = None
         else:
             self.client = OpenAI(
                 api_key=api_key,
-                base_url="https://api.moonshot.cn/v1"
+                base_url=provider_config["base_url"]
             )
         self._init_vectorstore()
         self._entity_extractor = None
@@ -196,7 +240,7 @@ class RAGAgent:
             # 3. 构建prompt并调用Kimi
             if self.client is None:
                 return {
-                    "answer": "RAG功能暂时不可用（缺少API密钥），请联系管理员配置MOONSHOT_API_KEY",
+                    "answer": "RAG功能暂时不可用（缺少API密钥），请联系管理员配置对应的LLM API Key",
                     "citations": citations,
                     "related_entities": []
                 }
@@ -209,7 +253,7 @@ class RAGAgent:
 请基于上述信息，为用户生成一段通俗易懂的讲解。"""
 
             response = self.client.chat.completions.create(
-                model="moonshot-v1-8k",
+                model=self.model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt}

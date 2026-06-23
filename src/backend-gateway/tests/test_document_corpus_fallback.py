@@ -68,3 +68,28 @@ async def test_get_document_by_repo_id_uses_corpus_snapshot_when_databases_miss(
     assert document["id"] == record["id"]
     assert document["segments"][0]["title"] == "学而"
     assert document["punctuated_text"] == "学而时习之，不亦说乎？"
+
+@pytest.mark.asyncio
+async def test_list_documents_endpoint_skips_full_snapshot_count_for_lightweight_fallback():
+    from routers import document as document_router
+
+    document = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "title": "《论语》",
+        "source_type": "corpus",
+        "preview": "学而时习之",
+        "status": "done",
+        "current_paragraph": 0,
+        "total_paragraphs": 0,
+        "has_processed": True,
+        "has_note": False,
+    }
+
+    with patch("routers.document._list_documents", new=AsyncMock(return_value=[document])), \
+         patch("routers.document._count_documents_sqlite", new=AsyncMock(return_value=0)), \
+         patch("routers.document._count_documents", new=AsyncMock(side_effect=AssertionError("full count should not run"))):
+        response = await document_router.list_documents(limit=12, source_type="corpus", _user={"sub": "user-1"})
+
+    assert response["documents"] == [document]
+    assert response["total"] == 1
+    assert response["total_estimated"] is True

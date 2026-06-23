@@ -49,6 +49,64 @@ class TestRAGAgentQueryAncientText:
         assert isinstance(result["citations"], list)
 
 
+class TestRAGAgentProviderSelection:
+    """RAG LLM provider can be switched away from Moonshot"""
+
+    @patch.dict(
+        os.environ,
+        {
+            "RAG_PROVIDER": "deepseek",
+            "DEEPSEEK_API_KEY": "deepseek-key",
+            "MOONSHOT_API_KEY": "moonshot-key",
+        },
+    )
+    @patch("agents.rag.RAGAgent._init_vectorstore")
+    @patch("agents.rag.OpenAI")
+    def test_deepseek_provider_uses_deepseek_client_and_model(self, mock_openai, mock_init_vs):
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "DeepSeek回答"
+        mock_openai.return_value.chat.completions.create.return_value = mock_response
+
+        agent = RAGAgent()
+        agent.vectorstore = None
+        result = agent.query_ancient_text("仁政是什么？", include_related_entities=False)
+
+        assert result["answer"] == "DeepSeek回答"
+        mock_openai.assert_called_once_with(
+            api_key="deepseek-key",
+            base_url="https://api.deepseek.com",
+        )
+        mock_openai.return_value.chat.completions.create.assert_called_once()
+        assert mock_openai.return_value.chat.completions.create.call_args.kwargs["model"] == "deepseek-chat"
+
+    @patch.dict(
+        os.environ,
+        {
+            "RAG_PROVIDER": "zhipu",
+            "ZHIPUAI_API_KEY": "zhipu-key",
+            "MOONSHOT_API_KEY": "moonshot-key",
+        },
+    )
+    @patch("agents.rag.RAGAgent._init_vectorstore")
+    @patch("agents.rag.OpenAI")
+    def test_zhipu_provider_uses_zhipu_client_and_model(self, mock_openai, mock_init_vs):
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "智谱回答"
+        mock_openai.return_value.chat.completions.create.return_value = mock_response
+
+        agent = RAGAgent()
+        agent.vectorstore = None
+        result = agent.query_ancient_text("仁政是什么？", include_related_entities=False)
+
+        assert result["answer"] == "智谱回答"
+        mock_openai.assert_called_once_with(
+            api_key="zhipu-key",
+            base_url="https://open.bigmodel.cn/api/paas/v4",
+        )
+        assert mock_openai.return_value.chat.completions.create.call_args.kwargs["model"] == "glm-4-flash"
+
 class TestRAGAgentCitations:
     """测试2: citations列表包含title和source字段"""
 

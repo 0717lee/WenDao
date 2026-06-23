@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-TranslatorAgent - Kimi + DeepSeek fallback, OpenCC t2s
--------------------------------------------------------
+TranslatorAgent - configurable OpenAI-compatible translator providers, OpenCC t2s
+--------------------------------------------------------------------------------
 """
 import os
 import asyncio
@@ -11,20 +11,54 @@ import re
 from openai import OpenAI
 
 from core.output_validator import OutputValidator
+from core.runtime_checks import get_zhipu_api_key
 
 logger = logging.getLogger(__name__)
 
+TRANSLATOR_PROVIDER_ALIASES = {
+    "kimi": "moonshot",
+    "moonshot": "moonshot",
+    "deepseek": "deepseek",
+    "zhipu": "zhipu",
+    "glm": "zhipu",
+}
+DEFAULT_TRANSLATOR_PROVIDER_ORDER = ["moonshot", "deepseek"]
+
+
+def _resolve_translator_provider_order(value: str | None) -> list[str]:
+    raw_providers = [part.strip().lower() for part in (value or "moonshot").split(",")]
+    order: list[str] = []
+    for raw_provider in raw_providers:
+        if not raw_provider:
+            continue
+        provider = TRANSLATOR_PROVIDER_ALIASES.get(raw_provider)
+        if provider is None:
+            logger.warning("Unsupported TRANSLATOR_PROVIDER entry=%s, ignoring", raw_provider)
+            continue
+        if provider not in order:
+            order.append(provider)
+    if not order:
+        order.append("moonshot")
+    for provider in DEFAULT_TRANSLATOR_PROVIDER_ORDER:
+        if provider not in order:
+            order.append(provider)
+    return order
+
 
 class TranslatorAgent:
-    """Kimi primary + DeepSeek fallback + OpenCC t2s"""
+    """Configurable translator with Moonshot and DeepSeek provider order."""
 
     def __init__(self):
-        self.kimi_client = OpenAI(
-            api_key=os.getenv("MOONSHOT_API_KEY", ""),
-            base_url="https://api.moonshot.cn/v1",
-        )
+        self.provider_order = _resolve_translator_provider_order(os.getenv("TRANSLATOR_PROVIDER"))
+        self.primary_provider = self.provider_order[0]
+        self.kimi_client = None
         self.deepseek_client = None
+        self.zhipu_client = None
         self.deepseek_enabled = bool(os.getenv("DEEPSEEK_API_KEY", "").strip())
+        self.zhipu_enabled = bool(get_zhipu_api_key().strip())
+        self.moonshot_model = os.getenv("TRANSLATOR_MOONSHOT_MODEL", "moonshot-v1-8k")
+        self.deepseek_model = os.getenv("TRANSLATOR_DEEPSEEK_MODEL", "deepseek-chat")
+        self.zhipu_model = os.getenv("TRANSLATOR_ZHIPU_MODEL", "glm-4-flash")
         self.converter = None
 
     async def punctuate_and_translate(self, raw_text: str) -> dict:
@@ -47,27 +81,41 @@ class TranslatorAgent:
 
     async def _translate_segment(self, text: str, depth: int = 0) -> tuple[dict, bool]:
         last_error: Exception | None = None
-        for attempt in range(2):
-            try:
-                return await self._call_kimi(text), False
-            except Exception as exc:
-                last_error = exc
-                logger.warning("TranslatorAgent Kimi attempt %s failed: %s", attempt + 1, exc)
-                await asyncio.sleep(0.2 * (attempt + 1))
+        for provider in self._provider_order():
+            if provider == "moonshot":
+                result, provider_error = await self._try_kimi(text)
+                if result is not None:
+                    return result, provider != self.primary_provider
+                last_error = provider_error or last_error
+                continue
 
-        try:
-            return await self._call_kimi_plain(text), False
-        except Exception as exc:
-            last_error = exc
-            logger.warning("TranslatorAgent Kimi plain-format fallback failed: %s", exc)
+            if provider == "deepseek":
+                if not self.deepseek_enabled:
+                    if provider == self.primary_provider:
+                        logger.warning("TRANSLATOR_PROVIDER includes deepseek but DEEPSEEK_API_KEY is not configured")
+                    continue
+                try:
+                    if provider != self.primary_provider:
+                        logger.info("[降级] TranslatorAgent: %s → DeepSeek, reason: %s", self.primary_provider, str(last_error))
+                    return await self._call_deepseek(text), provider != self.primary_provider
+                except Exception as exc:
+                    last_error = exc
+                    logger.warning("TranslatorAgent DeepSeek provider failed: %s", exc)
+                    continue
 
-        if self.deepseek_enabled:
-            try:
-                logger.info("[降级] TranslatorAgent: Kimi-8k → DeepSeek-Chat, reason: %s", str(last_error))
-                return await self._call_deepseek(text), True
-            except Exception as exc:
-                last_error = exc
-                logger.warning("TranslatorAgent DeepSeek fallback failed: %s", exc)
+            if provider == "zhipu":
+                if not self.zhipu_enabled:
+                    if provider == self.primary_provider:
+                        logger.warning("TRANSLATOR_PROVIDER includes zhipu but ZHIPUAI_API_KEY is not configured")
+                    continue
+                try:
+                    if provider != self.primary_provider:
+                        logger.info("[降级] TranslatorAgent: %s → Zhipu, reason: %s", self.primary_provider, str(last_error))
+                    return await self._call_zhipu(text), provider != self.primary_provider
+                except Exception as exc:
+                    last_error = exc
+                    logger.warning("TranslatorAgent Zhipu provider failed: %s", exc)
+                    continue
 
         if depth < 2:
             smaller_segments = self._split_for_recovery(text)
@@ -84,6 +132,34 @@ class TranslatorAgent:
                 }, used_fallback
 
         raise last_error or RuntimeError("Translation failed")
+
+    def _provider_order(self) -> list[str]:
+        return self.provider_order
+
+    async def _try_kimi(self, text: str) -> tuple[dict | None, Exception | None]:
+        last_error: Exception | None = None
+        for attempt in range(2):
+            try:
+                return await self._call_kimi(text), None
+            except Exception as exc:
+                last_error = exc
+                logger.warning("TranslatorAgent Kimi attempt %s failed: %s", attempt + 1, exc)
+                await asyncio.sleep(0.2 * (attempt + 1))
+
+        try:
+            return await self._call_kimi_plain(text), None
+        except Exception as exc:
+            last_error = exc
+            logger.warning("TranslatorAgent Kimi plain-format fallback failed: %s", exc)
+            return None, last_error
+
+    def _get_kimi_client(self):
+        if self.kimi_client is None:
+            self.kimi_client = OpenAI(
+                api_key=os.getenv("MOONSHOT_API_KEY", ""),
+                base_url="https://api.moonshot.cn/v1",
+            )
+        return self.kimi_client
 
     def _split_segments(self, text: str, max_len: int = 400) -> list:
         if len(text) <= max_len:
@@ -120,8 +196,8 @@ class TranslatorAgent:
             '{"punctuated": "标点后的文本", "translated": "白话翻译"}'
         )
         response = await asyncio.to_thread(
-            self.kimi_client.chat.completions.create,
-            model="moonshot-v1-8k",
+            self._get_kimi_client().chat.completions.create,
+            model=self.moonshot_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
@@ -139,8 +215,8 @@ class TranslatorAgent:
             "白话译：..."
         )
         response = await asyncio.to_thread(
-            self.kimi_client.chat.completions.create,
-            model="moonshot-v1-8k",
+            self._get_kimi_client().chat.completions.create,
+            model=self.moonshot_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )
@@ -164,7 +240,31 @@ class TranslatorAgent:
         )
         response = await asyncio.to_thread(
             self.deepseek_client.chat.completions.create,
-            model="deepseek-chat",
+            model=self.deepseek_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content
+        return self._parse_json(content)
+
+    async def _call_zhipu(self, text: str) -> dict:
+        if not self.zhipu_enabled:
+            raise RuntimeError("Zhipu API key not configured")
+        if self.zhipu_client is None:
+            self.zhipu_client = OpenAI(
+                api_key=get_zhipu_api_key(),
+                base_url="https://open.bigmodel.cn/api/paas/v4",
+            )
+        prompt = (
+            "请对以下古文进行处理：\n"
+            "1. 添加现代标点符号\n"
+            "2. 翻译为白话文\n\n"
+            f"古文：{text}\n\n"
+            '返回JSON格式：{"punctuated": "...", "translated": "..."}'
+        )
+        response = await asyncio.to_thread(
+            self.zhipu_client.chat.completions.create,
+            model=self.zhipu_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
         )

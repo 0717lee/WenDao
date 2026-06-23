@@ -1507,8 +1507,19 @@ async def list_documents(
         source_type = None
     user_id = _extract_user_id(_user)
     documents = await _list_documents(limit=limit, source_type=source_type, user_id=user_id)
-    total = await _count_documents(source_type=source_type, user_id=user_id)
-    return {"documents": documents, "total": total}
+
+    total_estimated = False
+    if source_type in {None, "corpus"}:
+        sqlite_corpus_count = await _count_documents_sqlite(source_type="corpus", user_id=user_id)
+        if sqlite_corpus_count == 0:
+            total_estimated = True
+            total = len(documents)
+        else:
+            total = await _count_documents(source_type=source_type, user_id=user_id)
+    else:
+        total = await _count_documents(source_type=source_type, user_id=user_id)
+
+    return {"documents": documents, "total": total, "total_estimated": total_estimated}
 
 
 @router.get("/resolve-citation")

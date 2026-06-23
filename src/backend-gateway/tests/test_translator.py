@@ -65,6 +65,87 @@ class TestDeepSeekFallback:
         assert result["translated"] == "有翻译。"
 
 
+class TestDeepSeekPrimary:
+    """DeepSeek can be selected as the primary translator provider"""
+
+    @patch("agents.translator.OpenAI")
+    def test_deepseek_provider_skips_kimi_calls(self, mock_openai_cls):
+        deepseek_client = Mock()
+        ds_response = Mock()
+        ds_response.choices = [Mock()]
+        ds_response.choices[0].message.content = json.dumps(
+            {"punctuated": "有标点。", "translated": "有翻译。"}, ensure_ascii=False
+        )
+        deepseek_client.chat.completions.create.return_value = ds_response
+        mock_openai_cls.return_value = deepseek_client
+
+        with patch.dict(
+            os.environ,
+            {
+                "TRANSLATOR_PROVIDER": "deepseek",
+                "DEEPSEEK_API_KEY": "deepseek-key",
+                "MOONSHOT_API_KEY": "moonshot-key",
+            },
+        ):
+            agent = TranslatorAgent()
+
+            import asyncio
+            result = asyncio.run(agent.punctuate_and_translate("短文"))
+
+        assert result["punctuated"] == "有标点。"
+        assert result["translated"] == "有翻译。"
+        assert result["used_fallback"] is False
+        mock_openai_cls.assert_called_once_with(
+            api_key="deepseek-key",
+            base_url="https://api.deepseek.com",
+        )
+        deepseek_client.chat.completions.create.assert_called_once()
+        assert deepseek_client.chat.completions.create.call_args.kwargs["model"] == "deepseek-chat"
+
+class TestZhipuFallback:
+    """Zhipu can be used after DeepSeek without touching Moonshot"""
+
+    @patch("agents.translator.OpenAI")
+    def test_deepseek_zhipu_order_uses_zhipu_after_deepseek_failure(self, mock_openai_cls):
+        deepseek_client = Mock()
+        deepseek_client.chat.completions.create.side_effect = Exception("DeepSeek quota exceeded")
+        zhipu_client = Mock()
+        zhipu_response = Mock()
+        zhipu_response.choices = [Mock()]
+        zhipu_response.choices[0].message.content = json.dumps(
+            {"punctuated": "智谱标点。", "translated": "智谱翻译。"}, ensure_ascii=False
+        )
+        zhipu_client.chat.completions.create.return_value = zhipu_response
+        mock_openai_cls.side_effect = [deepseek_client, zhipu_client]
+
+        with patch.dict(
+            os.environ,
+            {
+                "TRANSLATOR_PROVIDER": "deepseek,zhipu",
+                "DEEPSEEK_API_KEY": "deepseek-key",
+                "ZHIPUAI_API_KEY": "zhipu-key",
+                "MOONSHOT_API_KEY": "moonshot-key",
+            },
+        ):
+            agent = TranslatorAgent()
+
+            import asyncio
+            result = asyncio.run(agent.punctuate_and_translate("短文"))
+
+        assert result["punctuated"] == "智谱标点。"
+        assert result["translated"] == "智谱翻译。"
+        assert result["used_fallback"] is True
+        assert mock_openai_cls.call_args_list[0].kwargs == {
+            "api_key": "deepseek-key",
+            "base_url": "https://api.deepseek.com",
+        }
+        assert mock_openai_cls.call_args_list[1].kwargs == {
+            "api_key": "zhipu-key",
+            "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        }
+        assert len(mock_openai_cls.call_args_list) == 2
+        assert zhipu_client.chat.completions.create.call_args.kwargs["model"] == "glm-4-flash"
+
 class TestSegmentSplitting:
     """Text >400 chars splits correctly"""
 
