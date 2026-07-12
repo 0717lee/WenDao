@@ -211,6 +211,22 @@ class WordbookEntryCreate(BaseModel):
     citations: list[dict[str, Any]] = Field(default_factory=list, max_length=50)
 
 
+async def _list_reading_history_sqlite(user_id: str) -> list[dict[str, Any]]:
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT d.id AS id, d.id AS document_id, d.title, h.current_paragraph, h.total_paragraphs, h.last_read_at
+            FROM user_reading_history h
+            JOIN documents d ON h.document_id = d.id
+            WHERE h.user_id = ?
+              AND (d.source_type = 'corpus' OR d.owner_user_id = h.user_id)
+            ORDER BY h.last_read_at DESC
+            """,
+            (user_id,),
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+
 async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
     """Return reading history rows for one authenticated user."""
     if not user_id:
@@ -224,25 +240,51 @@ async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
                 FROM user_reading_history h
                 JOIN documents d ON h.document_id = d.id
                 WHERE h.user_id = $1::uuid
+                  AND (d.source_type = 'corpus' OR d.owner_user_id = h.user_id)
                 ORDER BY h.last_read_at DESC
                 """,
                 user_id,
             )
-            return [dict(row) for row in rows]
+            if rows:
+                return [dict(row) for row in rows]
+        return await _list_reading_history_sqlite(user_id)
     except Exception as exc:
         logger.warning("PostgreSQL 阅读记录读取失败，降级到 SQLite: %s", exc)
-        async with get_db() as db:
-            cursor = await db.execute(
-                """
-                SELECT d.id AS id, d.id AS document_id, d.title, h.current_paragraph, h.total_paragraphs, h.last_read_at
-                FROM user_reading_history h
-                JOIN documents d ON h.document_id = d.id
-                WHERE h.user_id = ?
-                ORDER BY h.last_read_at DESC
-                """,
-                (user_id,),
-            )
-            return [dict(row) for row in await cursor.fetchall()]
+        return await _list_reading_history_sqlite(user_id)
+
+
+async def _get_study_overview_sqlite(user_id: str) -> tuple[Any, Any]:
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT
+                COUNT(*) AS sessions_count,
+                COUNT(DISTINCT s.document_id) AS reviewed_documents_count,
+                COALESCE(SUM(s.completed_cards), 0) AS completed_cards,
+                COALESCE(SUM(s.mastered_cards), 0) AS mastered_cards,
+                COALESCE(SUM(s.review_again_cards), 0) AS review_again_cards
+            FROM user_study_sessions s
+            JOIN documents d ON d.id = s.document_id
+            WHERE s.user_id = ?
+              AND (d.source_type = 'corpus' OR d.owner_user_id = s.user_id)
+            """,
+            (user_id,),
+        )
+        summary = await cursor.fetchone()
+        cursor = await db.execute(
+            """
+            SELECT s.document_id, d.title, s.created_at
+            FROM user_study_sessions s
+            JOIN documents d ON d.id = s.document_id
+            WHERE s.user_id = ?
+              AND (d.source_type = 'corpus' OR d.owner_user_id = s.user_id)
+            ORDER BY s.created_at DESC
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+        latest = await cursor.fetchone()
+        return summary, latest
 
 
 async def _get_study_overview(user_id: str | None) -> dict[str, Any]:
@@ -256,12 +298,14 @@ async def _get_study_overview(user_id: str | None) -> dict[str, Any]:
                 """
                 SELECT
                     COUNT(*)::int AS sessions_count,
-                    COUNT(DISTINCT document_id)::int AS reviewed_documents_count,
-                    COALESCE(SUM(completed_cards), 0)::int AS completed_cards,
-                    COALESCE(SUM(mastered_cards), 0)::int AS mastered_cards,
-                    COALESCE(SUM(review_again_cards), 0)::int AS review_again_cards
-                FROM user_study_sessions
-                WHERE user_id = $1::uuid
+                    COUNT(DISTINCT s.document_id)::int AS reviewed_documents_count,
+                    COALESCE(SUM(s.completed_cards), 0)::int AS completed_cards,
+                    COALESCE(SUM(s.mastered_cards), 0)::int AS mastered_cards,
+                    COALESCE(SUM(s.review_again_cards), 0)::int AS review_again_cards
+                FROM user_study_sessions s
+                JOIN documents d ON d.id = s.document_id
+                WHERE s.user_id = $1::uuid
+                  AND (d.source_type = 'corpus' OR d.owner_user_id = s.user_id)
                 """
                 ,
                 user_id,
@@ -272,39 +316,22 @@ async def _get_study_overview(user_id: str | None) -> dict[str, Any]:
                 FROM user_study_sessions s
                 JOIN documents d ON d.id = s.document_id
                 WHERE s.user_id = $1::uuid
+                  AND (d.source_type = 'corpus' OR d.owner_user_id = s.user_id)
                 ORDER BY s.created_at DESC
                 LIMIT 1
                 """,
                 user_id,
             )
-    except Exception:
-        async with get_db() as db:
-            cursor = await db.execute(
-                """
-                SELECT
-                    COUNT(*) AS sessions_count,
-                    COUNT(DISTINCT document_id) AS reviewed_documents_count,
-                    COALESCE(SUM(completed_cards), 0) AS completed_cards,
-                    COALESCE(SUM(mastered_cards), 0) AS mastered_cards,
-                    COALESCE(SUM(review_again_cards), 0) AS review_again_cards
-                FROM user_study_sessions
-                WHERE user_id = ?
-                """,
-                (user_id,),
-            )
-            summary = await cursor.fetchone()
-            cursor = await db.execute(
-                """
-                SELECT s.document_id, d.title, s.created_at
-                FROM user_study_sessions s
-                JOIN documents d ON d.id = s.document_id
-                WHERE s.user_id = ?
-                ORDER BY s.created_at DESC
-                LIMIT 1
-                """,
-                (user_id,),
-            )
-            latest = await cursor.fetchone()
+    except Exception as exc:
+        logger.warning("PostgreSQL 学习概览读取失败，降级到 SQLite: %s", exc)
+        summary, latest = await _get_study_overview_sqlite(user_id)
+    else:
+        summary_dict = dict(summary) if summary else {}
+        if int(summary_dict.get("sessions_count") or 0) == 0:
+            sqlite_summary, sqlite_latest = await _get_study_overview_sqlite(user_id)
+            sqlite_dict = dict(sqlite_summary) if sqlite_summary else {}
+            if int(sqlite_dict.get("sessions_count") or 0) > 0:
+                summary, latest = sqlite_summary, sqlite_latest
 
     summary_dict = dict(summary) if summary else {}
     completed = int(summary_dict.get("completed_cards") or 0)
@@ -629,6 +656,7 @@ async def get_entity_frequency(_user: dict | None = Depends(maybe_auth)):
                     JOIN documents d ON h.document_id = d.id,
                          jsonb_array_elements_text(d.entity_ids) AS entity_id
                     WHERE h.user_id = $1::uuid
+                      AND (d.source_type = 'corpus' OR d.owner_user_id = h.user_id)
                       AND d.entity_ids IS NOT NULL
                       AND d.entity_ids != '[]'::jsonb
                     GROUP BY entity_id
@@ -639,6 +667,7 @@ async def get_entity_frequency(_user: dict | None = Depends(maybe_auth)):
                     FROM user_reading_history h
                     JOIN documents d ON h.document_id = d.id
                     WHERE h.user_id = $1::uuid
+                      AND (d.source_type = 'corpus' OR d.owner_user_id = h.user_id)
                       AND d.entity_ids IS NOT NULL
                       AND d.entity_ids != '[]'::jsonb
                 """, user_id)
@@ -655,7 +684,10 @@ async def get_entity_frequency(_user: dict | None = Depends(maybe_auth)):
                     SELECT DISTINCT h.document_id, d.entity_ids
                     FROM user_reading_history h
                     JOIN documents d ON h.document_id = d.id
-                    WHERE h.user_id = ? AND d.entity_ids IS NOT NULL AND d.entity_ids != '' AND d.entity_ids != '[]'
+                    WHERE h.user_id = ?
+                      AND (d.source_type = 'corpus' OR d.owner_user_id = h.user_id)
+                      AND d.entity_ids IS NOT NULL
+                      AND d.entity_ids != '' AND d.entity_ids != '[]'
                 """, (user_id,))
                 rows = await cursor.fetchall()
         except sqlite3.OperationalError as exc:
@@ -787,6 +819,7 @@ async def get_favorites(folder_id: str, _user: dict | None = Depends(maybe_auth)
                         FROM user_favorites f
                         JOIN documents d ON f.document_id = d.id
                         WHERE f.user_id = $1::uuid AND f.folder_id = $2::uuid
+                          AND (d.source_type = 'corpus' OR d.owner_user_id = f.user_id)
                         ORDER BY f.created_at DESC
                     """, user_id, folder_id)
                     if rows:
@@ -800,6 +833,7 @@ async def get_favorites(folder_id: str, _user: dict | None = Depends(maybe_auth)
                 FROM user_favorites f
                 JOIN documents d ON f.document_id = d.id
                 WHERE f.user_id = ? AND f.folder_id = ?
+                  AND (d.source_type = 'corpus' OR d.owner_user_id = f.user_id)
                 ORDER BY f.created_at DESC
             """, (user_id, folder_id))
             rows = await cursor.fetchall()

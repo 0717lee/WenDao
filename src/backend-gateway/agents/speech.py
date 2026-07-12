@@ -5,10 +5,28 @@ ASR: 语音听写(流式版)  wss://iat-api.xfyun.cn/v2/iat
 TTS: 在线语音合成(流式版) wss://tts-api.xfyun.cn/v2/tts
 鉴权: HMAC-SHA256 签名 + RFC1123 时间戳
 """
-import os, json, asyncio, base64, hashlib, hmac, time
+import os, json, asyncio, base64, hashlib, hmac, threading, time
 from datetime import datetime
 from urllib.parse import urlencode, urlparse
 import websocket  # websocket-client 同步库
+
+
+WEBSOCKET_CALL_TIMEOUT_SECONDS = max(
+    1.0,
+    float(os.getenv("IFLYTEK_WEBSOCKET_TIMEOUT_SECONDS", "15")),
+)
+
+
+def _run_websocket_app(ws, timeout_seconds: float = WEBSOCKET_CALL_TIMEOUT_SECONDS) -> None:
+    """Run a synchronous websocket with an absolute wall-clock timeout."""
+    timeout_timer = threading.Timer(timeout_seconds, ws.close)
+    timeout_timer.daemon = True
+    timeout_timer.start()
+    try:
+        ws.run_forever()
+    finally:
+        timeout_timer.cancel()
+        ws.close()
 
 
 # ========================== 工具函数 ==========================
@@ -116,7 +134,7 @@ def _run_asr(audio_bytes: bytes, app_id: str, api_key: str, api_secret: str) -> 
                 if status == 0:
                     status = 1
                 time.sleep(0.04)  # 控速，模拟实时发送
-        threading.Thread(target=send_audio).start()
+        threading.Thread(target=send_audio, daemon=True).start()
 
     def on_error(ws, error):
         nonlocal finished
@@ -130,7 +148,7 @@ def _run_asr(audio_bytes: bytes, app_id: str, api_key: str, api_secret: str) -> 
         on_error=on_error,
         on_close=lambda ws, *a: None
     )
-    ws.run_forever(ping_timeout=10)
+    _run_websocket_app(ws)
     return "".join(result_text)
 
 
@@ -198,7 +216,7 @@ def _run_tts(text: str, app_id: str, api_key: str, api_secret: str) -> bytes:
         on_error=on_error,
         on_close=lambda ws, *a: None
     )
-    ws.run_forever(ping_timeout=10)
+    _run_websocket_app(ws)
     return b"".join(audio_chunks)
 
 

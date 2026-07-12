@@ -4,10 +4,12 @@ JWT 认证工具模块
 提供 token 生成、验证和 FastAPI 依赖注入
 """
 import os
+import re
 import jwt
 import bcrypt
 import logging
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -128,6 +130,15 @@ def clear_auth_cookie(response: Response, request: Request | None = None) -> Non
     )
 
 
+def get_request_bearer_token(request: Request) -> str | None:
+    """Extract a non-empty Bearer token without validating it."""
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer":
+        return None
+    normalized = token.strip()
+    return normalized or None
+
+
 def _extract_request_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:
     if credentials is not None:
         return credentials.credentials
@@ -165,37 +176,78 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效令牌")
 
 
+def _normalize_origin(value: str) -> str | None:
+    """Normalize a valid HTTP origin, including its effective port."""
+    raw = value.strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"} or not parsed.hostname:
+        return None
+    if parsed.username or parsed.password or parsed.path not in {"", "/"}:
+        return None
+    if parsed.params or parsed.query or parsed.fragment:
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    hostname = parsed.hostname.lower().rstrip(".")
+    host = f"[{hostname}]" if ":" in hostname and not hostname.startswith("[") else hostname
+    if port is None or (scheme == "http" and port == 80) or (scheme == "https" and port == 443):
+        return f"{scheme}://{host}"
+    return f"{scheme}://{host}:{port}"
+
+
+def _request_source_origin(request: Request) -> tuple[str | None, bool]:
+    """Return the browser source origin and whether a source header was supplied."""
+    raw_origin = request.headers.get("origin", "").strip()
+    if raw_origin:
+        return _normalize_origin(raw_origin), True
+
+    referer = request.headers.get("referer", "").strip()
+    if referer:
+        parsed = urlparse(referer)
+        if parsed.scheme and parsed.netloc:
+            return _normalize_origin(f"{parsed.scheme}://{parsed.netloc}"), True
+        return None, True
+    return None, False
+
+
 def verify_origin(request: Request) -> None:
-    """CSRF protection: reject cross-site state-changing requests from untrusted origins.
+    """Reject cookie-authenticated requests without a trustworthy browser origin."""
+    if get_request_bearer_token(request):
+        return
 
-    For GET endpoints that change state (e.g., EventSource-based SSE), CORS alone
-    is insufficient — the server executes the action before the browser blocks
-    the response. This validates the Origin header server-side.
-    """
-    origin = request.headers.get("origin", "")
-    if not origin:
-        return  # Same-origin or non-browser request
+    origin, source_supplied = _request_source_origin(request)
+    if not source_supplied:
+        if request.cookies.get(AUTH_COOKIE_NAME):
+            raise HTTPException(status_code=403, detail="跨站请求被拒绝")
+        return
+    if origin is None:
+        raise HTTPException(status_code=403, detail="跨站请求被拒绝")
 
-    from urllib.parse import urlparse
+    request_origin = _normalize_origin(f"{request.url.scheme}://{request.url.netloc}")
+    if origin == request_origin:
+        return
 
-    origin_host = urlparse(origin).hostname or ""
-    request_host = request.url.hostname or ""
-    if origin_host == request_host:
-        return  # Same-origin
-
-    allowed = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
+    default_allowed = "https://example.com,http://localhost:5173,http://localhost:3000,http://localhost"
+    allowed = {
+        normalized
+        for item in os.getenv("CORS_ALLOWED_ORIGINS", default_allowed).split(",")
+        if (normalized := _normalize_origin(item)) is not None
+    }
     if origin in allowed:
-        return  # Explicitly allowed
+        return
 
-    import re
-
-    regex = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "")
+    regex = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "").strip()
     if regex:
         try:
-            if re.match(regex, origin):
+            if re.fullmatch(regex, origin):
                 return
         except re.error:
-            pass
+            logger.warning("Invalid CORS_ALLOW_ORIGIN_REGEX")
 
     raise HTTPException(status_code=403, detail="跨站请求被拒绝")
 

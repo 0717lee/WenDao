@@ -25,19 +25,23 @@ def _hash_token(raw_value: str) -> str:
 
 
 def get_rate_limit_key(request: Request) -> str:
-    # Validate the cookie token before using it as a rate-limit key.
-    # A forged cookie would otherwise create a new bucket per random value.
-    cookie_token = request.cookies.get("wendao_token")
-    if cookie_token:
+    # Authentication endpoints always use IP buckets, even if a stale or valid
+    # session cookie is present.
+    auth_paths = {"/api/v1/auth/login", "/api/v1/auth/register"}
+    if request.url.path not in auth_paths:
         try:
-            from core.auth import decode_token
+            from core.auth import decode_token, get_request_bearer_token
 
-            decode_token(cookie_token)  # raises on invalid/expired token
-            return f"cookie:{_hash_token(cookie_token)}"
+            token = get_request_bearer_token(request) or request.cookies.get("wendao_token")
+            if token:
+                claims = decode_token(token)
+                subject = str(claims.get("sub") or "").strip()
+                if subject:
+                    return f"user:{_hash_token(subject)}"
         except Exception:
-            pass  # Invalid/forged cookie — fall back to IP
+            pass
 
-    # Fall back to client IP for unauthenticated or invalid-token requests
+    # Unauthenticated, invalid-token, and authentication requests use the IP.
     client = getattr(request, "client", None)
     return getattr(client, "host", "127.0.0.1")
 

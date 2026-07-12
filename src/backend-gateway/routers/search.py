@@ -378,7 +378,8 @@ async def _load_document_candidates(limit: int = 200, user_id: str | None = None
             else:
                 user_rows = []
             return [*corpus_rows, *user_rows][:limit]
-    except Exception:
+    except Exception as exc:
+        logger.warning("PostgreSQL 搜索候选读取失败，降级到 SQLite: %s", exc)
         async with get_db() as db:
             cursor = await db.execute(
                 """

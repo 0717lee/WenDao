@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/creative", tags=["creative"])
 MEDIA_ENHANCEMENT_TIMEOUT = float(os.getenv("CREATIVE_MEDIA_TIMEOUT_SECONDS", "2.5"))
+POEM_PROVIDER_TIMEOUT = float(os.getenv("CREATIVE_POEM_TIMEOUT_SECONDS", "30"))
 
 
 class PoemRequest(BaseModel):
@@ -41,25 +42,27 @@ async def _generate_poem(topic: str) -> str:
     if not api_key:
         raise ValueError("ZHIPUAI_API_KEY not configured")
 
-    client = ZhipuAI(api_key=api_key)
-
     def _call_sync():
-        return client.chat.completions.create(
-            model="glm-4-flash",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "你是一位精通格律的古典诗词大师。"
-                        "根据用户提供的主题，创作一首五言或七言古风诗。"
-                        "只输出诗词正文，不要标题不要解释。"
-                    ),
-                },
-                {"role": "user", "content": topic},
-            ],
-        )
+        client = ZhipuAI(api_key=api_key, timeout=POEM_PROVIDER_TIMEOUT, max_retries=0)
+        try:
+            return client.chat.completions.create(
+                model="glm-4-flash",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "你是一位精通格律的古典诗词大师。"
+                            "根据用户提供的主题，创作一首五言或七言古风诗。"
+                            "只输出诗词正文，不要标题不要解释。"
+                        ),
+                    },
+                    {"role": "user", "content": topic},
+                ],
+            )
+        finally:
+            client.close()
 
-    response = await asyncio.to_thread(_call_sync)
+    response = await asyncio.wait_for(asyncio.to_thread(_call_sync), timeout=POEM_PROVIDER_TIMEOUT)
     return response.choices[0].message.content.strip()
 
 
@@ -67,9 +70,16 @@ async def _generate_image(topic: str) -> str | None:
     """Generate a CogView illustration for the poem topic."""
     from agents.image_gen import ImageGenAgent
 
-    agent = ImageGenAgent()
     prompt = f"中国古典水墨画风格，诗意场景：{topic}，留白意境"
-    return await asyncio.to_thread(agent.generate, prompt)
+
+    def _call_sync():
+        agent = ImageGenAgent(timeout=MEDIA_ENHANCEMENT_TIMEOUT, max_retries=0)
+        try:
+            return agent.generate(prompt)
+        finally:
+            agent.close()
+
+    return await asyncio.to_thread(_call_sync)
 
 
 async def _generate_audio(poem_text: str) -> bytes | None:
@@ -102,18 +112,26 @@ async def stream_poem_response(topic: str) -> AsyncGenerator[str, None]:
     # Step 2: Generate image and audio in parallel
     image_task = asyncio.create_task(_safe_generate_image(topic))
     audio_task = asyncio.create_task(_safe_generate_audio(poem_text))
+    media_tasks = (image_task, audio_task)
+    try:
+        # Both optional enhancements share the same wall-clock timeout window.
+        image_url, audio_bytes = await asyncio.gather(
+            _await_optional_media(image_task, "poem_image"),
+            _await_optional_media(audio_task, "poem_audio"),
+        )
+        if image_url:
+            yield _sse_event("poem_image", {"url": image_url})
 
-    # Optional enhancements: bounded wait so media never blocks the main poem path indefinitely.
-    image_url = await _await_optional_media(image_task, "poem_image")
-    if image_url:
-        yield _sse_event("poem_image", {"url": image_url})
+        if audio_bytes:
+            audio_b64 = base64.b64encode(audio_bytes).decode()
+            yield _sse_event("poem_audio", {"audio_base64": audio_b64})
 
-    audio_bytes = await _await_optional_media(audio_task, "poem_audio")
-    if audio_bytes:
-        audio_b64 = base64.b64encode(audio_bytes).decode()
-        yield _sse_event("poem_audio", {"audio_base64": audio_b64})
-
-    yield _sse_event("done", {})
+        yield _sse_event("done", {})
+    finally:
+        for task in media_tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*media_tasks, return_exceptions=True)
 
 
 async def _await_optional_media(task: asyncio.Task, label: str):

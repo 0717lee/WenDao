@@ -1,9 +1,10 @@
 import asyncio, json, logging, re, time
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
 from agents.rag import RAGAgent
 from core.rate_limit import limiter
+from core.auth import require_auth
 from core.lazy_proxy import LazyProxy
 from models.schemas import ChatRequest
 from core.database import get_db
@@ -188,7 +189,7 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
 
 @router.post("/api/v1/chat")
 @limiter.limit("10/minute")
-async def chat(request: Request, body: ChatRequest):
+async def chat(request: Request, body: ChatRequest, _user: dict = Depends(require_auth)):
     """
     SSE流式聊天API
 

@@ -2009,10 +2009,16 @@ async def _generate_pdf(row) -> Response:
                     pdf.set_font("CJK", size=10)
                     font_set = True
                     break
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("PDF CJK font loading failed: %s", exc)
 
         if not font_set:
+            export_text = "".join(
+                str(row.get(field) or "")
+                for field in ("original_text", "punctuated_text", "translated_text")
+            )
+            if any(ord(char) > 255 for char in export_text):
+                raise HTTPException(status_code=503, detail="PDF导出服务缺少可用的 Unicode 字体")
             pdf.set_font("Helvetica", size=10)
 
         sections = [
@@ -2036,6 +2042,8 @@ async def _generate_pdf(row) -> Response:
         )
     except ImportError:
         raise HTTPException(500, "PDF导出需要安装fpdf2")
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.warning("PDF export failed, falling back to TXT: %s", exc)
-        return await _generate_txt(row)
+        logger.exception("PDF export failed: %s", exc)
+        raise HTTPException(status_code=500, detail="PDF导出失败") from exc

@@ -126,8 +126,8 @@ async def save_study_session(
                 *payload,
             )
             return dict(row)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("PostgreSQL 学习记录保存失败，降级到 SQLite: %s", exc)
 
     async with get_db() as db:
         await db.execute(
@@ -140,6 +140,25 @@ async def save_study_session(
         )
         await db.commit()
     return await get_study_progress(document_id, user_id)
+
+
+async def _get_study_progress_sqlite(document_id: str, user_id: str) -> dict[str, Any]:
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            SELECT
+                COUNT(*) AS sessions_count,
+                COALESCE(SUM(completed_cards), 0) AS completed_cards,
+                COALESCE(SUM(mastered_cards), 0) AS mastered_cards,
+                COALESCE(SUM(review_again_cards), 0) AS review_again_cards,
+                MAX(created_at) AS last_reviewed_at
+            FROM user_study_sessions
+            WHERE user_id = ? AND document_id = ?
+            """,
+            (user_id, document_id),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else {}
 
 
 async def get_study_progress(document_id: str, user_id: str | None) -> dict[str, Any]:
@@ -163,23 +182,14 @@ async def get_study_progress(document_id: str, user_id: str | None) -> dict[str,
                 document_id,
             )
             data = dict(row) if row else {}
-    except RuntimeError:
-        async with get_db() as db:
-            cursor = await db.execute(
-                """
-                SELECT
-                    COUNT(*) AS sessions_count,
-                    COALESCE(SUM(completed_cards), 0) AS completed_cards,
-                    COALESCE(SUM(mastered_cards), 0) AS mastered_cards,
-                    COALESCE(SUM(review_again_cards), 0) AS review_again_cards,
-                    MAX(created_at) AS last_reviewed_at
-                FROM user_study_sessions
-                WHERE user_id = ? AND document_id = ?
-                """,
-                (user_id, document_id),
-            )
-            row = await cursor.fetchone()
-            data = dict(row) if row else {}
+    except Exception as exc:
+        logger.warning("PostgreSQL 学习进度读取失败，降级到 SQLite: %s", exc)
+        data = {}
+
+    if int(data.get("sessions_count") or 0) == 0:
+        sqlite_data = await _get_study_progress_sqlite(document_id, user_id)
+        if int(sqlite_data.get("sessions_count") or 0) > 0 or not data:
+            data = sqlite_data
 
     sessions = int(data.get("sessions_count") or 0)
     completed = int(data.get("completed_cards") or 0)

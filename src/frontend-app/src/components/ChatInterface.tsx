@@ -186,6 +186,7 @@ export function ChatInterface() {
         } catch (error) {
             console.error('Poem API error:', error)
             updateLastMessage('诗词生成没有完成，请稍后再试。')
+        } finally {
             setLoading(false)
             setProgress('')
         }
