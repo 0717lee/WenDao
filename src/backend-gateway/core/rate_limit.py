@@ -25,14 +25,19 @@ def _hash_token(raw_value: str) -> str:
 
 
 def get_rate_limit_key(request: Request) -> str:
-    # Use cookie token (httpOnly, not forgeable by client JS) if present.
-    # Bearer header is intentionally NOT used: any client can send a random
-    # string to get a fresh rate-limit bucket, defeating the purpose.
+    # Validate the cookie token before using it as a rate-limit key.
+    # A forged cookie would otherwise create a new bucket per random value.
     cookie_token = request.cookies.get("wendao_token")
     if cookie_token:
-        return f"cookie:{_hash_token(cookie_token)}"
+        try:
+            from core.auth import decode_token
 
-    # Fall back to client IP for unauthenticated requests
+            decode_token(cookie_token)  # raises on invalid/expired token
+            return f"cookie:{_hash_token(cookie_token)}"
+        except Exception:
+            pass  # Invalid/forged cookie — fall back to IP
+
+    # Fall back to client IP for unauthenticated or invalid-token requests
     client = getattr(request, "client", None)
     return getattr(client, "host", "127.0.0.1")
 

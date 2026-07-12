@@ -88,11 +88,11 @@ export function useVoiceRecorder() {
  */
 export async function playTTSAudio(text: string): Promise<void> {
     try {
-        const resp = await fetch(`${API_BASE}/api/v1/speech/tts`, {
+        const resp = await fetch(`${API_BASE}/api/v1/speech/tts`, authFetchOptions({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text }),
-        })
+        }))
         const data = await resp.json()
         if (data.audio_base64) {
             const audioSrc = `data:audio/mp3;base64,${data.audio_base64}`

@@ -335,6 +335,8 @@ export function ChatInterface() {
                 }
             }
             flushStreamBuffer(true)
+            setLoading(false)
+            setProgress('')
         } catch (error) {
             console.error('Failed to send message:', error)
             const failedActions: AnswerContextAction[] = [

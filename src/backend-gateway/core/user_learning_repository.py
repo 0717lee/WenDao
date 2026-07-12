@@ -126,7 +126,7 @@ async def save_study_session(
                 *payload,
             )
             return dict(row)
-    except RuntimeError:
+    except Exception:
         pass
 
     async with get_db() as db:

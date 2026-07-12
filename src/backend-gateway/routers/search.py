@@ -378,7 +378,7 @@ async def _load_document_candidates(limit: int = 200, user_id: str | None = None
             else:
                 user_rows = []
             return [*corpus_rows, *user_rows][:limit]
-    except RuntimeError:
+    except Exception:
         async with get_db() as db:
             cursor = await db.execute(
                 """

@@ -138,6 +138,13 @@ class UserLogin(BaseModel):
             raise ValueError("字段不能为空")
         return cleaned
 
+    @field_validator('password')
+    @classmethod
+    def validate_password_bytes(cls, value: str) -> str:
+        if len(value.encode('utf-8')) > 72:
+            raise ValueError("密码过长，请缩短至72字节以内")
+        return value
+
 
 class TokenResponse(BaseModel):
     """登录成功响应"""

@@ -23,7 +23,7 @@ from agents.sentence_explainer import SentenceExplainerAgent
 from agents.translator import TranslatorAgent
 from agents.word_explainer import WordExplainerAgent
 from core import pg_database
-from core.auth import maybe_auth, require_auth
+from core.auth import maybe_auth, require_auth, verify_origin
 from core.document_segments import (
     build_original_text,
     build_translated_text,
@@ -1777,7 +1777,7 @@ async def update_document_text(request: Request, document_id: str, body: Documen
 @router.get("/process/{document_id}")
 @router.post("/process/{document_id}")
 @limiter.limit("10/minute")
-async def process_document(request: Request, document_id: str, _user: dict = Depends(require_auth)):
+async def process_document(request: Request, document_id: str, _user: dict = Depends(require_auth), _origin: None = Depends(verify_origin)):
     """
     Process an uploaded document: punctuate and translate ancient text.
     Returns SSE stream with progress events and final result.
@@ -2000,7 +2000,8 @@ async def _generate_pdf(row) -> Response:
         try:
             font_paths = [
                 "C:/Windows/Fonts/msyh.ttc",  # Windows
-                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",  # Linux
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # Debian fonts-noto-cjk
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",  # Linux alternative
             ]
             for fp in font_paths:
                 if os.path.exists(fp):

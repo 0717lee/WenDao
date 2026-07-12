@@ -196,19 +196,19 @@ class ProgressUpdate(BaseModel):
 
 
 class FolderCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=100)
 
 
 class FavoriteAdd(BaseModel):
-    document_id: str
-    folder_id: str
+    document_id: str = Field(max_length=100)
+    folder_id: str = Field(max_length=100)
 
 
 class WordbookEntryCreate(BaseModel):
     word: str = Field(max_length=100)
     meaning: str = Field(default="", max_length=5000)
     allusion: str = Field(default="", max_length=5000)
-    citations: list[dict[str, Any]] = []
+    citations: list[dict[str, Any]] = Field(default_factory=list, max_length=50)
 
 
 async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:

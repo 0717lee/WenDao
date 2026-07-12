@@ -42,20 +42,24 @@ async def _generate_poem(topic: str) -> str:
         raise ValueError("ZHIPUAI_API_KEY not configured")
 
     client = ZhipuAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model="glm-4-flash",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "你是一位精通格律的古典诗词大师。"
-                    "根据用户提供的主题，创作一首五言或七言古风诗。"
-                    "只输出诗词正文，不要标题不要解释。"
-                ),
-            },
-            {"role": "user", "content": topic},
-        ],
-    )
+
+    def _call_sync():
+        return client.chat.completions.create(
+            model="glm-4-flash",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你是一位精通格律的古典诗词大师。"
+                        "根据用户提供的主题，创作一首五言或七言古风诗。"
+                        "只输出诗词正文，不要标题不要解释。"
+                    ),
+                },
+                {"role": "user", "content": topic},
+            ],
+        )
+
+    response = await asyncio.to_thread(_call_sync)
     return response.choices[0].message.content.strip()
 
 
@@ -65,7 +69,7 @@ async def _generate_image(topic: str) -> str | None:
 
     agent = ImageGenAgent()
     prompt = f"中国古典水墨画风格，诗意场景：{topic}，留白意境"
-    return agent.generate(prompt)
+    return await asyncio.to_thread(agent.generate, prompt)
 
 
 async def _generate_audio(poem_text: str) -> bytes | None:

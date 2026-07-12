@@ -165,6 +165,41 @@ def decode_token(token: str) -> dict:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效令牌")
 
 
+def verify_origin(request: Request) -> None:
+    """CSRF protection: reject cross-site state-changing requests from untrusted origins.
+
+    For GET endpoints that change state (e.g., EventSource-based SSE), CORS alone
+    is insufficient — the server executes the action before the browser blocks
+    the response. This validates the Origin header server-side.
+    """
+    origin = request.headers.get("origin", "")
+    if not origin:
+        return  # Same-origin or non-browser request
+
+    from urllib.parse import urlparse
+
+    origin_host = urlparse(origin).hostname or ""
+    request_host = request.url.hostname or ""
+    if origin_host == request_host:
+        return  # Same-origin
+
+    allowed = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
+    if origin in allowed:
+        return  # Explicitly allowed
+
+    import re
+
+    regex = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "")
+    if regex:
+        try:
+            if re.match(regex, origin):
+                return
+        except re.error:
+            pass
+
+    raise HTTPException(status_code=403, detail="跨站请求被拒绝")
+
+
 async def require_auth(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),

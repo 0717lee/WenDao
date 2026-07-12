@@ -6,6 +6,10 @@ ARG REBUILD_FAISS_ON_BUILD=0
 ARG REBUILD_FAISS_BACKEND=fastembed
 ARG REBUILD_FAISS_STRICT=0
 
+# Install CJK fonts for PDF export (fpdf2 renders Chinese without system fonts)
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
 # Railway currently builds this image from the repository root even when
 # dockerfilePath points at this file, so source paths must stay repo-root based.
 COPY src/backend-gateway/requirements.txt .
