@@ -120,7 +120,8 @@ class TestUpdateProgress:
 
         mock_cm, mock_conn = _make_mock_connection(execute_return="UPDATE 1")
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
             body = ProgressUpdate(document_id="uuid-1", current_paragraph=5, total_paragraphs=10)
             result = await update_progress(body)
 
@@ -133,7 +134,8 @@ class TestUpdateProgress:
 
         mock_cm, mock_conn = _make_mock_connection(execute_return="UPDATE 0")
         with patch("routers.reader.pg_database.pool", object()), \
-              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+              patch("routers.reader.pg_database.get_connection", return_value=mock_cm), \
+              patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
             body = ProgressUpdate(document_id="uuid-new", current_paragraph=1, total_paragraphs=20)
             result = await update_progress(body, {"sub": "user-1"})
 
@@ -149,7 +151,8 @@ class TestUpdateProgress:
         mock_cm.__aexit__ = AsyncMock(return_value=False)
 
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.get_connection", return_value=mock_cm):
+             patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
             with pytest.raises(HTTPException) as exc_info:
                 await update_progress(
                     ProgressUpdate(document_id="uuid-1", current_paragraph=1, total_paragraphs=10),
@@ -174,7 +177,8 @@ class TestUpdateProgress:
 
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.get_connection", return_value=mock_cm), \
-             patch("routers.reader.get_db", return_value=sqlite_ctx):
+             patch("routers.reader.get_db", return_value=sqlite_ctx), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
             result = await update_progress(
                 ProgressUpdate(document_id="uuid-1", current_paragraph=1, total_paragraphs=10),
                 {"sub": "user-1"},
@@ -226,7 +230,8 @@ class TestAddFavorite:
 
         mock_cm, mock_conn = _make_mock_connection(fetchrow_return={"id": "folder-uuid"})
         with patch("routers.reader.pg_database.pool", object()), \
-              patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+              patch("routers.reader.pg_database.get_connection", return_value=mock_cm), \
+              patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
             body = FavoriteAdd(document_id="doc-uuid", folder_id="folder-uuid")
             result = await add_favorite(body, {"sub": "user-1"})
 
@@ -243,7 +248,8 @@ class TestAddFavorite:
         mock_cm.__aexit__ = AsyncMock(return_value=False)
 
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.get_connection", return_value=mock_cm):
+             patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
             with pytest.raises(HTTPException) as exc_info:
                 await add_favorite(
                     FavoriteAdd(document_id="doc-uuid", folder_id="folder-uuid"),
@@ -274,7 +280,8 @@ class TestAddFavorite:
 
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.get_connection", return_value=mock_cm), \
-             patch("routers.reader.get_db", return_value=sqlite_ctx):
+             patch("routers.reader.get_db", return_value=sqlite_ctx), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
             result = await add_favorite(
                 FavoriteAdd(document_id="doc-uuid", folder_id="folder-uuid"),
                 {"sub": "user-1"},

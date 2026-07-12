@@ -42,7 +42,7 @@ export function MessageList({ messages, loadingLabel }: MessageListProps) {
                         }
                     >
                         {/* Poem scroll card (replaces plain text for poetry messages) */}
-                        {message.role === 'assistant' && message.poemResult ? (
+                        {message.role === 'assistant' && message.poemResult && message.poemResult.text ? (
                             <PoemScrollCard result={message.poemResult} />
                         ) : message.role === 'assistant' && !message.content ? (
                             <div className="min-w-[18rem] space-y-3">

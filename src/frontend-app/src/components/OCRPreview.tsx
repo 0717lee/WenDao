@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { API_BASE } from '../lib/api';
+import { authFetchOptions } from '../store/useAuthStore';
 import { EmptyState } from './EmptyState';
 
 export function OCRPreview() {
@@ -28,17 +29,17 @@ export function OCRPreview() {
     setProcessProgress('正在补标点并整理内容...');
 
     try {
-      const saveResponse = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/text`, {
+      const saveResponse = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}/text`, authFetchOptions({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: editedText.trim() }),
-      });
+      }));
 
       if (!saveResponse.ok) {
         throw new Error('保存校对文本失败');
       }
 
-      const eventSource = new EventSource(`${API_BASE}/api/v1/documents/process/${currentDocument.id}`);
+      const eventSource = new EventSource(`${API_BASE}/api/v1/documents/process/${currentDocument.id}`, { withCredentials: true });
       eventSourceRef.current = eventSource;
 
       eventSource.addEventListener('progress', (e) => {

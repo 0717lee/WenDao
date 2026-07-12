@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { API_BASE } from '../lib/api'
+import { authFetchOptions } from '../store/useAuthStore'
 
 /**
  * useVoiceRecorder - Click-toggle voice recording hook.
@@ -50,10 +51,10 @@ export function useVoiceRecorder() {
                         formData.append('file', blob, 'recording.webm')
 
                         try {
-                            const resp = await fetch(`${API_BASE}/api/v1/speech/asr`, {
+                            const resp = await fetch(`${API_BASE}/api/v1/speech/asr`, authFetchOptions({
                                 method: 'POST',
                                 body: formData,
-                            })
+                            }))
                             const data = await resp.json()
                             if (data.text) {
                                 onTranscription(data.text)

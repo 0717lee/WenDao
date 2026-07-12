@@ -11,7 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 from core import pg_database
 from core.auth import maybe_auth, require_auth
@@ -154,12 +154,45 @@ def _is_missing_sqlite_table(exc: sqlite3.OperationalError) -> bool:
     return "no such table" in str(exc).lower()
 
 
+async def _ensure_user_document_access(document_id: str, user_id: str) -> None:
+    """Verify the document is public or owned by the user before writes."""
+    row = None
+    if pg_database.pool:
+        try:
+            async with get_connection() as conn:
+                row = await conn.fetchrow(
+                    "SELECT source_type, owner_user_id FROM documents WHERE id = $1::uuid",
+                    document_id,
+                )
+        except Exception:
+            pass
+    if row is None:
+        async with get_db() as db:
+            cursor = await db.execute(
+                "SELECT source_type, owner_user_id FROM documents WHERE id = ?",
+                (document_id,),
+            )
+            row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    data = dict(row) if not isinstance(row, dict) else row
+    if data.get("source_type") == "corpus" or str(data.get("owner_user_id") or "") == user_id:
+        return
+    raise HTTPException(status_code=404, detail="文档不存在")
+
+
 # --- Request Models ---
 
 class ProgressUpdate(BaseModel):
     document_id: str
-    current_paragraph: int
-    total_paragraphs: int
+    current_paragraph: int = Field(ge=0)
+    total_paragraphs: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_progress(self):
+        if self.current_paragraph > self.total_paragraphs:
+            raise ValueError("当前段落不能超过总段落数")
+        return self
 
 
 class FolderCreate(BaseModel):
@@ -172,9 +205,9 @@ class FavoriteAdd(BaseModel):
 
 
 class WordbookEntryCreate(BaseModel):
-    word: str
-    meaning: str = ""
-    allusion: str = ""
+    word: str = Field(max_length=100)
+    meaning: str = Field(default="", max_length=5000)
+    allusion: str = Field(default="", max_length=5000)
     citations: list[dict[str, Any]] = []
 
 
@@ -244,7 +277,7 @@ async def _get_study_overview(user_id: str | None) -> dict[str, Any]:
                 """,
                 user_id,
             )
-    except RuntimeError:
+    except Exception:
         async with get_db() as db:
             cursor = await db.execute(
                 """
@@ -304,7 +337,7 @@ async def _list_wordbook_entries(user_id: str | None, limit: int | None = None) 
             """
             rows = await conn.fetch(f"{sql} LIMIT $2", user_id, limit) if limit is not None else await conn.fetch(sql, user_id)
             entries = [dict(row) for row in rows]
-    except RuntimeError:
+    except Exception:
         async with get_db() as db:
             sql = """
                 SELECT id, word, meaning, allusion, citations_json, created_at
@@ -427,7 +460,7 @@ async def _save_wordbook_entry(user_id: str, body: WordbookEntryCreate) -> dict[
                 citations_json,
             )
             entry = dict(row)
-    except RuntimeError:
+    except Exception:
         async with get_db() as db:
             await db.execute(
                 """
@@ -467,7 +500,7 @@ async def _delete_wordbook_entry(user_id: str, entry_id: str) -> bool:
                 entry_id,
             )
             return result != "DELETE 0"
-    except RuntimeError:
+    except Exception:
         async with get_db() as db:
             cursor = await db.execute(
                 "DELETE FROM user_wordbook_entries WHERE user_id = ? AND id = ?",
@@ -493,6 +526,7 @@ async def get_reading_history(_user: dict | None = Depends(maybe_auth)):
 async def update_progress(body: ProgressUpdate, _user: dict = Depends(require_auth)):
     """Update reading progress for a document (upsert)."""
     user_id = _extract_user_id(_user)
+    await _ensure_user_document_access(body.document_id, user_id or "")
     try:
         if pg_database.pool:
             try:
@@ -692,6 +726,7 @@ async def delete_wordbook_entry(entry_id: str, _user: dict = Depends(require_aut
 async def add_favorite(body: FavoriteAdd, _user: dict = Depends(require_auth)):
     """Add a document to a favorite folder."""
     user_id = _extract_user_id(_user)
+    await _ensure_user_document_access(body.document_id, user_id or "")
     try:
         folder_name: str | None = None
         if pg_database.pool:

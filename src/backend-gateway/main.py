@@ -143,7 +143,8 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "https://example.com,http://localhost:5173,http://localhost:3000,http://localhost").split(",")
 
 # Vercel / Cloudflare 部署域名模式匹配
-CORS_ALLOW_ORIGIN_REGEX = os.getenv("CORS_ALLOW_ORIGIN_REGEX", r"https://.*\.(vercel\.app|pages\.dev)")
+# 默认为空（不启用通配），必须通过环境变量显式配置精确域名
+CORS_ALLOW_ORIGIN_REGEX = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "")
 
 # 限制 CORS 源，保障安全性
 app.add_middleware(

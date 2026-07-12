@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
@@ -48,6 +48,7 @@ function App() {
     const [authPage, setAuthPage] = useState<AuthPage>('login');
     const [authChecking, setAuthChecking] = useState(true);
     const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
+    const openDocumentControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -74,13 +75,21 @@ function App() {
 
     const openDocument = useCallback(
         async (documentId: string, options?: { readerPanel?: 'notes' | 'study' | null; resumeParagraph?: number | null }) => {
+            openDocumentControllerRef.current?.abort();
+            const controller = new AbortController();
+            openDocumentControllerRef.current = controller;
+
             setOpeningDocumentId(documentId);
             clearCurrentDocument();
             setReaderReturnTab(activeTab);
             setPendingResumeParagraph(options?.resumeParagraph && options.resumeParagraph > 0 ? options.resumeParagraph : null);
             setActiveTab('reader');
             try {
-                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}/reader`, authFetchOptions());
+                const response = await fetch(`${API_BASE}/api/v1/documents/${documentId}/reader`, {
+                    ...authFetchOptions(),
+                    signal: controller.signal,
+                });
+                if (controller.signal.aborted) return;
                 if (!response.ok) throw new Error('load failed');
                 const data = await response.json();
                 const nextDocument = buildReaderDocument(data);
@@ -90,10 +99,13 @@ function App() {
                     setPendingReaderPanel(options.readerPanel);
                 }
             } catch (error) {
+                if (controller.signal.aborted) return;
                 console.error('Failed to open document:', error);
                 toast.error('打开古籍没有成功，请稍后再试');
             } finally {
-                setOpeningDocumentId(null);
+                if (!controller.signal.aborted) {
+                    setOpeningDocumentId(null);
+                }
             }
         },
         [activeTab, buildReaderDocument, clearCurrentDocument, setActiveTab, setDocument, setPendingReaderPanel, setPendingResumeParagraph, setReaderReturnTab, setUploadStatus]

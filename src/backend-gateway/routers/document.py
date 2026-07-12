@@ -12,6 +12,7 @@ import re
 import time
 import uuid
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
@@ -601,7 +602,7 @@ async def _create_document(
                 owner_user_id,
             )
         return
-    except RuntimeError:
+    except Exception:
         pass
 
     async with get_db() as db:
@@ -635,7 +636,7 @@ async def _get_document(document_id: str) -> dict | None:
             if row:
                 normalized = _normalize_document_payload(dict(row))
                 return await _hydrate_public_document(normalized)
-    except RuntimeError:
+    except Exception:
         pass
 
     return await _get_sqlite_document_row(document_id=document_id)
@@ -655,7 +656,7 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
             )
             if row:
                 return await _get_document(row["id"])
-    except RuntimeError:
+    except Exception:
         pass
 
     sqlite_row = await _get_sqlite_document_row(repo_id=repo_id)
@@ -826,7 +827,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
             if source_type is None:
                 return [*corpus_documents, *pg_documents][:limit]
             return pg_documents
-    except RuntimeError:
+    except Exception:
         pass
 
     return await _list_documents_sqlite(limit=limit, source_type=source_type, user_id=user_id)
@@ -852,7 +853,7 @@ async def _count_documents(source_type: str | None = None, user_id: str | None =
             sql = f"SELECT COUNT(*) FROM documents {where_clause}"
             val = await conn.fetchval(sql, user_id, source_type) if source_type else await conn.fetchval(sql, user_id)
             return sqlite_corpus_count + int(val)
-    except RuntimeError:
+    except Exception:
         pass
 
     return await _count_documents_sqlite(source_type=source_type, user_id=user_id)
@@ -936,7 +937,7 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
                 record.get("source_type", "corpus"),
             )
         return
-    except RuntimeError:
+    except Exception:
         pass
 
     async with get_db() as db:
@@ -1117,7 +1118,7 @@ async def _save_translation_state(
                 translated_text,
             )
         return
-    except RuntimeError:
+    except Exception:
         pass
 
     async with get_db() as db:
@@ -1309,7 +1310,7 @@ async def _resolve_citation_reference(title: str, source: str, excerpt: str = ""
             for row in rows:
                 normalized = _normalize_document_payload(dict(row))
                 candidates.append(await _hydrate_public_document(normalized) or normalized)
-    except RuntimeError:
+    except Exception:
         async with get_db() as db:
             cursor = await db.execute(
                 """
@@ -1436,7 +1437,7 @@ async def _update_document_text(document_id: str, text: str) -> bool:
                 text,
             )
             return result != "UPDATE 0"
-    except RuntimeError:
+    except Exception:
         pass
 
     async with get_db() as db:
@@ -1477,7 +1478,7 @@ async def _update_document_results(
                 json.dumps(entity_ids or []),
             )
         return
-    except RuntimeError:
+    except Exception:
         pass
 
     async with get_db() as db:
@@ -1751,7 +1752,8 @@ async def upload_document(request: Request, file: UploadFile = File(...), _user:
             owner_user_id=_extract_user_id(_user) or "",
         )
     except Exception as exc:
-        logger.warning("Document persistence failed during upload: %s", exc)
+        logger.error("Document persistence failed during upload: %s", exc)
+        raise HTTPException(status_code=500, detail="文档保存失败，请重试")
 
     return {
         "document_id": doc_id,
@@ -1973,11 +1975,12 @@ async def _generate_txt(row) -> Response:
         f"标点文：\n{row['punctuated_text'] or ''}\n\n"
         f"白话译：\n{row['translated_text'] or ''}\n"
     )
+    title = quote(f'{row["title"] or "export"}.txt')
     return Response(
         content=content,
         media_type="text/plain; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{row["title"] or "export"}.txt"'
+            "Content-Disposition": f"attachment; filename*=UTF-8''{title}"
         },
     )
 
@@ -2022,12 +2025,16 @@ async def _generate_pdf(row) -> Response:
             pdf.ln(5)
 
         pdf_bytes = bytes(pdf.output())
+        title = quote(f'{row["title"] or "export"}.pdf')
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f'attachment; filename="{row["title"] or "export"}.pdf"'
+                "Content-Disposition": f"attachment; filename*=UTF-8''{title}"
             },
         )
     except ImportError:
         raise HTTPException(500, "PDF导出需要安装fpdf2")
+    except Exception as exc:
+        logger.warning("PDF export failed, falling back to TXT: %s", exc)
+        return await _generate_txt(row)

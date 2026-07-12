@@ -25,14 +25,14 @@ def _hash_token(raw_value: str) -> str:
 
 
 def get_rate_limit_key(request: Request) -> str:
-    auth_header = request.headers.get("authorization", "")
-    if auth_header.startswith("Bearer "):
-        return f"bearer:{_hash_token(auth_header[7:])}"
-
+    # Use cookie token (httpOnly, not forgeable by client JS) if present.
+    # Bearer header is intentionally NOT used: any client can send a random
+    # string to get a fresh rate-limit bucket, defeating the purpose.
     cookie_token = request.cookies.get("wendao_token")
     if cookie_token:
         return f"cookie:{_hash_token(cookie_token)}"
 
+    # Fall back to client IP for unauthenticated requests
     client = getattr(request, "client", None)
     return getattr(client, "host", "127.0.0.1")
 

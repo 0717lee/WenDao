@@ -12,7 +12,7 @@ from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.auth import require_auth
 from core.rate_limit import limiter
@@ -25,7 +25,7 @@ MEDIA_ENHANCEMENT_TIMEOUT = float(os.getenv("CREATIVE_MEDIA_TIMEOUT_SECONDS", "2
 
 
 class PoemRequest(BaseModel):
-    topic: str
+    topic: str = Field(max_length=500)
 
 
 def _sse_event(event_type: str, data: dict) -> str:

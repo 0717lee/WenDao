@@ -501,10 +501,10 @@ export default function BookshelfPanel({
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`${API_BASE}/api/v1/documents/upload`, {
+      const response = await fetch(`${API_BASE}/api/v1/documents/upload`, authFetchOptions({
         method: 'POST',
         body: formData,
-      })
+      }))
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null)

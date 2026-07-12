@@ -5,7 +5,7 @@ import io
 import logging
 
 from fastapi import APIRouter, Depends, Request, UploadFile, File
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from core.auth import require_auth
 from core.rate_limit import limiter
 
@@ -16,7 +16,7 @@ MAX_AUDIO_FILE_SIZE = 8 * 1024 * 1024
 
 
 class TTSRequest(BaseModel):
-    text: str
+    text: str = Field(max_length=10000)
 
 
 def _convert_to_pcm(audio_bytes: bytes, source_format: str = "webm") -> bytes:

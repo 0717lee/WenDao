@@ -320,6 +320,7 @@ export function ChatInterface() {
                         } else if (currentEventType === 'error') {
                             flushStreamBuffer(true)
                             console.error('Stream error:', event.message)
+                            updateLastMessage(event.message || '问答服务暂时不可用，请稍后再试')
                             setLoading(false)
                             setProgress('')
                         } else if (event.content !== undefined) {
