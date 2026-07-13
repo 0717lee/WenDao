@@ -481,26 +481,26 @@ class TestLearningFocus:
 
 
 class TestSqliteFallbackGuardInProduction:
-    """Production environment must reject SQLite degradation with HTTP 503.
+    """Production uses PG as authority and never reads SQLite user data.
 
-    These tests set APP_ENV=production explicitly to override the default
-    APP_ENV=test fixture in conftest.py, ensuring the guard fires and the
-    resulting HTTPException(503) is propagated unchanged (not wrapped as 500).
+    Tests explicitly enable production mode and verify both outcomes: valid PG
+    empty states return normally without SQLite, while PG outages return 503.
     """
 
     @pytest.mark.asyncio
-    async def test_get_history_raises_503_when_pg_returns_empty(self, monkeypatch):
+    async def test_get_history_returns_pg_empty_without_sqlite_fallback(self, monkeypatch):
         from routers.reader import get_reading_history
 
         monkeypatch.setenv("APP_ENV", "production")
         mock_cm, _ = _make_mock_connection(fetch_return=[])
+        sqlite_reader = AsyncMock(return_value=[{"id": "stale-row"}])
         with patch("routers.reader.pg_database.pool", object()), \
              patch("routers.reader.pg_database.get_connection", return_value=mock_cm), \
-             patch("routers.reader._list_reading_history_sqlite", new=AsyncMock(return_value=[])):
-            with pytest.raises(HTTPException) as exc_info:
-                await get_reading_history({"sub": "user-1"})
+             patch("routers.reader._list_reading_history_sqlite", new=sqlite_reader):
+            result = await get_reading_history({"sub": "user-1"})
 
-        assert exc_info.value.status_code == 503
+        assert result == []
+        sqlite_reader.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_get_history_raises_503_when_pg_query_fails(self, monkeypatch):
@@ -541,17 +541,19 @@ class TestSqliteFallbackGuardInProduction:
         assert exc_info.value.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_get_favorites_raises_503_when_pg_returns_empty(self, monkeypatch):
+    async def test_get_favorites_returns_pg_empty_without_sqlite_fallback(self, monkeypatch):
         from routers.reader import get_favorites
 
         monkeypatch.setenv("APP_ENV", "production")
         mock_cm, _ = _make_mock_connection(fetch_return=[])
+        sqlite_db = MagicMock()
         with patch("routers.reader.pg_database.pool", object()), \
-             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
-            with pytest.raises(HTTPException) as exc_info:
-                await get_favorites("folder-uuid", {"sub": "user-1"})
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm), \
+             patch("routers.reader.get_db", sqlite_db):
+            result = await get_favorites("folder-uuid", {"sub": "user-1"})
 
-        assert exc_info.value.status_code == 503
+        assert result == []
+        sqlite_db.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_favorites_raises_503_when_pg_query_fails(self, monkeypatch):
@@ -568,6 +570,123 @@ class TestSqliteFallbackGuardInProduction:
                 await get_favorites("folder-uuid", {"sub": "user-1"})
 
         assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_study_overview_returns_pg_empty_without_sqlite_fallback(self, monkeypatch):
+        from routers.reader import _get_study_overview
+
+        monkeypatch.setenv("APP_ENV", "production")
+        mock_cm, mock_conn = _make_mock_connection()
+        mock_conn.fetchrow = AsyncMock(side_effect=[
+            {
+                "sessions_count": 0,
+                "reviewed_documents_count": 0,
+                "completed_cards": 0,
+                "mastered_cards": 0,
+                "review_again_cards": 0,
+            },
+            None,
+        ])
+        sqlite_reader = AsyncMock()
+        with patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader._get_study_overview_sqlite", new=sqlite_reader):
+            result = await _get_study_overview("user-1")
+
+        assert result["sessions_count"] == 0
+        assert result["last_reviewed_document"] is None
+        sqlite_reader.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_document_access_raises_503_without_pg_pool(self, monkeypatch):
+        from routers.reader import _ensure_user_document_access
+
+        monkeypatch.setenv("APP_ENV", "production")
+        sqlite_db = MagicMock()
+        with patch("routers.reader.pg_database.pool", None), \
+             patch("routers.reader.get_db", sqlite_db):
+            with pytest.raises(HTTPException) as exc_info:
+                await _ensure_user_document_access("doc-1", "user-1")
+
+        assert exc_info.value.status_code == 503
+        sqlite_db.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_progress_raises_503_without_pg_pool(self, monkeypatch):
+        from routers.reader import ProgressUpdate, update_progress
+
+        monkeypatch.setenv("APP_ENV", "production")
+        sqlite_db = MagicMock()
+        with patch("routers.reader.pg_database.pool", None), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock), \
+             patch("routers.reader.get_db", sqlite_db):
+            with pytest.raises(HTTPException) as exc_info:
+                await update_progress(
+                    ProgressUpdate(document_id="doc-1", current_paragraph=1, total_paragraphs=10),
+                    {"sub": "user-1"},
+                )
+
+        assert exc_info.value.status_code == 503
+        sqlite_db.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_folders_raises_503_without_pg_pool(self, monkeypatch):
+        from routers.reader import get_folders
+
+        monkeypatch.setenv("APP_ENV", "production")
+        sqlite_db = MagicMock()
+        with patch("routers.reader.pg_database.pool", None), \
+             patch("routers.reader.get_db", sqlite_db):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_folders({"sub": "user-1"})
+
+        assert exc_info.value.status_code == 503
+        sqlite_db.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_create_folder_raises_503_without_pg_pool(self, monkeypatch):
+        from routers.reader import FolderCreate, create_folder
+
+        monkeypatch.setenv("APP_ENV", "production")
+        sqlite_db = MagicMock()
+        with patch("routers.reader.pg_database.pool", None), \
+             patch("routers.reader.get_db", sqlite_db):
+            with pytest.raises(HTTPException) as exc_info:
+                await create_folder(FolderCreate(name="测试"), {"sub": "user-1"})
+
+        assert exc_info.value.status_code == 503
+        sqlite_db.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_add_favorite_raises_503_without_pg_pool(self, monkeypatch):
+        from routers.reader import FavoriteAdd, add_favorite
+
+        monkeypatch.setenv("APP_ENV", "production")
+        sqlite_db = MagicMock()
+        with patch("routers.reader.pg_database.pool", None), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock), \
+             patch("routers.reader.get_db", sqlite_db):
+            with pytest.raises(HTTPException) as exc_info:
+                await add_favorite(
+                    FavoriteAdd(document_id="doc-1", folder_id="folder-1"),
+                    {"sub": "user-1"},
+                )
+
+        assert exc_info.value.status_code == 503
+        sqlite_db.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_favorites_raises_503_without_pg_pool(self, monkeypatch):
+        from routers.reader import get_favorites
+
+        monkeypatch.setenv("APP_ENV", "production")
+        sqlite_db = MagicMock()
+        with patch("routers.reader.pg_database.pool", None), \
+             patch("routers.reader.get_db", sqlite_db):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_favorites("folder-1", {"sub": "user-1"})
+
+        assert exc_info.value.status_code == 503
+        sqlite_db.assert_not_called()
 
 
 class TestRaiseReaderErrorPreservesHttpException:

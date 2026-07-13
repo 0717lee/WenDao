@@ -4,7 +4,11 @@ import logging
 from typing import Any
 
 from core.database import get_db
-from core.pg_database import get_connection, prevent_sqlite_fallback_in_production
+from core.pg_database import (
+    get_connection,
+    is_sqlite_fallback_allowed,
+    prevent_sqlite_fallback_in_production,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,8 @@ async def get_document_note(document_id: str, user_id: str | None) -> dict[str, 
             )
             if row:
                 return dict(row)
+            if not is_sqlite_fallback_allowed():
+                return empty_document_note(document_id)
     except Exception as exc:
         prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 文档笔记读取失败，降级到 SQLite: %s", exc)
@@ -190,9 +196,7 @@ async def get_study_progress(document_id: str, user_id: str | None) -> dict[str,
         logger.warning("PostgreSQL 学习进度读取失败，降级到 SQLite: %s", exc)
         data = {}
 
-    if int(data.get("sessions_count") or 0) == 0:
-        # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
-        prevent_sqlite_fallback_in_production()
+    if int(data.get("sessions_count") or 0) == 0 and is_sqlite_fallback_allowed():
         sqlite_data = await _get_study_progress_sqlite(document_id, user_id)
         if int(sqlite_data.get("sessions_count") or 0) > 0 or not data:
             data = sqlite_data

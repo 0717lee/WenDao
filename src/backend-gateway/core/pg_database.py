@@ -35,6 +35,11 @@ def _is_dev_or_test() -> bool:
     return False
 
 
+def is_sqlite_fallback_allowed() -> bool:
+    """Return whether the current environment explicitly allows SQLite fallback."""
+    return _is_dev_or_test()
+
+
 def prevent_sqlite_fallback_in_production() -> None:
     """Raise HTTP 503 in production to prevent silent SQLite degradation.
 
@@ -44,7 +49,7 @@ def prevent_sqlite_fallback_in_production() -> None:
     "service temporarily unavailable" error instead of reading stale or
     inconsistent data from SQLite.
     """
-    if not _is_dev_or_test():
+    if not is_sqlite_fallback_allowed():
         from fastapi import HTTPException
         raise HTTPException(status_code=503, detail="数据库暂时不可用，请稍后重试")
 

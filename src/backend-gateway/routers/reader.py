@@ -161,7 +161,9 @@ def _is_missing_sqlite_table(exc: sqlite3.OperationalError) -> bool:
 async def _ensure_user_document_access(document_id: str, user_id: str) -> None:
     """Verify the document is public or owned by the user before writes."""
     row = None
-    if pg_database.pool:
+    if not pg_database.pool:
+        prevent_sqlite_fallback_in_production()
+    else:
         try:
             async with get_connection() as conn:
                 row = await conn.fetchrow(
@@ -170,8 +172,7 @@ async def _ensure_user_document_access(document_id: str, user_id: str) -> None:
                 )
         except Exception:
             prevent_sqlite_fallback_in_production()
-            pass
-    if row is None:
+    if row is None and pg_database.is_sqlite_fallback_allowed():
         async with get_db() as db:
             cursor = await db.execute(
                 "SELECT source_type, owner_user_id FROM documents WHERE id = ?",
@@ -252,8 +253,8 @@ async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
             )
             if rows:
                 return [dict(row) for row in rows]
-            # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
-            prevent_sqlite_fallback_in_production()
+            if not pg_database.is_sqlite_fallback_allowed():
+                return []
         return await _list_reading_history_sqlite(user_id)
     except Exception as exc:
         prevent_sqlite_fallback_in_production()
@@ -336,9 +337,7 @@ async def _get_study_overview(user_id: str | None) -> dict[str, Any]:
         summary, latest = await _get_study_overview_sqlite(user_id)
     else:
         summary_dict = dict(summary) if summary else {}
-        if int(summary_dict.get("sessions_count") or 0) == 0:
-            # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
-            prevent_sqlite_fallback_in_production()
+        if int(summary_dict.get("sessions_count") or 0) == 0 and pg_database.is_sqlite_fallback_allowed():
             sqlite_summary, sqlite_latest = await _get_study_overview_sqlite(user_id)
             sqlite_dict = dict(sqlite_summary) if sqlite_summary else {}
             if int(sqlite_dict.get("sessions_count") or 0) > 0:
@@ -585,6 +584,7 @@ async def update_progress(body: ProgressUpdate, _user: dict = Depends(require_au
                 prevent_sqlite_fallback_in_production()
                 logger.warning("PostgreSQL 阅读进度保存失败，降级到 SQLite: %s", exc)
 
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             await db.execute("""
                 INSERT INTO user_reading_history (user_id, document_id, current_paragraph, total_paragraphs, last_read_at)
@@ -610,13 +610,18 @@ async def get_folders(_user: dict | None = Depends(maybe_auth)):
         return []
     try:
         if pg_database.pool:
-            async with get_connection() as conn:
-                rows = await conn.fetch(
-                    "SELECT id::text AS id, name, created_at FROM user_favorite_folders WHERE user_id = $1::uuid ORDER BY created_at DESC",
-                    user_id,
-                )
-                return [dict(row) for row in rows]
+            try:
+                async with get_connection() as conn:
+                    rows = await conn.fetch(
+                        "SELECT id::text AS id, name, created_at FROM user_favorite_folders WHERE user_id = $1::uuid ORDER BY created_at DESC",
+                        user_id,
+                    )
+                    return [dict(row) for row in rows]
+            except Exception:
+                prevent_sqlite_fallback_in_production()
+                raise
 
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             cursor = await db.execute(
                 "SELECT id, name, created_at FROM user_favorite_folders WHERE user_id = ? ORDER BY created_at DESC",
@@ -634,14 +639,19 @@ async def create_folder(body: FolderCreate, _user: dict = Depends(require_auth))
     user_id = _extract_user_id(_user)
     try:
         if pg_database.pool:
-            async with get_connection() as conn:
-                row = await conn.fetchrow(
-                    "INSERT INTO user_favorite_folders (user_id, name) VALUES ($1::uuid, $2) RETURNING id::text AS id",
-                    user_id,
-                    body.name,
-                )
-                return {"folder_id": row["id"], "name": body.name}
+            try:
+                async with get_connection() as conn:
+                    row = await conn.fetchrow(
+                        "INSERT INTO user_favorite_folders (user_id, name) VALUES ($1::uuid, $2) RETURNING id::text AS id",
+                        user_id,
+                        body.name,
+                    )
+                    return {"folder_id": row["id"], "name": body.name}
+            except Exception:
+                prevent_sqlite_fallback_in_production()
+                raise
 
+        prevent_sqlite_fallback_in_production()
         folder_id = str(uuid4())
         async with get_db() as db:
             await db.execute(
@@ -799,6 +809,7 @@ async def add_favorite(body: FavoriteAdd, _user: dict = Depends(require_auth)):
                 prevent_sqlite_fallback_in_production()
                 logger.warning("PostgreSQL 收藏保存失败，降级到 SQLite: %s", exc)
 
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             cursor = await db.execute(
                 "SELECT id FROM user_favorite_folders WHERE user_id = ? AND id = ?",
@@ -841,12 +852,13 @@ async def get_favorites(folder_id: str, _user: dict | None = Depends(maybe_auth)
                     """, user_id, folder_id)
                     if rows:
                         return [dict(row) for row in rows]
-                    # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
-                    prevent_sqlite_fallback_in_production()
+                    if not pg_database.is_sqlite_fallback_allowed():
+                        return []
             except Exception as exc:
                 prevent_sqlite_fallback_in_production()
                 logger.warning("PostgreSQL 收藏内容读取失败，降级到 SQLite: %s", exc)
 
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             cursor = await db.execute("""
                 SELECT d.id, d.title, f.created_at

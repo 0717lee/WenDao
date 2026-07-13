@@ -62,19 +62,36 @@ class TestDocumentNotesRepository:
         assert sqlite_db.execute.await_count == 2
         sqlite_db.commit.assert_awaited_once()
 
+    @pytest.mark.asyncio
+    async def test_get_document_note_returns_pg_empty_without_sqlite_fallback(self, monkeypatch):
+        from core.user_learning_repository import get_document_note
+
+        monkeypatch.setenv("APP_ENV", "production")
+        pg_conn = AsyncMock()
+        pg_conn.fetchrow = AsyncMock(return_value=None)
+        sqlite_db = MagicMock()
+
+        with patch("core.user_learning_repository.get_connection", return_value=_make_context(pg_conn)), \
+             patch("core.user_learning_repository.get_db", sqlite_db):
+            result = await get_document_note("doc-1", "user-1")
+
+        assert result == {
+            "document_id": "doc-1",
+            "note_text": "",
+            "updated_at": None,
+        }
+        sqlite_db.assert_not_called()
+
 
 class TestStudyProgressGuardInProduction:
-    """Production environment must reject SQLite degradation when PG returns
-    empty study-progress data (regression for f31cad0 P1 defect)."""
+    """Production keeps PG empty progress authoritative without reading SQLite."""
 
     @pytest.mark.asyncio
-    async def test_get_study_progress_raises_503_when_pg_returns_empty(self, monkeypatch):
-        from fastapi import HTTPException
+    async def test_get_study_progress_returns_pg_empty_without_sqlite_fallback(self, monkeypatch):
         from core.user_learning_repository import get_study_progress
 
         monkeypatch.setenv("APP_ENV", "production")
         pg_conn = AsyncMock()
-        # PG 查询成功但 sessions_count=0
         pg_conn.fetchrow = AsyncMock(return_value={
             "sessions_count": 0,
             "completed_cards": 0,
@@ -82,12 +99,15 @@ class TestStudyProgressGuardInProduction:
             "review_again_cards": 0,
             "last_reviewed_at": None,
         })
+        sqlite_db = MagicMock()
 
-        with patch("core.user_learning_repository.get_connection", return_value=_make_context(pg_conn)):
-            with pytest.raises(HTTPException) as exc_info:
-                await get_study_progress("doc-1", "user-1")
+        with patch("core.user_learning_repository.get_connection", return_value=_make_context(pg_conn)), \
+             patch("core.user_learning_repository.get_db", sqlite_db):
+            result = await get_study_progress("doc-1", "user-1")
 
-        assert exc_info.value.status_code == 503
+        assert result["sessions_count"] == 0
+        assert result["completed_cards"] == 0
+        sqlite_db.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_study_progress_raises_503_when_pg_query_fails(self, monkeypatch):
