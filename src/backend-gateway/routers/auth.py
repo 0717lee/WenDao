@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from core import pg_database
 from core.auth import AUTH_COOKIE_NAME, clear_auth_cookie, create_token, hash_password, require_auth, set_auth_cookie, verify_password
 from core.database import get_db
+from core.pg_database import prevent_sqlite_fallback_in_production
 from core.rate_limit import limiter
 from models.schemas import AuthMeResponse, TokenResponse, UserLogin, UserRegister
 
@@ -57,6 +58,7 @@ async def _login_pg(username: str, password: str) -> tuple[str, str]:
 
 async def _register_sqlite(username: str, email: str, password: str) -> str:
     """Fallback: register user in SQLite for local/demo environments."""
+    prevent_sqlite_fallback_in_production()
     async with get_db() as db:
         cursor = await db.execute(
             "SELECT username, email FROM users WHERE username = ? OR email = ?",
@@ -79,6 +81,7 @@ async def _register_sqlite(username: str, email: str, password: str) -> str:
 
 async def _login_sqlite(username: str, password: str) -> tuple[str, str]:
     """Fallback: login from SQLite."""
+    prevent_sqlite_fallback_in_production()
     async with get_db() as db:
         cursor = await db.execute(
             "SELECT id, username, hashed_password FROM users WHERE username = ?",

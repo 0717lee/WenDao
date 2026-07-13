@@ -38,6 +38,7 @@ from core.corpus_documents import iter_corpus_document_batches
 from core.database import get_db
 from core.entity_extractor import EntityExtractor
 from core.lazy_proxy import LazyProxy
+from core.pg_database import prevent_sqlite_fallback_in_production
 from core.rate_limit import limiter
 from core.user_learning_repository import (
     get_document_note as repo_get_document_note,
@@ -603,6 +604,7 @@ async def _create_document(
             )
         return
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     async with get_db() as db:
@@ -637,6 +639,7 @@ async def _get_document(document_id: str) -> dict | None:
                 normalized = _normalize_document_payload(dict(row))
                 return await _hydrate_public_document(normalized)
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     return await _get_sqlite_document_row(document_id=document_id)
@@ -657,6 +660,7 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
             if row:
                 return await _get_document(row["id"])
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     sqlite_row = await _get_sqlite_document_row(repo_id=repo_id)
@@ -828,6 +832,7 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
                 return [*corpus_documents, *pg_documents][:limit]
             return pg_documents
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     return await _list_documents_sqlite(limit=limit, source_type=source_type, user_id=user_id)
@@ -854,6 +859,7 @@ async def _count_documents(source_type: str | None = None, user_id: str | None =
             val = await conn.fetchval(sql, user_id, source_type) if source_type else await conn.fetchval(sql, user_id)
             return sqlite_corpus_count + int(val)
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     return await _count_documents_sqlite(source_type=source_type, user_id=user_id)
@@ -938,6 +944,7 @@ async def _upsert_document_record(record: dict[str, Any]) -> None:
             )
         return
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     async with get_db() as db:
@@ -1119,6 +1126,7 @@ async def _save_translation_state(
             )
         return
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     async with get_db() as db:
@@ -1311,6 +1319,7 @@ async def _resolve_citation_reference(title: str, source: str, excerpt: str = ""
                 normalized = _normalize_document_payload(dict(row))
                 candidates.append(await _hydrate_public_document(normalized) or normalized)
     except Exception:
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             cursor = await db.execute(
                 """
@@ -1438,6 +1447,7 @@ async def _update_document_text(document_id: str, text: str) -> bool:
             )
             return result != "UPDATE 0"
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     async with get_db() as db:
@@ -1479,6 +1489,7 @@ async def _update_document_results(
             )
         return
     except Exception:
+        prevent_sqlite_fallback_in_production()
         pass
 
     async with get_db() as db:

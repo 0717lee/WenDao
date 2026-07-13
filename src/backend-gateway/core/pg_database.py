@@ -19,6 +19,32 @@ logger = logging.getLogger(__name__)
 # Module-level pool reference
 pool: Optional[asyncpg.Pool] = None
 PG_CORPUS_SEED_MODE_ENV = "PG_CORPUS_SEED_MODE"
+
+
+def _is_dev_or_test() -> bool:
+    """Return True in dev/test environments (where SQLite fallback is allowed)."""
+    env = (os.getenv("APP_ENV") or os.getenv("WENDAO_ENV") or os.getenv("ENVIRONMENT") or "").strip().lower()
+    if env in {"dev", "development", "local", "test", ""}:
+        return True
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return True
+    return False
+
+
+def prevent_sqlite_fallback_in_production() -> None:
+    """Raise HTTP 503 in production to prevent silent SQLite degradation.
+
+    Call this at the top of every ``except`` block that would fall back to
+    SQLite after a PostgreSQL failure. In dev/test this is a no-op; in
+    production it raises ``HTTPException(503)`` so the client sees a clear
+    "service temporarily unavailable" error instead of reading stale or
+    inconsistent data from SQLite.
+    """
+    if not _is_dev_or_test():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="数据库暂时不可用，请稍后重试")
+
+
 DEFAULT_PG_CORPUS_SEED_MODE = "minimal"
 VALID_PG_CORPUS_SEED_MODES = {"none", "minimal", "full"}
 

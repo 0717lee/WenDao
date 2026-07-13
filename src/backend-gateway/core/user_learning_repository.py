@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from core.database import get_db
-from core.pg_database import get_connection
+from core.pg_database import get_connection, prevent_sqlite_fallback_in_production
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ async def get_document_note(document_id: str, user_id: str | None) -> dict[str, 
             if row:
                 return dict(row)
     except Exception as exc:
+        prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 文档笔记读取失败，降级到 SQLite: %s", exc)
 
     async with get_db() as db:
@@ -75,6 +76,7 @@ async def save_document_note(document_id: str, user_id: str, note_text: str) -> 
             )
             return dict(row)
     except Exception as exc:
+        prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 文档笔记保存失败，降级到 SQLite: %s", exc)
 
     async with get_db() as db:
@@ -127,6 +129,7 @@ async def save_study_session(
             )
             return dict(row)
     except Exception as exc:
+        prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 学习记录保存失败，降级到 SQLite: %s", exc)
 
     async with get_db() as db:
@@ -183,6 +186,7 @@ async def get_study_progress(document_id: str, user_id: str | None) -> dict[str,
             )
             data = dict(row) if row else {}
     except Exception as exc:
+        prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 学习进度读取失败，降级到 SQLite: %s", exc)
         data = {}
 

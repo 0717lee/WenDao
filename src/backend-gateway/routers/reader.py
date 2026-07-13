@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, model_validator
 from core import pg_database
 from core.auth import maybe_auth, require_auth
 from core.database import get_db
+from core.pg_database import prevent_sqlite_fallback_in_production
 
 router = APIRouter(prefix="/api/v1/reader", tags=["reader"])
 logger = logging.getLogger(__name__)
@@ -165,6 +166,7 @@ async def _ensure_user_document_access(document_id: str, user_id: str) -> None:
                     document_id,
                 )
         except Exception:
+            prevent_sqlite_fallback_in_production()
             pass
     if row is None:
         async with get_db() as db:
@@ -249,6 +251,7 @@ async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
                 return [dict(row) for row in rows]
         return await _list_reading_history_sqlite(user_id)
     except Exception as exc:
+        prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 阅读记录读取失败，降级到 SQLite: %s", exc)
         return await _list_reading_history_sqlite(user_id)
 
@@ -323,6 +326,7 @@ async def _get_study_overview(user_id: str | None) -> dict[str, Any]:
                 user_id,
             )
     except Exception as exc:
+        prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 学习概览读取失败，降级到 SQLite: %s", exc)
         summary, latest = await _get_study_overview_sqlite(user_id)
     else:
@@ -365,6 +369,7 @@ async def _list_wordbook_entries(user_id: str | None, limit: int | None = None) 
             rows = await conn.fetch(f"{sql} LIMIT $2", user_id, limit) if limit is not None else await conn.fetch(sql, user_id)
             entries = [dict(row) for row in rows]
     except Exception:
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             sql = """
                 SELECT id, word, meaning, allusion, citations_json, created_at
@@ -488,6 +493,7 @@ async def _save_wordbook_entry(user_id: str, body: WordbookEntryCreate) -> dict[
             )
             entry = dict(row)
     except Exception:
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             await db.execute(
                 """
@@ -528,6 +534,7 @@ async def _delete_wordbook_entry(user_id: str, entry_id: str) -> bool:
             )
             return result != "DELETE 0"
     except Exception:
+        prevent_sqlite_fallback_in_production()
         async with get_db() as db:
             cursor = await db.execute(
                 "DELETE FROM user_wordbook_entries WHERE user_id = ? AND id = ?",
@@ -568,6 +575,7 @@ async def update_progress(body: ProgressUpdate, _user: dict = Depends(require_au
                     """, user_id, body.document_id, body.current_paragraph, body.total_paragraphs)
                 return {"status": "ok"}
             except Exception as exc:
+                prevent_sqlite_fallback_in_production()
                 logger.warning("PostgreSQL 阅读进度保存失败，降级到 SQLite: %s", exc)
 
         async with get_db() as db:
@@ -676,6 +684,7 @@ async def get_entity_frequency(_user: dict | None = Depends(maybe_auth)):
                 "total_documents": total or 0,
             }
         except Exception as exc:
+            prevent_sqlite_fallback_in_production()
             logger.warning("PostgreSQL实体频率读取失败，降级到SQLite: %s", exc)
 
         try:
@@ -780,6 +789,7 @@ async def add_favorite(body: FavoriteAdd, _user: dict = Depends(require_auth)):
             except HTTPException:
                 raise
             except Exception as exc:
+                prevent_sqlite_fallback_in_production()
                 logger.warning("PostgreSQL 收藏保存失败，降级到 SQLite: %s", exc)
 
         async with get_db() as db:
@@ -825,6 +835,7 @@ async def get_favorites(folder_id: str, _user: dict | None = Depends(maybe_auth)
                     if rows:
                         return [dict(row) for row in rows]
             except Exception as exc:
+                prevent_sqlite_fallback_in_production()
                 logger.warning("PostgreSQL 收藏内容读取失败，降级到 SQLite: %s", exc)
 
         async with get_db() as db:
