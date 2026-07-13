@@ -480,5 +480,118 @@ class TestLearningFocus:
         assert _calculate_streak_days(values) == 2
 
 
+class TestSqliteFallbackGuardInProduction:
+    """Production environment must reject SQLite degradation with HTTP 503.
+
+    These tests set APP_ENV=production explicitly to override the default
+    APP_ENV=test fixture in conftest.py, ensuring the guard fires and the
+    resulting HTTPException(503) is propagated unchanged (not wrapped as 500).
+    """
+
+    @pytest.mark.asyncio
+    async def test_get_history_raises_503_when_pg_returns_empty(self, monkeypatch):
+        from routers.reader import get_reading_history
+
+        monkeypatch.setenv("APP_ENV", "production")
+        mock_cm, _ = _make_mock_connection(fetch_return=[])
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm), \
+             patch("routers.reader._list_reading_history_sqlite", new=AsyncMock(return_value=[])):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_reading_history({"sub": "user-1"})
+
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_get_history_raises_503_when_pg_query_fails(self, monkeypatch):
+        from routers.reader import get_reading_history
+
+        monkeypatch.setenv("APP_ENV", "production")
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("pg down"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_reading_history({"sub": "user-1"})
+
+        # 503 must propagate unchanged (not be wrapped as 500 by _raise_reader_error)
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_update_progress_raises_503_when_pg_fails(self, monkeypatch):
+        from routers.reader import update_progress, ProgressUpdate
+
+        monkeypatch.setenv("APP_ENV", "production")
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("pg down"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm), \
+             patch("routers.reader._ensure_user_document_access", new_callable=AsyncMock):
+            with pytest.raises(HTTPException) as exc_info:
+                await update_progress(
+                    ProgressUpdate(document_id="uuid-1", current_paragraph=1, total_paragraphs=10),
+                    {"sub": "user-1"},
+                )
+
+        # 503 must propagate unchanged (not be wrapped as 500)
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_get_favorites_raises_503_when_pg_returns_empty(self, monkeypatch):
+        from routers.reader import get_favorites
+
+        monkeypatch.setenv("APP_ENV", "production")
+        mock_cm, _ = _make_mock_connection(fetch_return=[])
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.pg_database.get_connection", return_value=mock_cm):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_favorites("folder-uuid", {"sub": "user-1"})
+
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_get_favorites_raises_503_when_pg_query_fails(self, monkeypatch):
+        from routers.reader import get_favorites
+
+        monkeypatch.setenv("APP_ENV", "production")
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(side_effect=Exception("pg down"))
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("routers.reader.pg_database.pool", object()), \
+             patch("routers.reader.get_connection", return_value=mock_cm):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_favorites("folder-uuid", {"sub": "user-1"})
+
+        assert exc_info.value.status_code == 503
+
+
+class TestRaiseReaderErrorPreservesHttpException:
+    """_raise_reader_error must re-raise HTTPException unchanged (no 503→500 wrapping)."""
+
+    def test_http_exception_is_reraised_unchanged(self):
+        from routers.reader import _raise_reader_error
+
+        original = HTTPException(status_code=503, detail="数据库暂时不可用，请稍后重试")
+        with pytest.raises(HTTPException) as exc_info:
+            _raise_reader_error("读取阅读记录失败", original)
+
+        assert exc_info.value is original
+        assert exc_info.value.status_code == 503
+
+    def test_non_http_exception_is_wrapped_as_500(self):
+        from routers.reader import _raise_reader_error
+
+        with pytest.raises(HTTPException) as exc_info:
+            _raise_reader_error("读取阅读记录失败", RuntimeError("db down"))
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "读取阅读记录失败"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])

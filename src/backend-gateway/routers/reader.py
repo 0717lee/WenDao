@@ -28,6 +28,9 @@ def get_connection():
 
 
 def _raise_reader_error(detail: str, exc: Exception) -> None:
+    # 守卫抛出的 HTTPException（如 503）应当透传，不能被外层 except 改写成 500。
+    if isinstance(exc, HTTPException):
+        raise exc
     logger.exception("%s: %s", detail, exc)
     raise HTTPException(status_code=500, detail=detail)
 
@@ -249,6 +252,8 @@ async def _list_reading_history(user_id: str | None) -> list[dict[str, Any]]:
             )
             if rows:
                 return [dict(row) for row in rows]
+            # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
+            prevent_sqlite_fallback_in_production()
         return await _list_reading_history_sqlite(user_id)
     except Exception as exc:
         prevent_sqlite_fallback_in_production()
@@ -332,6 +337,8 @@ async def _get_study_overview(user_id: str | None) -> dict[str, Any]:
     else:
         summary_dict = dict(summary) if summary else {}
         if int(summary_dict.get("sessions_count") or 0) == 0:
+            # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
+            prevent_sqlite_fallback_in_production()
             sqlite_summary, sqlite_latest = await _get_study_overview_sqlite(user_id)
             sqlite_dict = dict(sqlite_summary) if sqlite_summary else {}
             if int(sqlite_dict.get("sessions_count") or 0) > 0:
@@ -834,6 +841,8 @@ async def get_favorites(folder_id: str, _user: dict | None = Depends(maybe_auth)
                     """, user_id, folder_id)
                     if rows:
                         return [dict(row) for row in rows]
+                    # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
+                    prevent_sqlite_fallback_in_production()
             except Exception as exc:
                 prevent_sqlite_fallback_in_production()
                 logger.warning("PostgreSQL 收藏内容读取失败，降级到 SQLite: %s", exc)

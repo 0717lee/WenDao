@@ -191,6 +191,8 @@ async def get_study_progress(document_id: str, user_id: str | None) -> dict[str,
         data = {}
 
     if int(data.get("sessions_count") or 0) == 0:
+        # PG 查询成功但结果为空：生产环境禁止静默降级到 SQLite 旧数据
+        prevent_sqlite_fallback_in_production()
         sqlite_data = await _get_study_progress_sqlite(document_id, user_id)
         if int(sqlite_data.get("sessions_count") or 0) > 0 or not data:
             data = sqlite_data

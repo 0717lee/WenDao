@@ -1762,6 +1762,9 @@ async def upload_document(request: Request, file: UploadFile = File(...), _user:
             image_data=image_data,
             owner_user_id=_extract_user_id(_user) or "",
         )
+    except HTTPException:
+        # 守卫抛出的 503 等应透传，不能被外层 except 改写成 500。
+        raise
     except Exception as exc:
         logger.error("Document persistence failed during upload: %s", exc)
         raise HTTPException(status_code=500, detail="文档保存失败，请重试")

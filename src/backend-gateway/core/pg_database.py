@@ -22,11 +22,15 @@ PG_CORPUS_SEED_MODE_ENV = "PG_CORPUS_SEED_MODE"
 
 
 def _is_dev_or_test() -> bool:
-    """Return True in dev/test environments (where SQLite fallback is allowed)."""
+    """Return True in dev/test environments (where SQLite fallback is allowed).
+
+    Empty/missing environment is treated as production (fail-safe): the
+    deployment must explicitly opt into dev/test by setting APP_ENV.
+    PYTEST_CURRENT_TEST no longer bypasses the guard, so tests must set
+    APP_ENV=test explicitly (see tests/conftest.py autouse fixture).
+    """
     env = (os.getenv("APP_ENV") or os.getenv("WENDAO_ENV") or os.getenv("ENVIRONMENT") or "").strip().lower()
-    if env in {"dev", "development", "local", "test", ""}:
-        return True
-    if "PYTEST_CURRENT_TEST" in os.environ:
+    if env in {"dev", "development", "local", "test"}:
         return True
     return False
 

@@ -61,3 +61,77 @@ class TestDocumentNotesRepository:
         assert result["note_text"] == "课堂讲义重点"
         assert sqlite_db.execute.await_count == 2
         sqlite_db.commit.assert_awaited_once()
+
+
+class TestStudyProgressGuardInProduction:
+    """Production environment must reject SQLite degradation when PG returns
+    empty study-progress data (regression for f31cad0 P1 defect)."""
+
+    @pytest.mark.asyncio
+    async def test_get_study_progress_raises_503_when_pg_returns_empty(self, monkeypatch):
+        from fastapi import HTTPException
+        from core.user_learning_repository import get_study_progress
+
+        monkeypatch.setenv("APP_ENV", "production")
+        pg_conn = AsyncMock()
+        # PG 查询成功但 sessions_count=0
+        pg_conn.fetchrow = AsyncMock(return_value={
+            "sessions_count": 0,
+            "completed_cards": 0,
+            "mastered_cards": 0,
+            "review_again_cards": 0,
+            "last_reviewed_at": None,
+        })
+
+        with patch("core.user_learning_repository.get_connection", return_value=_make_context(pg_conn)):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_study_progress("doc-1", "user-1")
+
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_get_study_progress_raises_503_when_pg_query_fails(self, monkeypatch):
+        from fastapi import HTTPException
+        from core.user_learning_repository import get_study_progress
+
+        monkeypatch.setenv("APP_ENV", "production")
+        pg_conn = AsyncMock()
+        pg_conn.fetchrow = AsyncMock(side_effect=Exception("pg down"))
+
+        with patch("core.user_learning_repository.get_connection", return_value=_make_context(pg_conn)):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_study_progress("doc-1", "user-1")
+
+        assert exc_info.value.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_get_study_progress_falls_back_in_dev_when_pg_returns_empty(self, monkeypatch):
+        """Sanity check: dev/test environment still allows SQLite fallback."""
+        from core.user_learning_repository import get_study_progress
+
+        monkeypatch.setenv("APP_ENV", "test")
+        pg_conn = AsyncMock()
+        pg_conn.fetchrow = AsyncMock(return_value={
+            "sessions_count": 0,
+            "completed_cards": 0,
+            "mastered_cards": 0,
+            "review_again_cards": 0,
+            "last_reviewed_at": None,
+        })
+        sqlite_cursor = AsyncMock()
+        sqlite_cursor.fetchone = AsyncMock(return_value={
+            "sessions_count": 2,
+            "completed_cards": 5,
+            "mastered_cards": 3,
+            "review_again_cards": 1,
+            "last_reviewed_at": "2026-04-10T20:00:00",
+        })
+        sqlite_db = AsyncMock()
+        sqlite_db.execute = AsyncMock(return_value=sqlite_cursor)
+
+        with patch("core.user_learning_repository.get_connection", return_value=_make_context(pg_conn)), \
+             patch("core.user_learning_repository.get_db", return_value=_make_context(sqlite_db)):
+            result = await get_study_progress("doc-1", "user-1")
+
+        assert result["sessions_count"] == 2
+        assert result["completed_cards"] == 5

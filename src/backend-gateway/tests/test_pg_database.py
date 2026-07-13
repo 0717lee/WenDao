@@ -151,3 +151,68 @@ async def test_lifespan_without_database_url(monkeypatch):
 
     async with pg_database.pg_lifespan():
         assert pg_database.pool is None
+
+
+# --- SQLite fallback guard (production safety) ---
+
+class TestPreventSqliteFallbackInProduction:
+    """Verify the guard correctly blocks SQLite degradation in production."""
+
+    def test_guard_raises_503_in_production(self, monkeypatch):
+        from fastapi import HTTPException
+
+        monkeypatch.setenv("APP_ENV", "production")
+        with pytest.raises(HTTPException) as exc_info:
+            pg_database.prevent_sqlite_fallback_in_production()
+        assert exc_info.value.status_code == 503
+
+    def test_guard_raises_503_when_env_missing(self, monkeypatch):
+        """Empty environment must be treated as production (fail-safe)."""
+        from fastapi import HTTPException
+
+        monkeypatch.delenv("APP_ENV", raising=False)
+        monkeypatch.delenv("WENDAO_ENV", raising=False)
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
+        with pytest.raises(HTTPException) as exc_info:
+            pg_database.prevent_sqlite_fallback_in_production()
+        assert exc_info.value.status_code == 503
+
+    def test_guard_noop_in_dev(self, monkeypatch):
+        monkeypatch.setenv("APP_ENV", "dev")
+        # Should not raise
+        pg_database.prevent_sqlite_fallback_in_production()
+
+    def test_guard_noop_in_test(self, monkeypatch):
+        monkeypatch.setenv("APP_ENV", "test")
+        pg_database.prevent_sqlite_fallback_in_production()
+
+    def test_guard_noop_in_development(self, monkeypatch):
+        monkeypatch.setenv("APP_ENV", "development")
+        pg_database.prevent_sqlite_fallback_in_production()
+
+    def test_guard_noop_in_local(self, monkeypatch):
+        monkeypatch.setenv("APP_ENV", "local")
+        pg_database.prevent_sqlite_fallback_in_production()
+
+    def test_guard_raises_in_production_even_with_pytest_env(self, monkeypatch):
+        """PYTEST_CURRENT_TEST must not bypass the guard when APP_ENV=production."""
+        from fastapi import HTTPException
+
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/test_pg_database.py::test_guard_raises_in_production_even_with_pytest_env")
+        with pytest.raises(HTTPException) as exc_info:
+            pg_database.prevent_sqlite_fallback_in_production()
+        assert exc_info.value.status_code == 503
+
+    def test_guard_raises_in_production_when_only_pytest_set(self, monkeypatch):
+        """When APP_ENV is missing but PYTEST_CURRENT_TEST is set, guard must still
+        raise because empty environment is treated as production."""
+        from fastapi import HTTPException
+
+        monkeypatch.delenv("APP_ENV", raising=False)
+        monkeypatch.delenv("WENDAO_ENV", raising=False)
+        monkeypatch.delenv("ENVIRONMENT", raising=False)
+        monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/test_pg_database.py::test_dummy")
+        with pytest.raises(HTTPException) as exc_info:
+            pg_database.prevent_sqlite_fallback_in_production()
+        assert exc_info.value.status_code == 503

@@ -7,6 +7,16 @@ from unittest.mock import Mock, AsyncMock, MagicMock
 from typing import List, Dict, Any
 
 
+@pytest.fixture(autouse=True)
+def _default_test_env(monkeypatch):
+    """默认把测试环境标记为 test，使 SQLite 降级守卫不触发。
+
+    需要验证生产行为的测试可显式 monkeypatch.setenv("APP_ENV", "production")
+    或 monkeypatch.delenv("APP_ENV", raising=False) 来覆盖此默认。
+    """
+    monkeypatch.setenv("APP_ENV", "test")
+
+
 @pytest.fixture
 def mock_faiss():
     """
