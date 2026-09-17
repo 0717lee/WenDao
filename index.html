@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WenDao 古籍智解 — 帮助普通人读懂古籍的 AI 阅读助手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;500;600;700;900&family=ZCOOL+XiaoWei&family=Liu+Jian+Mao+Cao&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4ecd8;
+    --paper-deep: #e8dcc0;
+    --paper-dark: #d9c9a8;
+    --ink: #2b1810;
+    --ink-soft: #4a3528;
+    --ink-light: #6b5340;
+    --gold: #b8860b;
+    --gold-light: #d4a017;
+    --gold-pale: #e8c97a;
+    --seal: #9c2a2a;
+    --seal-deep: #7a1f1f;
+    --tea: #8b6914;
+    --jade: #5a7a6a;
+    --shadow: rgba(43, 24, 16, 0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Noto Serif SC', serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.8;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* 宣纸纹理 */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(139, 105, 20, 0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(156, 42, 42, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(184, 134, 11, 0.02) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3CfeColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.2 0 0 0 0 0.1 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 40px;
+    position: relative;
+    z-index: 10;
+  }
+
+  /* ==================== 首屏 Hero ==================== */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: 80px 40px;
+  }
+
+  .hero-bg {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: 
+      radial-gradient(ellipse at center, var(--paper) 0%, var(--paper-deep) 60%, var(--paper-dark) 100%);
+    z-index: 0;
+  }
+
+  /* 水墨晕染 */
+  .ink-splash {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.15;
+    z-index: 1;
+  }
+  .ink-splash.one {
+    width: 500px; height: 500px;
+    background: var(--ink);
+    top: -100px; right: -100px;
+    animation: float 12s ease-in-out infinite;
+  }
+  .ink-splash.two {
+    width: 400px; height: 400px;
+    background: var(--seal);
+    bottom: -80px; left: -80px;
+    animation: float 15s ease-in-out infinite reverse;
+  }
+  .ink-splash.three {
+    width: 300px; height: 300px;
+    background: var(--gold);
+    top: 40%; left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.08;
+    animation: float 18s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -30px) scale(1.05); }
+    66% { transform: translate(-20px, 20px) scale(0.95); }
+  }
+
+  .hero-content {
+    text-align: center;
+    position: relative;
+    z-index: 10;
+    max-width: 900px;
+  }
+
+  .hero-seal {
+    width: 80px;
+    height: 80px;
+    background: var(--seal);
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 28px;
+    line-height: 1;
+    margin: 0 auto 40px;
+    border-radius: 8px;
+    transform: rotate(-3deg);
+    box-shadow: 0 4px 20px rgba(156, 42, 42, 0.3);
+    animation: sealStamp 1s ease-out 0.5s both;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 8px;
+  }
+
+  @keyframes sealStamp {
+    0% { transform: rotate(-3deg) scale(3); opacity: 0; }
+    60% { transform: rotate(-3deg) scale(0.9); opacity: 1; }
+    100% { transform: rotate(-3deg) scale(1); opacity: 1; }
+  }
+
+  .hero-title {
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: clamp(48px, 8vw, 96px);
+    color: var(--ink);
+    margin-bottom: 20px;
+    letter-spacing: 8px;
+    animation: inkSpread 1.5s ease-out 0.3s both;
+    text-shadow: 2px 2px 4px rgba(43, 24, 16, 0.1);
+  }
+
+  .hero-title .en {
+    display: block;
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: clamp(18px, 2.5vw, 28px);
+    color: var(--gold);
+    letter-spacing: 12px;
+    margin-top: 12px;
+    font-weight: 400;
+  }
+
+  @keyframes inkSpread {
+    0% { opacity: 0; filter: blur(20px); transform: translateY(20px); }
+    100% { opacity: 1; filter: blur(0); transform: translateY(0); }
+  }
+
+  .hero-divider {
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 40px auto;
+    animation: lineGrow 1s ease-out 1s both;
+  }
+
+  @keyframes lineGrow {
+    0% { width: 0; opacity: 0; }
+    100% { width: 120px; opacity: 1; }
+  }
+
+  .hero-tagline {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: clamp(20px, 3vw, 32px);
+    color: var(--ink-soft);
+    letter-spacing: 4px;
+    margin-bottom: 16px;
+    animation: fadeUp 1s ease-out 1.2s both;
+  }
+
+  .hero-subtitle {
+    font-size: clamp(15px, 2vw, 18px);
+    color: var(--ink-light);
+    letter-spacing: 2px;
+    animation: fadeUp 1s ease-out 1.4s both;
+  }
+
+  @keyframes fadeUp {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--ink-light);
+    font-size: 14px;
+    letter-spacing: 4px;
+    animation: bounce 2s ease-in-out infinite;
+    z-index: 10;
+  }
+
+  .scroll-hint::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 40px;
+    background: var(--ink-light);
+    margin: 12px auto 0;
+  }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(10px); }
+  }
+
+  /* ==================== 通用 Section ==================== */
+  section {
+    padding: 100px 0;
+    position: relative;
+    z-index: 5;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 70px;
+  }
+
+  .section-label {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 14px;
+    color: var(--gold);
+    letter-spacing: 8px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .section-title {
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: clamp(36px, 5vw, 56px);
+    color: var(--ink);
+    letter-spacing: 6px;
+    margin-bottom: 20px;
+    position: relative;
+    display: inline-block;
+  }
+
+  .section-title::before,
+  .section-title::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 60px;
+    height: 1px;
+    background: var(--gold);
+    opacity: 0.5;
+  }
+  .section-title::before { right: 100%; margin-right: 30px; }
+  .section-title::after { left: 100%; margin-left: 30px; }
+
+  .section-desc {
+    font-size: 16px;
+    color: var(--ink-light);
+    max-width: 600px;
+    margin: 0 auto;
+    letter-spacing: 1px;
+  }
+
+  /* ==================== 痛点 ==================== */
+  .pain-points {
+    background: linear-gradient(180deg, transparent, rgba(232, 220, 192, 0.3) 50%, transparent);
+  }
+
+  .pain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .pain-card {
+    background: rgba(255, 252, 240, 0.6);
+    border: 1px solid rgba(184, 134, 11, 0.2);
+    border-radius: 4px;
+    padding: 36px 28px;
+    text-align: center;
+    position: relative;
+    transition: all 0.4s ease;
+    backdrop-filter: blur(4px);
+  }
+
+  .pain-card::before {
+    content: '';
+    position: absolute;
+    top: 12px; left: 12px; right: 12px; bottom: 12px;
+    border: 1px solid rgba(184, 134, 11, 0.1);
+    pointer-events: none;
+    transition: all 0.4s ease;
+  }
+
+  .pain-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 40px var(--shadow);
+    background: rgba(255, 252, 240, 0.9);
+  }
+
+  .pain-card:hover::before {
+    border-color: var(--gold);
+  }
+
+  .pain-icon {
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 40px;
+    color: var(--seal);
+    margin-bottom: 20px;
+    display: block;
+    line-height: 1;
+  }
+
+  .pain-title {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+  }
+
+  .pain-desc {
+    font-size: 14px;
+    color: var(--ink-light);
+    line-height: 1.7;
+  }
+
+  /* ==================== 目标用户 ==================== */
+  .users-section {
+    position: relative;
+  }
+
+  .users-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .user-card {
+    text-align: center;
+    padding: 50px 30px;
+    position: relative;
+    transition: all 0.4s ease;
+  }
+
+  .user-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 252, 240, 0.8), rgba(244, 236, 216, 0.4));
+    border: 1px solid rgba(184, 134, 11, 0.15);
+    border-radius: 4px;
+    z-index: -1;
+    transition: all 0.4s ease;
+  }
+
+  .user-card:hover::before {
+    border-color: var(--gold);
+    box-shadow: 0 8px 30px var(--shadow);
+  }
+
+  .user-avatar {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 24px;
+    background: var(--paper-deep);
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 32px;
+    color: var(--ink);
+    position: relative;
+  }
+
+  .user-avatar::after {
+    content: '';
+    position: absolute;
+    top: -6px; left: -6px; right: -6px; bottom: -6px;
+    border: 1px dashed var(--gold);
+    border-radius: 50%;
+    opacity: 0.4;
+  }
+
+  .user-name {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 16px;
+    letter-spacing: 3px;
+  }
+
+  .user-desc {
+    font-size: 14px;
+    color: var(--ink-light);
+    line-height: 1.8;
+  }
+
+  .user-tags {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .user-tag {
+    font-size: 12px;
+    padding: 4px 12px;
+    background: rgba(184, 134, 11, 0.1);
+    color: var(--tea);
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* ==================== 核心功能 ==================== */
+  .features-section {
+    background: linear-gradient(180deg, transparent, rgba(217, 201, 168, 0.2) 50%, transparent);
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .feature-card {
+    background: rgba(255, 252, 240, 0.7);
+    border: 1px solid rgba(184, 134, 11, 0.2);
+    border-radius: 6px;
+    padding: 40px 32px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--gold), var(--seal));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 50px var(--shadow);
+    background: rgba(255, 252, 240, 0.95);
+  }
+
+  .feature-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  .feature-num {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    font-family: 'Liu Jian Mao Cao', cursive;
+    font-size: 48px;
+    color: rgba(184, 134, 11, 0.15);
+    line-height: 1;
+  }
+
+  .feature-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, var(--paper-deep), var(--paper-dark));
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 24px;
+    color: var(--seal);
+    margin-bottom: 24px;
+  }
+
+  .feature-title {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+  }
+
+  .feature-desc {
+    font-size: 14px;
+    color: var(--ink-light);
+    line-height: 1.8;
+  }
+
+  /* ==================== 使用流程 ==================== */
+  .flow-section {
+    position: relative;
+  }
+
+  .flow-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .flow-line {
+    position: absolute;
+    top: 40px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--gold) 0,
+      var(--gold) 8px,
+      transparent 8px,
+      transparent 16px
+    );
+    z-index: 0;
+  }
+
+  .flow-steps {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+  }
+
+  .flow-step {
+    flex: 1;
+    text-align: center;
+    padding: 0 12px;
+    position: relative;
+  }
+
+  .flow-circle {
+    width: 80px;
+    height: 80px;
+    background: var(--paper);
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    margin: 0 auto 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 28px;
+    color: var(--seal);
+    position: relative;
+    transition: all 0.4s ease;
+    z-index: 2;
+  }
+
+  .flow-circle::before {
+    content: '';
+    position: absolute;
+    top: -8px; left: -8px; right: -8px; bottom: -8px;
+    border: 1px solid rgba(184, 134, 11, 0.3);
+    border-radius: 50%;
+  }
+
+  .flow-step:hover .flow-circle {
+    background: var(--gold);
+    color: var(--paper);
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(184, 134, 11, 0.4);
+  }
+
+  .flow-title {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 18px;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+
+  .flow-desc {
+    font-size: 13px;
+    color: var(--ink-light);
+    line-height: 1.6;
+  }
+
+  .flow-arrow {
+    position: absolute;
+    top: 36px;
+    right: -16px;
+    color: var(--gold);
+    font-size: 24px;
+    z-index: 2;
+  }
+
+  /* ==================== 价值意义 ==================== */
+  .value-section {
+    background: 
+      radial-gradient(ellipse at center, rgba(244, 236, 216, 0.8), transparent 70%),
+      linear-gradient(180deg, transparent, rgba(232, 220, 192, 0.4));
+    text-align: center;
+  }
+
+  .value-quote {
+    font-family: 'Liu Jian Mao Cao', cursive;
+    font-size: clamp(28px, 4vw, 42px);
+    color: var(--ink-soft);
+    margin-bottom: 60px;
+    letter-spacing: 4px;
+    line-height: 1.6;
+  }
+
+  .value-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .value-card {
+    padding: 40px 30px;
+    position: relative;
+  }
+
+  .value-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 40px;
+    background: var(--paper);
+    border: 2px solid var(--gold);
+    transform: translateX(-50%) rotate(45deg);
+    z-index: -1;
+  }
+
+  .value-icon {
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 36px;
+    color: var(--seal);
+    margin-bottom: 24px;
+    display: block;
+  }
+
+  .value-title {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 24px;
+    color: var(--ink);
+    margin-bottom: 16px;
+    letter-spacing: 3px;
+  }
+
+  .value-desc {
+    font-size: 15px;
+    color: var(--ink-light);
+    line-height: 1.8;
+  }
+
+  /* ==================== Footer ==================== */
+  footer {
+    padding: 60px 40px 40px;
+    text-align: center;
+    border-top: 1px solid rgba(184, 134, 11, 0.2);
+    position: relative;
+    z-index: 5;
+  }
+
+  .footer-seal {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    background: var(--seal);
+    color: var(--paper);
+    line-height: 50px;
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 20px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    transform: rotate(-2deg);
+  }
+
+  .footer-brand {
+    font-family: 'ZCOOL XiaoWei', serif;
+    font-size: 20px;
+    color: var(--ink);
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
+
+  .footer-tagline {
+    font-size: 13px;
+    color: var(--ink-light);
+    letter-spacing: 2px;
+  }
+
+  /* ==================== 装饰元素 ==================== */
+  .vertical-text {
+    position: fixed;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+    font-family: 'Ma Shan Zheng', serif;
+    font-size: 16px;
+    color: rgba(184, 134, 11, 0.3);
+    letter-spacing: 8px;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .corner-deco {
+    position: fixed;
+    width: 100px;
+    height: 100px;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0.15;
+  }
+  .corner-deco.tl { top: 20px; left: 20px; border-top: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+  .corner-deco.tr { top: 20px; right: 20px; border-top: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+  .corner-deco.bl { bottom: 20px; left: 20px; border-bottom: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+  .corner-deco.br { bottom: 20px; right: 20px; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+
+  /* ==================== 滚动动画 ==================== */
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ==================== 响应式 ==================== */
+  @media (max-width: 768px) {
+    .container { padding: 0 20px; }
+    section { padding: 60px 0; }
+    
+    .users-grid,
+    .value-grid {
+      grid-template-columns: 1fr;
+      gap: 30px;
+    }
+
+    .flow-line { display: none; }
+    .flow-steps {
+      flex-direction: column;
+      gap: 40px;
+    }
+    .flow-arrow { display: none; }
+
+    .vertical-text { display: none; }
+    .corner-deco { width: 60px; height: 60px; }
+
+    .section-title::before,
+    .section-title::after { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 装饰元素 -->
+<div class="corner-deco tl"></div>
+<div class="corner-deco tr"></div>
+<div class="corner-deco bl"></div>
+<div class="corner-deco br"></div>
+<div class="vertical-text">问 道 古 籍 　 智 解 千 年</div>
+
+<!-- ==================== 首屏 ==================== -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="ink-splash one"></div>
+  <div class="ink-splash two"></div>
+  <div class="ink-splash three"></div>
+  
+  <div class="hero-content">
+    <div class="hero-seal">问道</div>
+    <h1 class="hero-title">
+      古籍智解
+      <span class="en">WenDao · AI Reading Assistant</span>
+    </h1>
+    <div class="hero-divider"></div>
+    <p class="hero-tagline">帮助普通人读懂古籍的 AI 阅读助手</p>
+    <p class="hero-subtitle">千年文脉，一屏可读；古籍智慧，人人可及</p>
+  </div>
+
+  <div class="scroll-hint">向下展卷</div>
+</section>
+
+<!-- ==================== 用户痛点 ==================== -->
+<section class="pain-points">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">PAIN POINTS</div>
+      <h2 class="section-title">阅古之难</h2>
+      <p class="section-desc">读古籍，不该是一座难以翻越的高山。然而现实中，门槛重重。</p>
+    </div>
+
+    <div class="pain-grid">
+      <div class="pain-card reveal">
+        <span class="pain-icon">繁</span>
+        <h3 class="pain-title">古籍难读</h3>
+        <p class="pain-desc">文言艰深，句式古奥，无注释难以理解原意，初学者望而却步。</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">断</span>
+        <h3 class="pain-title">断句困难</h3>
+        <p class="pain-desc">古文无标点，何处停顿、何处转折，全凭语感，错一句则义理全偏。</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">典</span>
+        <h3 class="pain-title">字词典故难查</h3>
+        <p class="pain-desc">生僻字多，典故出处散落各书，翻检工具书耗时费力，阅读节奏被打断。</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">散</span>
+        <h3 class="pain-title">工具分散</h3>
+        <p class="pain-desc">字典、词典、译文、注释各在一处，频繁切换窗口，阅读体验支离破碎。</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">忘</span>
+        <h3 class="pain-title">缺少学习沉淀</h3>
+        <p class="pain-desc">读过的字词、典故无处记录，读后即忘，难以形成系统化的知识积累。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 目标用户 ==================== -->
+<section class="users-section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">TARGET USERS</div>
+      <h2 class="section-title">为谁而作</h2>
+      <p class="section-desc">每一个对古籍心怀向往的人，都值得拥有一位 AI 阅读伴侣。</p>
+    </div>
+
+    <div class="users-grid">
+      <div class="user-card reveal">
+        <div class="user-avatar">学</div>
+        <h3 class="user-name">学生</h3>
+        <p class="user-desc">中学至大学阶段，需阅读文言文篇目，应对考试之余，更望真正理解古文之美。</p>
+        <div class="user-tags">
+          <span class="user-tag">文言文学习</span>
+          <span class="user-tag">备考复习</span>
+          <span class="user-tag">课外拓展</span>
+        </div>
+      </div>
+      <div class="user-card reveal">
+        <div class="user-avatar">雅</div>
+        <h3 class="user-name">传统文化爱好者</h3>
+        <p class="user-desc">热爱国学经典，自学《论语》《道德经》等典籍，渴望深度阅读而非浅尝辄止。</p>
+        <div class="user-tags">
+          <span class="user-tag">国学经典</span>
+          <span class="user-tag">深度阅读</span>
+          <span class="user-tag">文化传承</span>
+        </div>
+      </div>
+      <div class="user-card reveal">
+        <div class="user-avatar">影</div>
+        <h3 class="user-name">影印页处理用户</h3>
+        <p class="user-desc">手头有古籍影印本或扫描图片，需要将图片转为可读文本并进行智能解读。</p>
+        <div class="user-tags">
+          <span class="user-tag">OCR 识别</span>
+          <span class="user-tag">影印转文本</span>
+          <span class="user-tag">文献整理</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 核心功能 ==================== -->
+<section class="features-section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">CORE FEATURES</div>
+      <h2 class="section-title">核心功能</h2>
+      <p class="section-desc">七大能力，环环相扣，从原文到精讲，从问答到沉淀，一站式解决古籍阅读全流程。</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <span class="feature-num">壹</span>
+        <div class="feature-icon">库</div>
+        <h3 class="feature-title">真实古籍库</h3>
+        <p class="feature-desc">收录《论语》《孟子》《庄子》《史记》等经典典籍原文，版本可靠，持续扩充，一键即可开卷。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-num">贰</span>
+        <div class="feature-icon">栏</div>
+        <h3 class="feature-title">三栏对照阅读</h3>
+        <p class="feature-desc">原文、译文、注释三栏并排展示，逐句对齐，左右滑动即可对照参照，阅读不再跳跃。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-num">叁</span>
+        <div class="feature-icon">讲</div>
+        <h3 class="feature-title">AI 逐句精讲</h3>
+        <p class="feature-desc">点击任意句子，AI 即刻生成逐字逐句的精讲，涵盖字义、语法、典故、思想背景，如名师在侧。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-num">肆</span>
+        <div class="feature-icon">问</div>
+        <h3 class="feature-title">RAG 引用问答</h3>
+        <p class="feature-desc">基于检索增强生成技术，回答均引用典籍原文出处，有据可查，杜绝 AI 空谈臆造。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-num">伍</span>
+        <div class="feature-icon">识</div>
+        <h3 class="feature-title">OCR 识别</h3>
+        <p class="feature-desc">上传古籍影印页图片，自动识别繁体竖排文字，转为结构化文本，即可进入精讲与问答流程。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-num">陆</span>
+        <div class="feature-icon">本</div>
+        <h3 class="feature-title">字词本</h3>
+        <p class="feature-desc">阅读中遇到的生字僻词、典故出处，一键收藏至个人字词本，分类管理，随时温习。</p>
+      </div>
+      <div class="feature-card reveal">
+        <span class="feature-num">柒</span>
+        <div class="feature-icon">卡</div>
+        <h3 class="feature-title">学习卡片</h3>
+        <p class="feature-desc">自动将字词本中的内容生成复习卡片，支持间隔重复记忆法，让古籍知识真正内化于心。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 使用流程 ==================== -->
+<section class="flow-section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">HOW IT WORKS</div>
+      <h2 class="section-title">使用流程</h2>
+      <p class="section-desc">五步即可开启古籍智读之旅，从选书到沉淀，行云流水。</p>
+    </div>
+
+    <div class="flow-container reveal">
+      <div class="flow-line"></div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-circle">入</div>
+          <h3 class="flow-title">进入古籍库</h3>
+          <p class="flow-desc">浏览典籍目录<br>选择想读的书目</p>
+          <span class="flow-arrow">→</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-circle">读</div>
+          <h3 class="flow-title">阅读原文</h3>
+          <p class="flow-desc">三栏对照阅读<br>原文译文注释并排</p>
+          <span class="flow-arrow">→</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-circle">讲</div>
+          <h3 class="flow-title">点击精讲</h3>
+          <p class="flow-desc">点任意句子<br>AI 逐句解读释义</p>
+          <span class="flow-arrow">→</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-circle">问</div>
+          <h3 class="flow-title">继续追问</h3>
+          <p class="flow-desc">RAG 引用问答<br>有据可查不空谈</p>
+          <span class="flow-arrow">→</span>
+        </div>
+        <div class="flow-step">
+          <div class="flow-circle">藏</div>
+          <h3 class="flow-title">加入字词本</h3>
+          <p class="flow-desc">生词典故一键收藏<br>生成卡片持续复习</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 价值意义 ==================== -->
+<section class="value-section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">VALUE & VISION</div>
+      <h2 class="section-title">价值意义</h2>
+    </div>
+
+    <p class="value-quote reveal">
+      让每一颗想读懂古籍的心，<br>都不再孤行于字句之间。
+    </p>
+
+    <div class="value-grid">
+      <div class="value-card reveal">
+        <span class="value-icon">门</span>
+        <h3 class="value-title">降低门槛</h3>
+        <p class="value-desc">AI 逐句精讲与三栏对照，让文言文不再高不可攀。零基础也能独立阅读经典，推开传统文化之门。</p>
+      </div>
+      <div class="value-card reveal">
+        <span class="value-icon">效</span>
+        <h3 class="value-title">提升效率</h3>
+        <p class="value-desc">字词典故一键可查，RAG 问答有据可依，字词本与学习卡片助力沉淀。工具集成，阅读不再频繁中断。</p>
+      </div>
+      <div class="value-card reveal">
+        <span class="value-icon">活</span>
+        <h3 class="value-title">促进活化</h3>
+        <p class="value-desc">让古籍从书架走入日常，让经典从学术走向大众。技术为桥，传统为魂，千年文脉在当代焕发新生。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Footer ==================== -->
+<footer>
+  <div class="footer-seal">道</div>
+  <div class="footer-brand">WenDao 古籍智解</div>
+  <div class="footer-tagline">帮助普通人读懂古籍的 AI 阅读助手 · 千年文脉，一屏可读</div>
+</footer>
+
+<script>
+  // 滚动渐显动画
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, index) => {
+      if (entry.isIntersecting) {
+        // 同组元素依次延迟出现
+        const siblings = entry.target.parentElement.querySelectorAll('.reveal');
+        const idx = Array.from(siblings).indexOf(entry.target);
+        entry.target.style.transitionDelay = (idx % 5) * 0.1 + 's';
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // 鼠标移动微视差效果（水墨晕染）
+  document.addEventListener('mousemove', (e) => {
+    const x = (e.clientX / window.innerWidth - 0.5) * 20;
+    const y = (e.clientY / window.innerHeight - 0.5) * 20;
+    const splashes = document.querySelectorAll('.ink-splash');
+    splashes.forEach((splash, i) => {
+      const factor = (i + 1) * 0.3;
+      splash.style.transform = `translate(${x * factor}px, ${y * factor}px)`;
+    });
+  });
+</script>
+
+</body>
+</html>
