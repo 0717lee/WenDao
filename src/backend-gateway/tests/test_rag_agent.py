@@ -213,6 +213,7 @@ class TestRAGAgentErrorHandling:
 
         # 应该返回中文错误消息
         assert "抱歉" in result["answer"] or "暂时不可用" in result["answer"]
+        assert result["error"]
 
 
 class TestFaissStartupProbe:

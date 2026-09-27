@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Play, Square } from 'lucide-react'
 import type { PoemResult } from '../store/useStore'
 
@@ -8,33 +8,57 @@ interface PoemScrollCardProps {
 
 export function PoemScrollCard({ result }: PoemScrollCardProps) {
     const [isPlaying, setIsPlaying] = useState(false)
-    const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null)
+    const [audioError, setAudioError] = useState('')
+    const audioElRef = useRef<HTMLAudioElement | null>(null)
 
     useEffect(() => {
         return () => {
-            if (audioEl) {
-                audioEl.pause()
-                audioEl.src = ''
+            const audio = audioElRef.current
+            if (audio) {
+                audio.pause()
+                audio.currentTime = 0
+                audio.src = ''
+                audioElRef.current = null
             }
         }
-    }, [audioEl])
+    }, [])
 
     const handlePlayAudio = () => {
         if (!result.audioBase64) return
+        setAudioError('')
 
+        const audioEl = audioElRef.current
         if (isPlaying && audioEl) {
             audioEl.pause()
             audioEl.currentTime = 0
+            audioElRef.current = null
             setIsPlaying(false)
             return
         }
 
         const audio = new Audio(`data:audio/mp3;base64,${result.audioBase64}`)
-        audio.onended = () => setIsPlaying(false)
-        audio.onerror = () => setIsPlaying(false)
-        audio.play()
-        setAudioEl(audio)
+        audio.onended = () => {
+            if (audioElRef.current === audio) {
+                audioElRef.current = null
+                setIsPlaying(false)
+            }
+        }
+        audio.onerror = () => {
+            if (audioElRef.current === audio) {
+                audioElRef.current = null
+                setIsPlaying(false)
+                setAudioError('朗读暂时无法播放，请重试。')
+            }
+        }
+        audioElRef.current = audio
         setIsPlaying(true)
+        void audio.play().catch(() => {
+            if (audioElRef.current === audio) {
+                audioElRef.current = null
+                setIsPlaying(false)
+                setAudioError('朗读暂时无法播放，请重试。')
+            }
+        })
     }
 
     const isLoading = !result.text
@@ -124,6 +148,8 @@ export function PoemScrollCard({ result }: PoemScrollCardProps) {
                     </button>
                 </div>
             )}
+
+            {audioError && <p role="alert" className="px-4 pb-3 text-sm text-[var(--gf-gugong-red)]">{audioError}</p>}
 
             {/* Topic label */}
             <div

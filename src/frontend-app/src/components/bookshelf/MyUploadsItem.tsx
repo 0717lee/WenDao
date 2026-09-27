@@ -43,7 +43,7 @@ export function MyUploadsItem({
                 color: processed ? 'var(--gf-gold)' : 'rgba(26,30,35,0.45)',
               }}
             >
-              {processed ? '已整理好' : '正在整理'}
+              {processed ? '已整理好' : '待整理'}
             </span>
             {hasNote && (
               <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(60,138,81,0.12)', color: '#3c8a51' }}>

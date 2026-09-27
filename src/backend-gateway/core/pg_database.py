@@ -410,12 +410,23 @@ async def init_pg_database(seed_mode: str | None = None) -> None:
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 user_id UUID REFERENCES users(id) ON DELETE CASCADE,
                 document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+                session_id UUID,
                 completed_cards INT DEFAULT 0,
                 total_cards INT DEFAULT 0,
                 mastered_cards INT DEFAULT 0,
                 review_again_cards INT DEFAULT 0,
                 created_at TIMESTAMPTZ DEFAULT NOW()
             )
+        """)
+
+        await conn.execute("""
+            ALTER TABLE user_study_sessions
+            ADD COLUMN IF NOT EXISTS session_id UUID
+        """)
+
+        await conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS user_study_sessions_user_document_session_idx
+            ON user_study_sessions (user_id, document_id, session_id)
         """)
 
         # Add entity_ids column for GraphRAG cross-referencing (Phase 3)

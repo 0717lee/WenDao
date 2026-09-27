@@ -9,6 +9,7 @@ import os
 import sys
 import re
 import json
+import uuid
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -519,6 +520,54 @@ class TestStudyProgress:
             )
 
         assert result["mastered_cards"] == 4
+
+    @pytest.mark.asyncio
+    async def test_save_study_progress_forwards_client_session_id(self):
+        from routers.document import StudyProgressUpdateRequest, save_study_progress
+
+        session_id = uuid.uuid4()
+        with patch("routers.document._get_document", new=AsyncMock(return_value={"id": "doc-1", "source_type": "corpus"})), \
+             patch("routers.document._save_study_session", new=AsyncMock(return_value={"sessions_count": 1})) as save_session:
+            result = await save_study_progress(
+                "doc-1",
+                StudyProgressUpdateRequest(
+                    session_id=session_id,
+                    completed_cards=5,
+                    total_cards=5,
+                    mastered_cards=4,
+                    review_again_cards=1,
+                ),
+                {"sub": "user-1"},
+            )
+
+        assert result["sessions_count"] == 1
+        assert save_session.await_args.args[2].session_id == session_id
+
+    @pytest.mark.asyncio
+    async def test_save_study_progress_hides_private_document_from_other_user(self):
+        from fastapi import HTTPException
+        from routers.document import StudyProgressUpdateRequest, save_study_progress
+
+        with patch("routers.document._get_document", new=AsyncMock(return_value={
+            "id": "doc-private",
+            "source_type": "user",
+            "owner_user_id": "owner-1",
+        })), patch("routers.document._save_study_session", new=AsyncMock()) as save_session:
+            with pytest.raises(HTTPException) as exc_info:
+                await save_study_progress(
+                    "doc-private",
+                    StudyProgressUpdateRequest(
+                        session_id=uuid.uuid4(),
+                        completed_cards=1,
+                        total_cards=1,
+                        mastered_cards=1,
+                        review_again_cards=0,
+                    ),
+                    {"sub": "other-user"},
+                )
+
+        assert exc_info.value.status_code == 404
+        save_session.assert_not_awaited()
 
 
 class TestCitationResolution:

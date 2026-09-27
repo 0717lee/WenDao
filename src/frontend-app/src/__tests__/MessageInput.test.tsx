@@ -46,4 +46,42 @@ describe('MessageInput', () => {
 
     expect(onSend).toHaveBeenCalledTimes(1)
   })
+
+  it('exposes input instructions and live voice status', () => {
+    render(
+      <MessageInput
+        value=""
+        onChange={vi.fn()}
+        onSend={vi.fn()}
+        disabled={false}
+        onVoiceToggle={vi.fn()}
+        isTranscribing
+      />
+    )
+
+    const textarea = screen.getByRole('textbox', { name: '消息输入' })
+    expect(textarea).toHaveAttribute('aria-describedby', 'message-input-hint')
+
+    const voiceButton = screen.getByRole('button', { name: '正在识别语音' })
+    expect(voiceButton).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent('正在识别语音')
+  })
+
+  it('exposes a cancel action while a response is pending', () => {
+    const onCancel = vi.fn()
+
+    render(
+      <MessageInput
+        value=""
+        onChange={vi.fn()}
+        onSend={vi.fn()}
+        onCancel={onCancel}
+        disabled
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '取消生成' }))
+    expect(onCancel).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('textbox')).toBeDisabled()
+  })
 })

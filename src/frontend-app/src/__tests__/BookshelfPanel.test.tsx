@@ -15,14 +15,13 @@ describe('BookshelfPanel', () => {
     ;(global.fetch as any).mockReset()
   })
 
-  it('shows no fallback corpus item when document API is unavailable', async () => {
+  it('shows a visible corpus error and retry action when document API is unavailable', async () => {
     ;(global.fetch as any).mockRejectedValue(new Error('network down'))
 
     render(<BookshelfPanel {...props} />)
 
-    expect(
-      await screen.findByText((content) => content.includes('这里会先放几部更容易开始的书。'))
-    ).toBeInTheDocument()
+    expect(await screen.findByText('古籍库暂时无法加载，请重试。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重试加载精选篇目' })).toBeInTheDocument()
   })
 
   it('shows an empty continue-reading state for accounts with no reading history', async () => {
@@ -284,5 +283,109 @@ describe('BookshelfPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: /更多来源与工具/i }))
 
     expect(await screen.findAllByText('经学')).not.toHaveLength(0)
+  })
+
+  it('shows a catalog error with a retry action instead of an empty catalog', async () => {
+    let catalogCalls = 0
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [{ id: 'corpus-1', title: '《论语》' }], total: 1 }) })
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      if (url.includes('/api/v1/documents/catalog?')) {
+        catalogCalls += 1
+        return Promise.reject(new Error('catalog down'))
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+    fireEvent.click(await screen.findByRole('button', { name: /更多来源与工具/i }))
+
+    expect(await screen.findByText('更多篇目暂时无法加载，请重试。')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '重试加载更多篇目' }))
+
+    await waitFor(() => expect(catalogCalls).toBeGreaterThan(1))
+  })
+
+  it('disables catalog import cards and prevents duplicate imports while one is running', async () => {
+    let resolveImport: ((value: unknown) => void) | undefined
+    const importPromise = new Promise((resolve) => {
+      resolveImport = resolve
+    })
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [{ id: 'corpus-1', title: '《论语》' }], total: 1 }) })
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      if (url.includes('/api/v1/documents/catalog?')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entries: [{ repo_id: 'repo-1', title: '《大学》', imported: false }], total: 1 }),
+        })
+      }
+      if (url.includes('/api/v1/documents/catalog/import/repo-1')) {
+        return importPromise
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    render(<BookshelfPanel {...props} />)
+    fireEvent.click(await screen.findByRole('button', { name: /更多来源与工具/i }))
+    const importButton = await screen.findByRole('button', { name: /加入阅读并打开： 《大学》|加入阅读并打开：/i })
+
+    fireEvent.click(importButton)
+    expect(importButton).toBeDisabled()
+    fireEvent.click(importButton)
+    expect((global.fetch as any).mock.calls.filter(([url]: [string]) => url.includes('/catalog/import/repo-1'))).toHaveLength(1)
+
+    resolveImport?.({ ok: true, json: async () => ({ document: { id: 'doc-1' } }) })
+    await waitFor(() => expect(props.onOpenDocument).toHaveBeenCalledWith('doc-1'))
+  })
+
+  it('shows rejected file feedback without starting an upload', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [{ id: 'corpus-1', title: '《论语》' }], total: 1 }) })
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    const { container } = render(<BookshelfPanel {...props} />)
+    fireEvent.click(await screen.findByRole('button', { name: /更多来源与工具/i }))
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['text'], 'notes.pdf', { type: 'application/pdf' })] } })
+
+    expect(await screen.findByText(/这类文件暂不支持/)).toBeInTheDocument()
+    expect((global.fetch as any).mock.calls.some(([url]: [string]) => url.includes('/api/v1/documents/upload'))).toBe(false)
+  })
+
+  it('preserves an intelligible backend upload error detail', async () => {
+    ;(global.fetch as any).mockImplementation((url: string) => {
+      if (url.includes('/api/v1/documents?limit=120&source_type=corpus')) {
+        return Promise.resolve({ ok: true, json: async () => ({ documents: [{ id: 'corpus-1', title: '《论语》' }], total: 1 }) })
+      }
+      if (url.includes('/api/v1/reader/history')) {
+        return Promise.resolve({ ok: true, json: async () => [] })
+      }
+      if (url.includes('/api/v1/documents/upload')) {
+        return Promise.resolve({ ok: false, status: 413, json: async () => ({ detail: '图片超过服务端大小限制，请压缩后重试。' }) })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ documents: [], total: 0 }) })
+    })
+
+    const { container } = render(<BookshelfPanel {...props} />)
+    fireEvent.click(await screen.findByRole('button', { name: /更多来源与工具/i }))
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [new File(['image'], 'page.png', { type: 'image/png' })] } })
+
+    expect(await screen.findByText('图片超过服务端大小限制，请压缩后重试。')).toBeInTheDocument()
   })
 })

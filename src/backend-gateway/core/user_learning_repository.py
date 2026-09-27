@@ -107,22 +107,27 @@ async def save_study_session(
     total_cards: int,
     mastered_cards: int,
     review_again_cards: int,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
-    payload = (
-        completed_cards,
-        total_cards,
-        mastered_cards,
-        review_again_cards,
-    )
+    """Persist one study round, optionally making retries idempotent.
+
+    ``session_id`` is client generated for one round and reused when a POST
+    response is ambiguous.  The database constraint scopes it to the owning
+    user and document, so a UUID reused by another scope cannot return or
+    replace somebody else's session.
+    """
     try:
         async with get_connection() as conn:
             row = await conn.fetchrow(
                 """
                 INSERT INTO user_study_sessions (
-                    user_id, document_id, completed_cards, total_cards, mastered_cards, review_again_cards
-                ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)
+                    user_id, document_id, session_id,
+                    completed_cards, total_cards, mastered_cards, review_again_cards
+                ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7)
+                ON CONFLICT (user_id, document_id, session_id) DO NOTHING
                 RETURNING
                     document_id::text AS document_id,
+                    session_id::text AS session_id,
                     completed_cards,
                     total_cards,
                     mastered_cards,
@@ -131,9 +136,42 @@ async def save_study_session(
                 """,
                 user_id,
                 document_id,
-                *payload,
+                session_id,
+                completed_cards,
+                total_cards,
+                mastered_cards,
+                review_again_cards,
             )
-            return dict(row)
+            if row:
+                return dict(row)
+
+            # A duplicate client session is a successful idempotent retry.
+            # Keep the lookup scoped so a reused UUID cannot expose another
+            # user's or another document's result.
+            if session_id:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT
+                        document_id::text AS document_id,
+                        session_id::text AS session_id,
+                        completed_cards,
+                        total_cards,
+                        mastered_cards,
+                        review_again_cards,
+                        created_at
+                    FROM user_study_sessions
+                    WHERE user_id = $1::uuid
+                      AND document_id = $2::uuid
+                      AND session_id = $3::uuid
+                    """,
+                    user_id,
+                    document_id,
+                    session_id,
+                )
+                if existing:
+                    return dict(existing)
+
+            raise RuntimeError("study session insert did not return a row")
     except Exception as exc:
         prevent_sqlite_fallback_in_production()
         logger.warning("PostgreSQL 学习记录保存失败，降级到 SQLite: %s", exc)
@@ -142,10 +180,20 @@ async def save_study_session(
         await db.execute(
             """
             INSERT INTO user_study_sessions (
-                user_id, document_id, completed_cards, total_cards, mastered_cards, review_again_cards
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                user_id, document_id, session_id,
+                completed_cards, total_cards, mastered_cards, review_again_cards
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, document_id, session_id) DO NOTHING
             """,
-            (user_id, document_id, *payload),
+            (
+                user_id,
+                document_id,
+                session_id,
+                completed_cards,
+                total_cards,
+                mastered_cards,
+                review_again_cards,
+            ),
         )
         await db.commit()
     return await get_study_progress(document_id, user_id)

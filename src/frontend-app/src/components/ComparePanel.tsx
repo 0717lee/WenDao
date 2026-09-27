@@ -12,8 +12,12 @@ const COLUMN_TITLES: Record<string, string> = {
 }
 
 export default function ComparePanel() {
-  const { comparisonDocuments, removeComparisonDocument, clearComparisonDocuments } = useDocumentStore()
+  const { comparisonDocuments, removeComparisonDocument, clearComparisonDocuments, clearCurrentDocument } = useDocumentStore()
   const setActiveTab = useGraphStore((state) => state.setActiveTab)
+  const openBookshelf = () => {
+    clearCurrentDocument()
+    setActiveTab('reader')
+  }
 
   if (comparisonDocuments.length === 0) {
     return (
@@ -29,11 +33,11 @@ export default function ComparePanel() {
           <h2 className="mb-3 text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
             对照阅读
           </h2>
-          <p style={{ color: 'rgba(26,30,35,0.45)' }}>
+          <p style={{ color: 'var(--gf-muted)' }}>
             先在阅读页点“加入对照”，把 1–2 篇放进来，这里就会并排显示。
           </p>
           <button
-            onClick={() => setActiveTab('reader')}
+            onClick={openBookshelf}
             className="mt-5 rounded-[18px] px-4 py-2.5 text-sm text-white"
             style={{ backgroundColor: 'var(--gf-gugong-red)' }}
           >
@@ -58,13 +62,13 @@ export default function ComparePanel() {
             <h2 className="text-xl font-medium" style={{ color: 'var(--gf-text)' }}>
               对照阅读
             </h2>
-            <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+            <p className="text-sm" style={{ color: 'var(--gf-muted)' }}>
               适合把 1–2 篇文章放在一起，直接比较原文和标点文。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setActiveTab('reader')}
+              onClick={openBookshelf}
               className="rounded-[18px] px-3 py-2 text-sm"
               style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)', border: '1px solid rgba(140,26,17,0.12)' }}
             >
@@ -92,14 +96,14 @@ export default function ComparePanel() {
                   <h3 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
                     {doc.title}
                   </h3>
-                  <p className="text-xs" style={{ color: 'rgba(26,30,35,0.4)' }}>
+                  <p className="text-xs" style={{ color: 'var(--gf-muted)' }}>
                     {doc.punctuatedText ? '这篇已经整理好，可以直接对照' : '这篇目前还只有识别出的原文'}
                   </p>
                 </div>
                 <button
                   onClick={() => removeComparisonDocument(doc.id)}
                   className="rounded-[18px] px-3 py-2 text-xs"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: 'rgba(26,30,35,0.55)', border: '1px solid rgba(26,30,35,0.06)' }}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.76)', color: 'var(--gf-muted)', border: '1px solid rgba(26,30,35,0.06)' }}
                 >
                   移出对照
                 </button>

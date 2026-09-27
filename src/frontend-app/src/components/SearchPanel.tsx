@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Loader2, RefreshCcw, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Search, Loader2, RefreshCcw } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 import { useDocumentStore } from '../store/useDocumentStore';
 import { useGraphStore } from '../store/useGraphStore';
 import { useStore } from '../store/useStore';
 import { authFetchOptions } from '../store/useAuthStore';
 import { EmptyState } from './EmptyState';
+import { Drawer } from './Drawer';
 
 interface SearchResult {
   id: string;
@@ -74,6 +74,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [searchedQuery, setSearchedQuery] = useState('');
+  const searchController = useRef<AbortController | null>(null);
   const consumeSearchQuery = useGraphStore((state) => state.consumeSearchQuery);
   const setActiveTab = useGraphStore((state) => state.setActiveTab);
   const setPendingAnchorText = useDocumentStore((state) => state.setPendingAnchorText);
@@ -85,6 +87,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   };
 
   const handleSearch = async (forcedQuery?: string) => {
+    if (searchController.current) return;
     const nextQuery = (forcedQuery ?? query).trim();
     if (!nextQuery) {
       setError('先输入一句原文，或一个人物、典故。');
@@ -97,11 +100,15 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
     setLoading(true);
     setError(null);
+    setResults([]);
+    const controller = new AbortController();
+    searchController.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
 
     try {
       const response = await fetch(
         `${API_BASE}/api/v1/search?q=${encodeURIComponent(nextQuery)}&mode=${mode}&limit=10`,
-        authFetchOptions()
+        { ...authFetchOptions(), signal: controller.signal }
       );
 
       if (!response.ok) {
@@ -111,15 +118,20 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
 
       const data: SearchResponse = await response.json();
       setResults(data.results);
+      setSearchedQuery(nextQuery);
     } catch (err) {
       const message = err instanceof Error ? err.message : '搜索服务暂时不可用';
       setError(
-        message.includes('Failed to fetch')
+        controller.signal.aborted
+          ? '检索耗时较长，请缩短关键词后重试。'
+          : message.includes('Failed to fetch')
           ? '检索服务暂时不可用，请稍后再试，或先回到阅读页继续读。'
           : message
       );
       setResults([]);
     } finally {
+      window.clearTimeout(timeout);
+      searchController.current = null;
       setLoading(false);
     }
   };
@@ -130,6 +142,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       handleSearch(queued);
     }
   }, [consumeSearchQuery]);
+
+  React.useEffect(() => () => searchController.current?.abort(), []);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -163,7 +177,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
   };
 
   return (
-    <div className="relative flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
+    <div className="relative h-full overflow-y-auto" style={{ backgroundColor: 'var(--gf-bg)' }}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute left-[10%] top-10 h-64 w-64 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(201,160,99,0.12)' }} />
         <div className="absolute right-[8%] top-28 h-72 w-72 rounded-full blur-3xl" style={{ backgroundColor: 'rgba(140,26,17,0.07)' }} />
@@ -184,31 +198,32 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           <h2 className="text-lg font-medium" style={{ color: 'var(--gf-text)' }}>
             查一句原文，直接定位到篇章
           </h2>
-          <p className="text-sm" style={{ color: 'rgba(26,30,35,0.45)' }}>
+          <p className="text-sm" style={{ color: 'var(--gf-muted)' }}>
             这里专门负责定位原文；如果你想延伸解释、追问背景，再转去 AI 问答。
           </p>
         </div>
 
         {/* Search Input */}
         <div className="flex gap-2 mb-3">
-          <div className="flex-1 relative">
+          <div className="min-w-0 flex-1 relative">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="贴一句原文，或搜人物、典故、概念"
+              aria-label="检索原文或关键词"
               className="gf-input w-full px-4 py-3 pl-10 rounded-[22px] text-sm"
               style={{
                 color: 'var(--gf-text)',
               } as React.CSSProperties}
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(26,30,35,0.3)' }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--gf-muted)' }} />
           </div>
           <button
             onClick={() => handleSearch()}
             disabled={loading}
-            className="px-5 py-3 text-white rounded-[22px] text-sm font-medium transition-all duration-300 flex items-center gap-2 disabled:opacity-50"
+            className="shrink-0 px-4 py-3 text-white rounded-[22px] text-sm font-medium transition-all duration-300 flex items-center gap-2 disabled:opacity-50"
             style={{ backgroundColor: 'var(--gf-gugong-red)', boxShadow: '0 12px 24px rgba(140,26,17,0.18)' }}
           >
             {loading ? (
@@ -225,7 +240,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           </button>
         </div>
 
-        <div className="grid gap-2 md:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { value: 'FULLTEXT' as SearchMode, label: '原句检索', desc: '最快，适合记得原句时' },
             { value: 'VECTOR' as SearchMode, label: '大意检索', desc: '适合只记得意思时' },
@@ -233,27 +248,29 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           ].map((item) => (
             <label
               key={item.value}
-              className="flex min-h-[4.5rem] items-center gap-1.5 cursor-pointer rounded-2xl px-3 py-2"
-              style={{ color: 'rgba(26,30,35,0.55)', backgroundColor: 'rgba(255,255,255,0.58)' }}
+              className="flex min-h-12 items-center gap-1.5 cursor-pointer rounded-2xl px-2 py-2 md:min-h-[4.5rem] md:px-3"
+              title={item.desc}
+              style={{ color: 'var(--gf-muted)', backgroundColor: 'rgba(255,255,255,0.58)' }}
             >
               <input
                 type="radio"
                 value={item.value}
                 checked={mode === item.value}
+                disabled={loading}
                 onChange={(event) => setMode(event.target.value as SearchMode)}
                 className="w-3.5 h-3.5"
                 style={{ accentColor: 'var(--gf-gugong-red)' }}
               />
               <div className="flex flex-col">
-                <span className="text-sm" style={{ fontFamily: '"Noto Serif SC", serif' }}>{item.label}</span>
-                <span className="text-xs opacity-60">{item.desc}</span>
+                <span className="text-xs md:text-sm">{item.label}</span>
+                <span className="hidden text-xs md:block">{item.desc}</span>
               </div>
             </label>
           ))}
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <div className="text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs" style={{ color: 'var(--gf-muted)' }}>
             一时找不到，也可以转去 AI 问答继续问。
           </div>
           <div className="flex items-center gap-2">
@@ -277,11 +294,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           </div>
         </div>
 
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-[var(--gf-muted)]">试试这些问题</summary>
         <div className="mt-3 flex flex-wrap gap-2">
           {suggestedQueries.map((item) => (
             <button
               key={item}
               onClick={() => handleSearch(item)}
+              disabled={loading}
               className="rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(26,30,35,0.08)', color: 'var(--gf-text)', backgroundColor: 'rgba(255,255,255,0.72)' }}
             >
@@ -289,11 +309,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
             </button>
           ))}
         </div>
+        </details>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="mx-4 md:mx-6 mt-4 p-3 rounded-[22px] text-sm" style={{ backgroundColor: 'rgba(176,58,58,0.08)', border: '1px solid rgba(176,58,58,0.15)', color: '#b03a3a' }}>
+        <div role="alert" className="mx-4 md:mx-6 mt-4 p-3 rounded-[22px] text-sm" style={{ backgroundColor: 'rgba(176,58,58,0.08)', border: '1px solid rgba(176,58,58,0.15)', color: '#b03a3a' }}>
           <div>{error}</div>
           {error.includes('检索服务') && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -317,8 +338,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
       )}
 
       {/* Search Results */}
-      <div className="relative flex-1 overflow-y-auto p-4 md:p-6">
-        {results.length === 0 && !loading && !error && !query && (
+      <div className="relative p-4 md:p-6" aria-busy={loading}>
+        {loading && <p role="status" className="py-4 text-sm">正在检索，请稍候…</p>}
+        {results.length > 0 && <p role="status" className="mb-3 text-sm">找到 {results.length} 条与「{searchedQuery}」相关的内容</p>}
+        {results.length === 0 && !loading && !error && !searchedQuery && (
           <div className="mt-12">
             <EmptyState
               illustration="search"
@@ -328,11 +351,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           </div>
         )}
 
-        {results.length === 0 && !loading && !error && !!query && (
+        {results.length === 0 && !loading && !error && !!searchedQuery && (
           <div className="mt-12">
             <EmptyState
               illustration="search"
-              title={`没找到和「${query}」直接相关的内容`}
+              title={`没找到和「${searchedQuery}」直接相关的内容`}
               description="可以试试人物名、典故名，或把原句写得更完整一点。"
               action={
                 <div className="flex justify-center flex-wrap gap-2">
@@ -356,7 +379,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
           {results.map((result) => (
             <div
               key={result.id}
-              onClick={() => setSelectedResult(result)}
               className="p-4 rounded-[24px] transition-all duration-300 cursor-pointer hover:-translate-y-0.5"
               style={{
                 background: 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,244,233,0.96) 100%)',
@@ -365,12 +387,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
               }}
             >
               <div className="flex justify-between items-start mb-2">
-                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>{result.title}</h3>
+                <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
+                  <button type="button" onClick={() => setSelectedResult(result)} className="text-left underline decoration-transparent hover:decoration-current"><span>{result.title}</span><span className="ml-2 text-xs text-[var(--gf-muted)]">查看片段</span></button>
+                </h3>
               </div>
               <p className="text-sm mb-2 line-clamp-2" style={{ color: 'rgba(26,30,35,0.6)' }}>
                 {result.content.substring(0, 100)}...
               </p>
-              <div className="text-xs" style={{ color: 'rgba(26,30,35,0.35)' }}>
+              <div className="text-xs" style={{ color: 'var(--gf-muted)' }}>
                 {result.source || '未知'}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -392,70 +416,20 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onOpenDocument, onAsk }) => {
         </div>
       </div>
 
-      {/* Detail Modal */}
-      <AnimatePresence>
+      <Drawer side="right" open={selectedResult !== null} onClose={() => setSelectedResult(null)} title={selectedResult?.title || '原文片段'}>
         {selectedResult && (
-          <motion.div
-            key="search-detail-backdrop"
-            className="fixed inset-0 flex items-center justify-center z-50 p-4"
-            style={{ backgroundColor: 'rgba(26,30,35,0.5)', backdropFilter: 'blur(8px)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            onClick={() => setSelectedResult(null)}
-          >
-            <motion.div
-              className="glass-card rounded-[30px] max-w-3xl w-full max-h-[80vh] overflow-hidden"
-              style={{ boxShadow: '0 32px 64px rgba(26,30,35,0.14)' }}
-              initial={{ opacity: 0, scale: 0.92, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 10 }}
-              transition={{ type: 'spring' as const, stiffness: 300, damping: 26 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 border-b flex justify-between items-start" style={{ borderColor: 'rgba(26,30,35,0.06)' }}>
-                <div>
-                  <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--gf-text)' }}>
-                    {selectedResult.title}
-                  </h2>
-                  <p className="text-sm" style={{ color: 'rgba(26,30,35,0.4)' }}>
-                    {selectedResult.source || '未知'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelectedResult(null)}
-                  className="p-2 rounded-lg transition-colors"
-                  style={{ color: 'rgba(26,30,35,0.3)' }}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto max-h-[60vh]">
-                <p className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--gf-text)' }}>
-                  {selectedResult.content}
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openResultDocument(selectedResult)}
-                    disabled={!onOpenDocument || !selectedResult.document_id}
-                    className="inline-flex min-w-[7.5rem] justify-center rounded-full px-4 py-2 text-sm transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45"
-                    style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
-                  >
-                    {selectedResult.document_id ? '打开原文' : '暂时不能直接打开'}
-                  </button>
-                </div>
-                {!selectedResult.document_id && (
-                  <p className="mt-3 text-xs" style={{ color: 'rgba(26,30,35,0.42)' }}>
-                    这条结果目前只是一段索引片段，还不能直接打开全文；建议换更完整的原句，或转到 AI 问答继续追背景。
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
+          <div className="space-y-5 p-5">
+            <p className="text-sm text-[var(--gf-muted)]">{selectedResult.source || '未知来源'}</p>
+            <p className="whitespace-pre-wrap leading-8">{selectedResult.content}</p>
+            <button type="button" onClick={() => openResultDocument(selectedResult)}
+              disabled={!onOpenDocument || !selectedResult.document_id}
+              className="rounded-xl bg-[var(--gf-gugong-red)] px-4 py-3 text-sm text-white disabled:opacity-45">
+              {selectedResult.document_id ? '打开原文' : '暂时不能直接打开'}
+            </button>
+            {!selectedResult.document_id && <p className="text-sm text-[var(--gf-muted)]">这条结果是索引片段，可以换更完整的原句，或转到 AI 问答继续追问。</p>}
+          </div>
         )}
-      </AnimatePresence>
+      </Drawer>
     </div>
   );
 };

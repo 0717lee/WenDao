@@ -241,6 +241,7 @@ class RAGAgent:
             if self.client is None:
                 return {
                     "answer": "RAG功能暂时不可用（缺少API密钥），请联系管理员配置对应的LLM API Key",
+                    "error": "问答服务暂时不可用，请稍后重试，或先使用原文检索。",
                     "citations": citations,
                     "related_entities": []
                 }
@@ -277,6 +278,7 @@ class RAGAgent:
             logger.exception("[RAGAgent] 查询失败: %s", e)
             return {
                 "answer": f'抱歉，知识检索服务暂时不可用。您询问的是关于"{user_query}"的问题，请稍后再试。',
+                "error": "问答服务暂时不可用，请稍后重试，或先使用原文检索。",
                 "citations": [],
                 "related_entities": [],
             }

@@ -148,6 +148,9 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
         yield f'event: progress\ndata: {json.dumps({"status": "正在整理线索..."}, ensure_ascii=False)}\n\n'
         t0 = time.time()
         result = await asyncio.to_thread(rag_agent.query_ancient_text, query, False)
+        if result.get("error"):
+            yield f'event: error\ndata: {json.dumps({"message": result["error"]}, ensure_ascii=False)}\n\n'
+            return
         answer = result["answer"]
         related_entities = result.get("related_entities", [])
         yield sse_reasoning("retrieval", "理解问题", "complete", time.time() - t0, model="Kimi-8k")

@@ -65,7 +65,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
     }
 
     return (
-        <div className="w-full h-screen flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: 'var(--gf-bg-paper)' }}>
+        <div className="w-full h-dvh flex flex-col items-center relative overflow-y-auto py-6" style={{ backgroundColor: 'var(--gf-bg-paper)' }}>
             {/* 背景装饰 */}
             <div className="absolute inset-0 bg-xuan-paper opacity-40" />
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ab1f22] to-transparent opacity-30" />
@@ -75,7 +75,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
             <div className="ink-wash-blob absolute right-[45%] top-[45%] h-48 w-48" style={{ backgroundColor: 'rgba(201,160,99,0.08)', animationDelay: '-9s' }} />
 
             {/* 主内容 */}
-            <div className="relative z-10 w-full max-w-md px-6">
+            <div className="relative z-10 my-auto w-full max-w-md shrink-0 px-5">
                 {/* Logo 和标题 */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] tracking-[0.28em] mb-4" style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: '#ab1f22' }}>
@@ -93,24 +93,25 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                     >
                         古籍智解
                     </h1>
-                    <p className="text-sm tracking-wide mb-2" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
+                    <p className="text-sm tracking-wide mb-2" style={{ color: 'var(--gf-muted)', fontFamily: '"Noto Serif SC", serif' }}>
                         注册后就能保存阅读进度、文章收藏和字词记录
                     </p>
                 </div>
 
                 {/* 注册表单 */}
                 <div
-                    className="float-up glass-card rounded-[30px] shadow-xl p-8"
+                    className="float-up glass-card rounded-[30px] shadow-xl p-6 sm:p-8"
                     style={{ '--float-delay': '0.25s' } as React.CSSProperties}
                 >
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
+                            <label htmlFor="register-username" className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
                                 用户名
                             </label>
                             <input
                                 type="text"
-                                placeholder="2–20 个字符"
+                                id="register-username"
+                                    placeholder="2–20 个字符"
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
                                 autoComplete="username"
@@ -124,12 +125,13 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
+                            <label htmlFor="register-email" className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
                                 邮箱
                             </label>
                             <input
                                 type="email"
-                                placeholder="用于找回账号"
+                                id="register-email"
+                                    placeholder="邮箱地址"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
                                 autoComplete="email"
@@ -142,12 +144,13 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
+                            <label htmlFor="register-password" className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
                                 密码
                             </label>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
+                                    id="register-password"
                                     placeholder="至少 6 个字符"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
@@ -164,7 +167,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/5 transition-colors"
-                                    style={{ color: 'rgba(26,30,35,0.4)' }}
+                                    style={{ color: 'var(--gf-muted)' }}
                                     aria-label={showPassword ? '隐藏密码' : '显示密码'}
                                     aria-pressed={showPassword}
                                 >
@@ -200,12 +203,13 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                             )}
                         </div>
                         <div>
-                            <label className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
+                            <label htmlFor="register-confirm-password" className="block text-xs mb-2 tracking-wide" style={{ color: 'rgba(26,30,35,0.6)', fontFamily: '"Noto Serif SC", serif' }}>
                                 确认密码
                             </label>
                             <div className="relative">
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
+                                    id="register-confirm-password"
                                     placeholder="再输入一次密码"
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
@@ -222,7 +226,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/5 transition-colors"
-                                    style={{ color: 'rgba(26,30,35,0.4)' }}
+                                    style={{ color: 'var(--gf-muted)' }}
                                     aria-label={showConfirmPassword ? '隐藏确认密码' : '显示确认密码'}
                                     aria-pressed={showConfirmPassword}
                                 >
@@ -279,7 +283,7 @@ export function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
 
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
-                    <p className="text-xs tracking-widest" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
+                    <p className="text-xs tracking-widest" style={{ color: 'var(--gf-muted)', fontFamily: '"Noto Serif SC", serif' }}>
                         从一句古文开始，把阅读慢慢积累下来
                     </p>
                 </div>

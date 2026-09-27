@@ -37,7 +37,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
     }
 
     return (
-        <div className="w-full h-screen flex items-center justify-center relative overflow-hidden" style={{ backgroundColor: 'var(--gf-bg-paper)' }}>
+        <div className="w-full h-dvh flex flex-col items-center relative overflow-y-auto py-6" style={{ backgroundColor: 'var(--gf-bg-paper)' }}>
             {/* 背景装饰 */}
             <div className="absolute inset-0 bg-xuan-paper opacity-40" />
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#ab1f22] to-transparent opacity-30" />
@@ -47,7 +47,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
             <div className="ink-wash-blob absolute left-[50%] top-[40%] h-48 w-48" style={{ backgroundColor: 'rgba(201,160,99,0.08)', animationDelay: '-9s' }} />
 
             {/* 主内容 */}
-            <div className="relative z-10 w-full max-w-md px-6">
+            <div className="relative z-10 my-auto w-full max-w-md shrink-0 px-5">
                 {/* Logo 和标题 */}
                 <div className="text-center mb-8">
                     <div className="float-up w-24 h-24 mx-auto mb-6" style={{ '--float-delay': '0.1s' } as React.CSSProperties}>
@@ -59,14 +59,14 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                     >
                         古籍智解
                     </h1>
-                    <p className="text-sm tracking-[0.18em]" style={{ color: 'rgba(26,30,35,0.5)', fontFamily: '"Noto Serif SC", serif' }}>
+                    <p className="text-sm tracking-[0.18em]" style={{ color: 'var(--gf-muted)', fontFamily: '"Noto Serif SC", serif' }}>
                         于字句之间，重见古意
                     </p>
                 </div>
 
                 {/* 登录表单 */}
                 <div
-                    className="float-up glass-card rounded-[30px] shadow-xl p-8"
+                    className="float-up glass-card rounded-[30px] shadow-xl p-6 sm:p-8"
                     style={{ '--float-delay': '0.25s' } as React.CSSProperties}
                 >
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -119,7 +119,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/5 transition-colors"
-                                    style={{ color: 'rgba(26,30,35,0.4)' }}
+                                    style={{ color: 'var(--gf-muted)' }}
                                     aria-label={showPassword ? '隐藏密码' : '显示密码'}
                                     aria-pressed={showPassword}
                                 >
@@ -176,7 +176,7 @@ export function LoginPage({ onSwitchToRegister }: LoginPageProps) {
 
                 {/* 底部装饰 */}
                 <div className="mt-8 text-center float-up" style={{ '--float-delay': '0.5s' } as React.CSSProperties}>
-                    <p className="text-xs tracking-[0.18em]" style={{ color: 'rgba(26,30,35,0.3)', fontFamily: '"Noto Serif SC", serif' }}>
+                    <p className="text-xs tracking-[0.18em]" style={{ color: 'var(--gf-muted)', fontFamily: '"Noto Serif SC", serif' }}>
                         先得其辞，后会其意
                     </p>
                 </div>

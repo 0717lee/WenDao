@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import UUID4, BaseModel, Field
 
 from agents.ocr import OCRAgent
 from agents.sentence_explainer import SentenceExplainerAgent
@@ -458,6 +458,7 @@ class DocumentNoteUpdateRequest(BaseModel):
 
 
 class StudyProgressUpdateRequest(BaseModel):
+    session_id: UUID4 | None = None
     completed_cards: int = Field(..., ge=0)
     total_cards: int = Field(..., ge=0)
     mastered_cards: int = Field(..., ge=0)
@@ -1280,6 +1281,7 @@ async def _save_study_session(document_id: str, user_id: str, body: StudyProgres
         total_cards=body.total_cards,
         mastered_cards=body.mastered_cards,
         review_again_cards=body.review_again_cards,
+        session_id=str(body.session_id) if body.session_id else None,
     )
 
 

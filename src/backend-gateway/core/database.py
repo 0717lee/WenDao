@@ -541,6 +541,7 @@ async def init_database(db_path: str = "ancient_texts.db", seed_mode: str | None
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
                 document_id TEXT NOT NULL,
+                session_id TEXT,
                 completed_cards INTEGER DEFAULT 0,
                 total_cards INTEGER DEFAULT 0,
                 mastered_cards INTEGER DEFAULT 0,
@@ -548,6 +549,14 @@ async def init_database(db_path: str = "ancient_texts.db", seed_mode: str | None
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
             )
+        """)
+
+        # Keep retries for a client-created study round idempotent while
+        # allowing legacy rows and clients that omit session_id.
+        await _ensure_column(db, "user_study_sessions", "session_id", "TEXT")
+        await db.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS user_study_sessions_user_document_session_idx
+            ON user_study_sessions (user_id, document_id, session_id)
         """)
 
         await db.execute("DELETE FROM documents WHERE source_type = 'sample'")

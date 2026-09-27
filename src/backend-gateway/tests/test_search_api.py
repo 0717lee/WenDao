@@ -136,6 +136,53 @@ def test_extract_search_terms_keeps_full_quote_for_exact_queries():
     assert "之" not in terms
 
 
+def test_normalized_content_cache_reuses_text_and_invalidates_edits():
+    from routers import search as router
+    router._normalized_document_text.cache_clear()
+    converter = Mock()
+    converter.convert.side_effect = lambda text: text.replace("學", "学")
+    with patch.object(router, "SEARCH_CONVERTER", converter):
+        assert router._normalized_document_text("學而，時習") == "学而時習"
+        assert router._normalized_document_text("學而，時習") == "学而時習"
+        assert router._normalized_document_text("學而，常習") == "学而常習"
+    assert converter.convert.call_count == 2
+    router._normalized_document_text.cache_clear()
+
+
+def test_segment_metadata_keeps_traditional_and_punctuation_matching():
+    from routers import search as router
+    row = {"source_type": "corpus", "segments": [{"title": "章", "text": "另一段", "summary": "頭，髮烏黑"}]}
+    result = router._match_segment_location(row, "头发乌黑")
+    assert result is not None
+    assert result["source"] == "古籍库 · 章"
+
+
+@pytest.mark.asyncio
+async def test_fulltext_scoring_runs_outside_the_http_event_loop_thread():
+    import threading
+    from routers import search as router
+    caller_thread = threading.get_ident()
+    scoring_threads = []
+    def score(*_args):
+        scoring_threads.append(threading.get_ident())
+        return []
+    with patch.object(router, "_load_document_candidates", new=AsyncMock(return_value=[])), patch.object(router, "_score_fulltext_rows", side_effect=score):
+        assert await router.fulltext_search("学而时习之") == []
+    assert scoring_threads and scoring_threads[0] != caller_thread
+
+
+@pytest.mark.asyncio
+async def test_hybrid_preserves_vector_relevance_order():
+    from routers import search as router
+    hits = [
+        router.SearchResult(id="relevant", title="Relevant", content="text", source="corpus", score=0.9),
+        router.SearchResult(id="distant", title="Distant", content="text", source="corpus", score=0.1),
+    ]
+    with patch.object(router, "fulltext_search", new=AsyncMock(return_value=[])), patch.object(router, "vector_search", new=AsyncMock(return_value=hits)), patch.object(router, "_load_document_candidates", new=AsyncMock(return_value=[])):
+        results = await router.hybrid_search("query")
+    assert results[0].id == "relevant"
+
+
 def test_fulltext_mode_uses_fts5(app_client):
     """Test fulltext mode uses SQLite FTS5"""
     response = app_client.get("/api/v1/search?q=逍遥游&mode=FULLTEXT")
@@ -314,6 +361,42 @@ async def test_fulltext_search_prioritizes_exact_quote_with_segment_location():
     assert len(results) == 1
     assert results[0].source.endswith("学而篇")
     assert results[0].anchor_text == "学而时习之，不亦说乎？"
+
+
+@pytest.mark.asyncio
+async def test_fulltext_search_does_not_normalize_unused_combined_corpus_text():
+    from routers import search as search_router
+
+    class RecordingConverter:
+        def __init__(self):
+            self.calls = []
+
+        def convert(self, text: str) -> str:
+            self.calls.append(text)
+            return text
+
+    converter = RecordingConverter()
+    row = {
+        "id": "doc-lunyu",
+        "title": "《论语》",
+        "source_name": "Kanripo",
+        "author": "孔子弟子",
+        "dynasty": "春秋",
+        "category": "四书",
+        "original_text": "学而时习之不亦说乎",
+        "punctuated_text": "学而时习之，不亦说乎？",
+        "translated_text": "",
+        "segments": [],
+        "source_type": "corpus",
+        "owner_user_id": None,
+    }
+
+    with patch("routers.search.SEARCH_CONVERTER", converter), \
+         patch("routers.search._load_document_candidates", new=AsyncMock(return_value=[row])):
+        results = await search_router.fulltext_search("学而时习之", user_id=None)
+
+    assert results
+    assert all("\n" not in value for value in converter.calls)
 
 
 @pytest.mark.asyncio

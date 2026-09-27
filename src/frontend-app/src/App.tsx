@@ -206,7 +206,7 @@ function App() {
     };
 
     return (
-        <div className="w-full h-screen flex flex-col" style={{ backgroundColor: 'var(--gf-bg)' }}>
+        <div className="w-full h-dvh flex flex-col" style={{ backgroundColor: 'var(--gf-bg)' }}>
             <ToastHost />
             {authChecking ? (
                 <TabLoader />
@@ -254,18 +254,18 @@ function App() {
                                     </button>
                                     <span
                                         className="text-[11px] tracking-[0.24em] hidden md:inline-flex rounded-full px-2.5 py-1"
-                                        style={{ color: 'rgba(26,30,35,0.42)', backgroundColor: 'rgba(255,255,255,0.62)' }}
+                                        style={{ color: 'var(--gf-muted)', backgroundColor: 'rgba(255,255,255,0.62)' }}
                                     >
                                         疑处，可请 AI 释之
                                     </span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs" style={{ color: 'rgba(26,30,35,0.5)' }} aria-label={`当前用户：${username}`}>{username}</span>
+                                <span className="max-w-24 truncate text-xs sm:max-w-none" style={{ color: 'var(--gf-muted)' }} aria-label={`当前用户：${username}`}>{username}</span>
                                 <button
                                     onClick={() => { void logout(); }}
                                     className="text-xs px-2 py-1 rounded transition-colors hover:bg-black/5"
-                                    style={{ color: 'rgba(26,30,35,0.45)' }}
+                                    style={{ color: 'var(--gf-muted)' }}
                                     aria-label="退出登录"
                                 >
                                     退出
@@ -274,7 +274,7 @@ function App() {
                         </div>
                     </header>
 
-                    <div className="flex-1 overflow-hidden">
+                    <div className="min-h-0 flex-1 overflow-hidden">
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={activeTab}

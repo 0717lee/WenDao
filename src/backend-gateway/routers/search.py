@@ -4,11 +4,13 @@
 支持三种搜索模式：FULLTEXT（FTS5）、VECTOR（FAISS）、HYBRID（混合）
 """
 import json
+import asyncio
 import os
 import re
 import jieba
 import logging
 from enum import Enum
+from functools import lru_cache
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -41,6 +43,8 @@ QUESTION_NOISE_TERMS = {
 }
 FUNCTION_WORDS = {"的", "了", "吗", "呢", "啊", "呀", "吧", "着", "在", "和", "与", "及", "并", "而", "是", "有"}
 SEARCH_CONVERTER = OpenCC("t2s") if OpenCC else None
+SEARCH_QUERY_CONVERTER = OpenCC("s2t") if OpenCC else None
+FULLTEXT_LOCK = asyncio.Lock()
 
 
 def get_connection():
@@ -181,13 +185,13 @@ def _extract_preserved_terms(query: str) -> list[str]:
     return preserved
 
 
-def _extract_search_terms(query: str) -> list[str]:
+def _extract_search_terms(query: str, normalized_query: str | None = None) -> list[str]:
     preserved_terms = _extract_preserved_terms(query)
     tokens = [token.strip() for token in jieba.cut(query) if token.strip()]
     terms: list[str] = []
 
-    normalized_query = _normalize_search_text(query)
-    if _looks_like_exact_quote(query) and normalized_query:
+    normalized_query = normalized_query if normalized_query is not None else _normalize_search_text(query)
+    if _looks_like_exact_quote(query, normalized_query=normalized_query) and normalized_query:
         terms.append(query.strip())
 
     preserved_set = set(preserved_terms)
@@ -208,13 +212,13 @@ def _extract_search_terms(query: str) -> list[str]:
     return [normalized_query] if normalized_query else []
 
 
-def _looks_like_exact_quote(query: str) -> bool:
+def _looks_like_exact_quote(query: str, normalized_query: str | None = None) -> bool:
     query = query.strip()
     if not query:
         return False
     if any(marker in query for marker in ["什么", "为何", "为什么", "如何", "怎么", "怎样", "？", "?"]):
         return False
-    normalized = _normalize_search_text(query)
+    normalized = normalized_query if normalized_query is not None else _normalize_search_text(query)
     return len(re.findall(r"[\u4e00-\u9fff]", normalized)) >= 3
 
 
@@ -253,7 +257,10 @@ def _has_term_grounding(row: dict[str, Any], terms: list[str]) -> bool:
         return False
     haystacks = _row_lexical_haystacks(row)
     searchable = "\n".join(haystacks.values())
-    normalized_searchable = _normalize_search_text(searchable)
+    normalized_searchable = "".join(
+        _normalized_document_text(value) if key.endswith("_text") else _normalize_search_text(value)
+        for key, value in haystacks.items()
+    )
     for term in terms:
         normalized = _normalize_search_text(term)
         if not normalized:
@@ -314,20 +321,46 @@ def _iter_segment_candidates(row: dict[str, Any]) -> list[dict[str, Any]]:
     return [segment for segment in segments if isinstance(segment, dict)]
 
 
-def _match_segment_location(row: dict[str, Any], query: str) -> dict[str, Any] | None:
-    normalized_query = _normalize_search_text(query)
+@lru_cache(maxsize=512)
+def _normalized_document_text(text: str) -> str:
+    # Key by content so an edited upload cannot reuse an obsolete normalization.
+    # Keep large fields separate from small query/metadata strings in the cache.
+    return _normalize_search_text(text)
+
+
+@lru_cache(maxsize=128)
+def _normalized_segments(haystacks: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(_normalize_search_text(text) for text in haystacks)
+
+
+def _match_segment_location(
+    row: dict[str, Any],
+    query: str,
+    normalized_query: str | None = None,
+    raw_queries: list[str] | None = None,
+) -> dict[str, Any] | None:
+    normalized_query = normalized_query if normalized_query is not None else _normalize_search_text(query)
     if not normalized_query:
         return None
+    raw_queries = [value for value in (raw_queries or [query]) if value]
 
-    for segment in _iter_segment_candidates(row):
+    segments = _iter_segment_candidates(row)
+    haystacks = tuple(
+        "\n".join(str(segment.get(key) or "").strip() for key in ("title", "text", "excerpt", "summary"))
+        for segment in segments
+    )
+    normalized_haystacks = None
+    for index, segment in enumerate(segments):
         segment_title = str(segment.get("title") or "").strip()
         segment_text = str(segment.get("text") or "").strip()
         segment_excerpt = str(segment.get("excerpt") or "").strip()
-        segment_summary = str(segment.get("summary") or "").strip()
-        haystack = "\n".join([segment_title, segment_text, segment_excerpt, segment_summary])
+        haystack = haystacks[index]
         if not haystack:
             continue
-        if query in haystack or normalized_query in _normalize_search_text(haystack):
+        raw_match = any(value in haystack for value in raw_queries)
+        if not raw_match and normalized_haystacks is None:
+            normalized_haystacks = _normalized_segments(haystacks)
+        if raw_match or normalized_query in normalized_haystacks[index]:
             return {
                 "source": f"{_default_source_label(row)} · {segment_title}" if segment_title else _default_source_label(row),
                 "content": segment_excerpt or _excerpt_around_match(segment_text, query),
@@ -337,8 +370,13 @@ def _match_segment_location(row: dict[str, Any], query: str) -> dict[str, Any] |
     return None
 
 
-def _match_document_location(row: dict[str, Any], query: str) -> dict[str, Any] | None:
-    normalized_query = _normalize_search_text(query)
+def _match_document_location(
+    row: dict[str, Any],
+    query: str,
+    normalized_query: str | None = None,
+    normalized_texts: dict[str, str] | None = None,
+) -> dict[str, Any] | None:
+    normalized_query = normalized_query if normalized_query is not None else _normalize_search_text(query)
     if not normalized_query:
         return None
 
@@ -346,7 +384,12 @@ def _match_document_location(row: dict[str, Any], query: str) -> dict[str, Any] 
         text = str(row.get(text_key) or "").strip()
         if not text:
             continue
-        if query in text or normalized_query in _normalize_search_text(text):
+        normalized_text = (
+            normalized_texts.get(text_key)
+            if normalized_texts is not None
+            else _normalize_search_text(text)
+        )
+        if query in text or normalized_query in normalized_text:
             return {
                 "source": _default_source_label(row),
                 "content": _excerpt_around_match(text, query),
@@ -356,9 +399,10 @@ def _match_document_location(row: dict[str, Any], query: str) -> dict[str, Any] 
     return None
 
 
-async def _load_document_candidates(limit: int = 200, user_id: str | None = None) -> list[dict]:
-    corpus_rows = await _load_sqlite_corpus_candidates(limit)
-
+async def _load_document_candidates(
+    limit: int = 200,
+    user_id: str | None = None,
+) -> list[dict]:
     try:
         async with get_connection() as conn:
             if user_id:
@@ -378,6 +422,7 @@ async def _load_document_candidates(limit: int = 200, user_id: str | None = None
                 user_rows = [dict(row) for row in rows]
             else:
                 user_rows = []
+            corpus_rows = await _load_sqlite_corpus_candidates(limit)
             return [*corpus_rows, *user_rows][:limit]
     except Exception as exc:
         prevent_sqlite_fallback_in_production()
@@ -452,11 +497,24 @@ async def _resolve_document_id(
     return best_match if best_score > 0 else None
 
 
-async def fulltext_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
-    """全文搜索（优先兼容当前 documents 表结构）。"""
-    search_terms = _extract_search_terms(query)
-    exact_quote_mode = _looks_like_exact_quote(query)
-    rows = await _load_document_candidates(limit=400, user_id=user_id)
+def _score_fulltext_rows(
+    rows: list[dict],
+    query: str,
+    limit: int,
+    user_id: str | None,
+) -> List[SearchResult]:
+    """Score already-loaded rows off the event loop thread."""
+    normalized_query = _normalize_search_text(query)
+    search_terms = _extract_search_terms(query, normalized_query=normalized_query)
+    exact_quote_mode = _looks_like_exact_quote(query, normalized_query=normalized_query)
+    segment_raw_queries = [query.strip()] if query.strip() else []
+    if SEARCH_QUERY_CONVERTER is not None and query.strip():
+        try:
+            converted_query = SEARCH_QUERY_CONVERTER.convert(query.strip())
+            if converted_query and converted_query not in segment_raw_queries:
+                segment_raw_queries.append(converted_query)
+        except Exception:
+            pass
 
     results: List[SearchResult] = []
     for row in rows:
@@ -471,21 +529,36 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
         punctuated_text = row.get("punctuated_text") or ""
         translated_text = row.get("translated_text") or ""
         source_type = row.get("source_type") or ""
-        searchable_text = "\n".join([title, author or "", dynasty or "", category or "", source_name or "", original_text, punctuated_text, translated_text])
-        normalized_searchable = _normalize_search_text(searchable_text)
         normalized_title = _normalize_search_text(title)
         normalized_author = _normalize_search_text(author)
         normalized_category = _normalize_search_text(category)
         normalized_source = _normalize_search_text(source_name)
-        normalized_punctuated = _normalize_search_text(punctuated_text)
-        normalized_original = _normalize_search_text(original_text)
-        normalized_translated = _normalize_search_text(translated_text)
-        segment_match = _match_segment_location(row, query) if exact_quote_mode else None
-        document_match = _match_document_location(row, query)
+        normalized_punctuated = _normalized_document_text(punctuated_text)
+        normalized_original = _normalized_document_text(original_text)
+        normalized_translated = _normalized_document_text(translated_text)
+        document_match = _match_document_location(
+            row,
+            query,
+            normalized_query=normalized_query,
+            normalized_texts={
+                "punctuated_text": normalized_punctuated,
+                "original_text": normalized_original,
+                "translated_text": normalized_translated,
+            },
+        )
+        segment_match = (
+            _match_segment_location(
+                row,
+                query,
+                normalized_query=normalized_query,
+                raw_queries=segment_raw_queries,
+            )
+            if exact_quote_mode
+            else None
+        )
 
         match_score = 0.0
         matched_terms: set[str] = set()
-        normalized_query = _normalize_search_text(query)
         if normalized_query and normalized_query == normalized_title:
             match_score += 50.0
         elif normalized_query and normalized_query in normalized_title:
@@ -574,13 +647,22 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
     return results[:limit]
 
 
+async def fulltext_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
+    """全文搜索（优先兼容当前 documents 表结构）。"""
+    # Serialize cold cache fills without blocking unrelated HTTP requests.
+    async with FULLTEXT_LOCK:
+        rows = await _load_document_candidates(limit=400, user_id=user_id)
+        return await asyncio.to_thread(_score_fulltext_rows, rows, query, limit, user_id)
+
+
 async def vector_search(query: str, limit: int = 10, user_id: str | None = None) -> List[SearchResult]:
     """FAISS向量检索"""
-    if not rag_agent or not rag_agent.vectorstore:
+    vectorstore = await asyncio.to_thread(lambda: rag_agent.vectorstore if rag_agent else None)
+    if not vectorstore:
         raise HTTPException(status_code=503, detail="向量检索服务不可用")
 
     try:
-        docs_with_scores = rag_agent.vectorstore.similarity_search_with_score(query, k=limit)
+        docs_with_scores = await asyncio.to_thread(vectorstore.similarity_search_with_score, query, k=limit)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"向量检索失败: {str(e)}")
 
@@ -605,7 +687,7 @@ async def vector_search(query: str, limit: int = 10, user_id: str | None = None)
         if document_id is None:
             continue
         row = candidate_map.get(str(document_id))
-        if requires_grounding and row is not None and not _has_term_grounding(row, search_terms):
+        if requires_grounding and row is not None and not await asyncio.to_thread(_has_term_grounding, row, search_terms):
             continue
         results.append(SearchResult(
             id=str(metadata.get("id", 0)),
@@ -624,7 +706,7 @@ async def vector_search(query: str, limit: int = 10, user_id: str | None = None)
     reranked_results: list[SearchResult] = []
     for index, result in enumerate(results):
         row = candidate_map.get(str(result.document_id or result.id))
-        result.score = normalized_scores[index] + _lexical_rerank_bonus(result, row, query, search_terms)
+        result.score = normalized_scores[index] + await asyncio.to_thread(_lexical_rerank_bonus, result, row, query, search_terms)
         reranked_results.append(result)
 
     reranked_results.sort(key=lambda item: item.score, reverse=True)
@@ -649,7 +731,8 @@ async def hybrid_search(query: str, limit: int = 10, user_id: str | None = None)
     vector_scores = [r.score for r in vector_results]
 
     norm_fulltext = normalize_scores(fulltext_scores)
-    norm_vector = normalize_scores(vector_scores, higher_is_better=False)
+    # vector_search already turns distances into descending relevance scores.
+    norm_vector = normalize_scores(vector_scores, higher_is_better=True)
 
     fulltext_weight = 0.7 if question_like_query else 0.55
     vector_weight = 0.3 if question_like_query else 0.45
@@ -677,8 +760,8 @@ async def hybrid_search(query: str, limit: int = 10, user_id: str | None = None)
 
     for merge_key, result in merged.items():
         row = candidate_map.get(str(result.document_id or result.id))
-        result.score += _lexical_rerank_bonus(result, row, query, search_terms)
-        if row and question_like_query and not _has_term_grounding(row, search_terms):
+        result.score += await asyncio.to_thread(_lexical_rerank_bonus, result, row, query, search_terms)
+        if row and question_like_query and not await asyncio.to_thread(_has_term_grounding, row, search_terms):
             result.score *= 0.25
 
     sorted_results = sorted(merged.values(), key=lambda x: x.score, reverse=True)

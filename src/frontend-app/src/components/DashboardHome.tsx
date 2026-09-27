@@ -216,7 +216,7 @@ export default function DashboardHome({
                   <Sparkles className="h-3.5 w-3.5" />
                   开始使用
                 </span>
-                <div className="text-xs tracking-[0.36em]" style={{ color: 'rgba(26,30,35,0.34)' }}>
+                <div className="text-xs tracking-[0.36em]" style={{ color: 'var(--gf-muted)' }}>
                   先选一种开始方式
                 </div>
               </div>
@@ -272,7 +272,7 @@ export default function DashboardHome({
                       <div className="mt-1 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
                         {item.title}
                       </div>
-                      <div className="mt-1 text-sm leading-6" style={{ color: 'rgba(26,30,35,0.58)' }}>
+                      <div className="mt-1 text-sm leading-6" style={{ color: 'var(--gf-muted)' }}>
                         {item.description}
                       </div>
                     </div>
@@ -296,7 +296,7 @@ export default function DashboardHome({
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
                 继续上次阅读
               </h3>
-              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              <p className="text-xs" style={{ color: 'var(--gf-muted)' }}>
                 如果之前读过，可以直接从上次停下的地方继续。
               </p>
             </div>
@@ -309,13 +309,13 @@ export default function DashboardHome({
                 boxShadow: '0 10px 24px rgba(26,30,35,0.04)',
               }}
             >
-              <div className="mb-2 text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+              <div className="mb-2 text-[11px] tracking-[0.24em]" style={{ color: 'var(--gf-muted)' }}>
                 {history.length > 0 ? '上次读到' : '还没开始'}
               </div>
               <div className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
                 {history[0]?.title || '还没有阅读记录'}
               </div>
-              <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
+              <div className="mt-2 text-sm leading-7" style={{ color: 'var(--gf-muted)' }}>
                 {history[0] ? `最近阅读：${formatTimeLabel(history[0].last_read_at)}` : '第一次使用时，也可以先打开推荐内容。'}
               </div>
               <button
@@ -337,7 +337,7 @@ export default function DashboardHome({
               <h3 className="text-base font-medium" style={{ color: 'var(--gf-text)' }}>
                 还不知道读什么
               </h3>
-              <p className="text-xs" style={{ color: 'rgba(26,30,35,0.45)' }}>
+              <p className="text-xs" style={{ color: 'var(--gf-muted)' }}>
                 还没想好先读哪篇时，可以先从推荐内容开始。
               </p>
             </div>
@@ -346,13 +346,13 @@ export default function DashboardHome({
               className="rounded-[24px] px-4 py-4"
               style={{ backgroundColor: 'rgba(248,244,233,0.92)', border: '1px solid rgba(201,160,99,0.16)' }}
             >
-              <div className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+              <div className="text-[11px] tracking-[0.24em]" style={{ color: 'var(--gf-muted)' }}>
                 先读这个
               </div>
               <div className="mt-2 text-base font-medium" style={{ color: 'var(--gf-text)' }}>
                 {recommendedStart?.title || '先去阅读页挑一篇'}
               </div>
-              <div className="mt-2 text-sm leading-7" style={{ color: 'rgba(26,30,35,0.56)' }}>
+              <div className="mt-2 text-sm leading-7" style={{ color: 'var(--gf-muted)' }}>
                 {recommendedStart?.preview || '如果暂时没有明确目标，建议先从篇幅较短、容易进入的内容开始。'}
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px]">

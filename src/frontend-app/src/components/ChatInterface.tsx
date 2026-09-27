@@ -7,6 +7,7 @@ import { useVoiceRecorder } from './AudioRecorder'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
 import { useGraphStore } from '../store/useGraphStore'
+import { useDocumentStore } from '../store/useDocumentStore'
 import type { ReasoningStep } from './ReasoningTimeline'
 
 // Default reasoning steps template
@@ -21,14 +22,65 @@ const QUICK_CHAT_PROMPTS = [
     '意象：鲲鹏之喻',
 ]
 
+const EMPTY_RESPONSE_MESSAGE = '问答服务没有返回内容，请重试，或先改用原文检索。'
+
+function failureActions(prompt: string): AnswerContextAction[] {
+    return [
+        {
+            id: 'retry-chat',
+            label: '重新提问',
+            kind: 'chat',
+            prompt,
+        },
+        {
+            id: 'switch-search',
+            label: '转到原文检索',
+            kind: 'search',
+            query: prompt,
+        },
+    ]
+}
+
+async function responseErrorMessage(response: Response, fallback: string): Promise<string> {
+    try {
+        const data = await response.json()
+        if (typeof data === 'string' && data.trim()) return data.trim()
+        if (data && typeof data === 'object') {
+            const detail = data.detail ?? data.error ?? data.message
+            if (typeof detail === 'string' && detail.trim()) return detail.trim()
+        }
+    } catch {
+        try {
+            const text = await response.text()
+            if (text.trim()) return text.trim()
+        } catch {
+            // Keep the status-based fallback when the response has no readable body.
+        }
+    }
+
+    return fallback
+}
+
+function requestFailureMessage(error: unknown, fallback: string): string {
+    const message = error instanceof Error ? error.message : ''
+    if (/failed to fetch|networkerror|load failed/i.test(message)) return fallback
+    return message || fallback
+}
+
 export function ChatInterface() {
     const [inputValue, setInputValue] = useState('')
     const [voiceError, setVoiceError] = useState('')
     const streamBufferRef = useRef('')
     const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const assistantContentRef = useRef('')
+    const requestSequenceRef = useRef(0)
+    const activeRequestRef = useRef<{ id: number; controller: AbortController; prompt: string } | null>(null)
+    const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
+    const mountedRef = useRef(true)
+    const voiceErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const { messages, isLoading, currentProgress, draftMessage, addMessage, updateLastMessage, updateLastMessageAnswerContext, updateLastMessageReasoning, updateLastMessagePoem, setLoading, setProgress, setDraftMessage } = useStore()
-    const setActiveTab = useGraphStore((state) => state.setActiveTab)
+    const { setActiveTab, queueSearchQuery } = useGraphStore()
+    const setPendingAnchorText = useDocumentStore((state) => state.setPendingAnchorText)
     const { isRecording, isTranscribing, toggleRecording } = useVoiceRecorder()
 
     useEffect(() => {
@@ -39,18 +91,84 @@ export function ChatInterface() {
     }, [draftMessage, setDraftMessage])
 
     useEffect(() => {
+        mountedRef.current = true
+
         return () => {
+            const request = activeRequestRef.current
+            if (request) {
+                const currentMessages = useStore.getState().messages
+                const previous = currentMessages[currentMessages.length - 1]?.content || ''
+                updateLastMessage(`${previous}${previous ? '\n\n' : ''}已停止本次回答，可以重新提问。`)
+                updateLastMessageAnswerContext({ trustLabel: '未完成', trustPoints: [], citationCount: 0, relatedEntityCount: 0, suggestedActions: failureActions(request.prompt) })
+            }
+            mountedRef.current = false
+            requestSequenceRef.current += 1
+            activeRequestRef.current?.controller.abort()
+            activeRequestRef.current = null
+            void Promise.resolve(readerRef.current?.cancel()).catch(() => {})
+            readerRef.current = null
             if (streamFlushTimerRef.current) {
                 clearTimeout(streamFlushTimerRef.current)
+                streamFlushTimerRef.current = null
             }
+            if (voiceErrorTimerRef.current) {
+                clearTimeout(voiceErrorTimerRef.current)
+                voiceErrorTimerRef.current = null
+            }
+            streamBufferRef.current = ''
+            assistantContentRef.current = ''
+            setLoading(false)
+            setProgress('')
         }
-    }, [])
+    }, [setLoading, setProgress])
+
+    const isCurrentRequest = (requestId: number) =>
+        mountedRef.current && activeRequestRef.current?.id === requestId
+
+    const beginRequest = (prompt: string) => {
+        const controller = new AbortController()
+        const requestId = ++requestSequenceRef.current
+        activeRequestRef.current = { id: requestId, controller, prompt }
+        return { requestId, controller }
+    }
+
+    const clearStreamFlushTimer = () => {
+        if (streamFlushTimerRef.current) {
+            clearTimeout(streamFlushTimerRef.current)
+            streamFlushTimerRef.current = null
+        }
+    }
+
+    const finishRequest = (requestId: number) => {
+        if (!isCurrentRequest(requestId)) return
+        clearStreamFlushTimer()
+        streamBufferRef.current = ''
+        readerRef.current = null
+        activeRequestRef.current = null
+        setLoading(false)
+        setProgress('')
+    }
+
+    const showFailure = (requestId: number, message: string, prompt: string) => {
+        if (!isCurrentRequest(requestId)) return
+        clearStreamFlushTimer()
+        streamBufferRef.current = ''
+        updateLastMessageReasoning([])
+        updateLastMessageAnswerContext({
+            trustLabel: '未完成',
+            trustPoints: ['你可以重新提问，或先改用原文检索。'],
+            citationCount: 0,
+            relatedEntityCount: 0,
+            suggestedActions: failureActions(prompt),
+        })
+        updateLastMessage(message)
+    }
 
     const flushStreamBuffer = useCallback(
-        (force = false) => {
+        (requestId: number, force = false) => {
             const applyFlush = () => {
                 streamFlushTimerRef.current = null
-                if (!streamBufferRef.current) return
+                if (!isCurrentRequest(requestId) || !streamBufferRef.current) return
                 assistantContentRef.current += streamBufferRef.current
                 streamBufferRef.current = ''
                 startTransition(() => {
@@ -59,6 +177,7 @@ export function ChatInterface() {
             }
 
             if (force) {
+                clearStreamFlushTimer()
                 applyFlush()
                 return
             }
@@ -79,7 +198,11 @@ export function ChatInterface() {
             (errMsg) => {
                 // ASR error: show message briefly
                 setVoiceError(errMsg)
-                setTimeout(() => setVoiceError(''), 3000)
+                if (voiceErrorTimerRef.current) clearTimeout(voiceErrorTimerRef.current)
+                voiceErrorTimerRef.current = setTimeout(() => {
+                    voiceErrorTimerRef.current = null
+                    if (mountedRef.current) setVoiceError('')
+                }, 3000)
             }
         )
     }, [toggleRecording])
@@ -98,6 +221,9 @@ export function ChatInterface() {
     }
 
     const sendPoemMessage = async (topic: string, userContent: string) => {
+        if (activeRequestRef.current) return
+
+        const { requestId, controller } = beginRequest(userContent)
         setLoading(true)
         setProgress('AI...')
 
@@ -123,30 +249,43 @@ export function ChatInterface() {
                 method: 'POST',
                 ...authFetchOptions({ headers: { 'Content-Type': 'application/json' } }),
                 body: JSON.stringify({ topic }),
+                signal: controller.signal,
             })
 
             if (!response.ok) {
-                throw new Error(`诗词生成请求失败（${response.status}）`)
+                throw new Error(await responseErrorMessage(response, `诗词生成请求失败（${response.status}）`))
             }
 
             const reader = response.body?.getReader()
             const decoder = new TextDecoder()
             if (!reader) throw new Error('诗词生成响应为空')
+            readerRef.current = reader
 
             let buffer = ''
             let currentEventType = ''
+            let poemText = ''
+            let streamError = ''
+            let completed = false
 
             while (true) {
                 const { done, value } = await reader.read()
-                if (done) break
+                if (!isCurrentRequest(requestId)) return
+                if (done) {
+                    buffer += decoder.decode()
+                    if (buffer.trim()) {
+                        buffer += '\n'
+                    }
+                } else {
+                    buffer += decoder.decode(value, { stream: true })
+                }
 
-                buffer += decoder.decode(value, { stream: true })
                 const lines = buffer.split('\n')
                 buffer = lines.pop() || ''
 
                 for (const line of lines) {
                     const trimmed = line.trim()
                     if (!trimmed) { currentEventType = ''; continue }
+                    if (streamError) continue
 
                     if (trimmed.startsWith('event:')) {
                         currentEventType = trimmed.slice(6).trim()
@@ -160,6 +299,7 @@ export function ChatInterface() {
                         const event = JSON.parse(data)
 
                         if (currentEventType === 'poem') {
+                            poemText += event.text || ''
                             updateLastMessagePoem({ text: event.text })
                             updateLastMessage(event.text)
                         } else if (currentEventType === 'poem_image') {
@@ -169,45 +309,57 @@ export function ChatInterface() {
                         } else if (currentEventType === 'reasoning') {
                             setProgress(event.status === 'running' ? (event.label || 'AI...') : '')
                         } else if (currentEventType === 'done') {
-                            setLoading(false)
+                            completed = true
                             setProgress('')
                         } else if (currentEventType === 'error') {
                             console.error('Poem stream error:', event.message)
-                            updateLastMessage(event.message || '诗词生成没有完成，请稍后再试')
-                            setLoading(false)
-                            setProgress('')
+                            streamError = event.message || '诗词生成没有完成，请稍后再试'
+                            showFailure(requestId, streamError, userContent)
+                            void Promise.resolve(reader.cancel?.()).catch(() => {})
+                            controller.abort()
                         }
                     } catch (e) {
                         console.error('Failed to parse poem SSE event:', e)
                     }
                     currentEventType = ''
                 }
+
+                if (done) break
+            }
+            if (!streamError && poemText.trim() && !completed) {
+                showFailure(requestId, '诗词生成中断，请重新提问。', userContent)
+            } else if (!streamError && !poemText.trim()) {
+                showFailure(requestId, EMPTY_RESPONSE_MESSAGE, userContent)
+            } else if (streamError) {
+                showFailure(requestId, streamError, userContent)
             }
         } catch (error) {
+            if (!isCurrentRequest(requestId)) return
+            if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
             console.error('Poem API error:', error)
-            updateLastMessage('诗词生成没有完成，请稍后再试。')
+            showFailure(requestId, requestFailureMessage(error, '诗词生成没有完成，请稍后再试。'), userContent)
         } finally {
-            setLoading(false)
-            setProgress('')
+            finishRequest(requestId)
         }
     }
 
-    const sendMessage = async () => {
-        if (isLoading) return
+    const sendMessage = async (requestedInput?: string) => {
+        if (isLoading || activeRequestRef.current) return
 
-        if (!inputValue.trim()) return
+        const content = (requestedInput ?? inputValue).trim()
+        if (!content) return
 
         // Check for poetry intent
-        const poemTopic = detectPoemIntent(inputValue.trim())
+        const poemTopic = detectPoemIntent(content)
         if (poemTopic) {
-            await sendPoemMessage(poemTopic, inputValue.trim())
+            await sendPoemMessage(poemTopic, content)
             return
         }
 
         const userMessage = {
             id: Date.now().toString(),
             role: 'user' as const,
-            content: inputValue.trim(),
+            content,
             timestamp: Date.now(),
         }
 
@@ -225,15 +377,18 @@ export function ChatInterface() {
             timestamp: Date.now(),
         })
 
+        const { requestId, controller } = beginRequest(userMessage.content)
+
         try {
             const response = await fetch(`${API_BASE}/api/v1/chat`, {
                 method: 'POST',
                 ...authFetchOptions({ headers: { 'Content-Type': 'application/json' } }),
                 body: JSON.stringify({ message: userMessage.content }),
+                signal: controller.signal,
             })
 
             if (!response.ok) {
-                throw new Error(`问答请求失败（${response.status}）`)
+                throw new Error(await responseErrorMessage(response, `问答请求失败（${response.status}）`))
             }
 
             const reader = response.body?.getReader()
@@ -242,9 +397,9 @@ export function ChatInterface() {
             if (!reader) {
                 throw new Error('问答响应为空')
             }
+            readerRef.current = reader
 
             let buffer = ''
-            let currentEventType = ''
             let reasoningSteps: ReasoningStep[] = INITIAL_REASONING_STEPS.map((s) => ({ ...s }))
             assistantContentRef.current = ''
             streamBufferRef.current = ''
@@ -252,121 +407,174 @@ export function ChatInterface() {
             // Initialize reasoning steps on the assistant message
             updateLastMessageReasoning(reasoningSteps)
 
+            let streamError = ''
+            let parseError = false
+            let sawContent = false
+            let completed = false
+            let currentEventType = ''
+
+            const processLine = (line: string) => {
+                if (!isCurrentRequest(requestId)) return
+                const trimmed = line.trim()
+                if (!trimmed) {
+                    currentEventType = ''
+                    return
+                }
+                if (streamError) return
+
+                if (trimmed.startsWith('event:')) {
+                    currentEventType = trimmed.slice(6).trim()
+                    return
+                }
+
+                if (!trimmed.startsWith('data:')) return
+
+                const data = trimmed.slice(5).trim()
+                if (data === '[DONE]') {
+                    completed = true
+                    flushStreamBuffer(requestId, true)
+                    currentEventType = ''
+                    return
+                }
+
+                try {
+                    const event = JSON.parse(data)
+
+                    if (currentEventType === 'reasoning') {
+                        reasoningSteps = reasoningSteps.map((s) =>
+                            s.step === event.step
+                                ? {
+                                      ...s,
+                                      status: event.status,
+                                      duration: event.duration ?? s.duration,
+                                      model: event.model ?? s.model,
+                                      fallback: event.fallback ?? s.fallback,
+                                  }
+                                : s
+                        )
+                        updateLastMessageReasoning([...reasoningSteps])
+                    } else if (currentEventType === 'entities' || currentEventType === 'new_entities') {
+                        // Entity events are consumed by the graph store elsewhere.
+                    } else if (currentEventType === 'progress') {
+                        setProgress(event.status || event.text || '')
+                    } else if (currentEventType === 'answer_context') {
+                        updateLastMessageAnswerContext(event)
+                    } else if (currentEventType === 'done') {
+                        completed = true
+                        flushStreamBuffer(requestId, true)
+                        setProgress('')
+                    } else if (currentEventType === 'error') {
+                        streamError = event.message || '问答服务暂时不可用，请稍后再试。'
+                        showFailure(requestId, streamError, userMessage.content)
+                        void Promise.resolve(reader.cancel?.()).catch(() => {})
+                        controller.abort()
+                    } else if (event.content !== undefined) {
+                        const contentChunk = String(event.content)
+                        if (contentChunk) {
+                            sawContent = true
+                            streamBufferRef.current += contentChunk
+                            flushStreamBuffer(requestId)
+                        }
+                    }
+                } catch (error) {
+                    parseError = true
+                    console.error('Failed to parse SSE event:', error)
+                }
+
+                currentEventType = ''
+            }
+
             while (true) {
                 const { done, value } = await reader.read()
-                if (done) break
-
-                buffer += decoder.decode(value, { stream: true })
+                if (!isCurrentRequest(requestId)) return
+                if (done) {
+                    buffer += decoder.decode()
+                    if (buffer.trim()) buffer += '\n'
+                } else {
+                    buffer += decoder.decode(value, { stream: true })
+                }
                 const lines = buffer.split('\n')
                 buffer = lines.pop() || ''
 
                 for (const line of lines) {
-                    const trimmed = line.trim()
-                    if (!trimmed) {
-                        currentEventType = ''
-                        continue
-                    }
-
-                    // Handle named event type lines (e.g., "event: entities")
-                    if (trimmed.startsWith('event:')) {
-                        currentEventType = trimmed.slice(6).trim()
-                        continue
-                    }
-
-                    if (!trimmed.startsWith('data:')) continue
-
-                    const data = trimmed.slice(5).trim()
-                    if (data === '[DONE]') {
-                        flushStreamBuffer(true)
-                        setLoading(false)
-                        setProgress('')
-                        continue
-                    }
-
-                    try {
-                        const event = JSON.parse(data)
-
-                        // Handle reasoning events
-                        if (currentEventType === 'reasoning') {
-                            reasoningSteps = reasoningSteps.map((s) =>
-                                s.step === event.step
-                                    ? {
-                                          ...s,
-                                          status: event.status,
-                                          duration: event.duration ?? s.duration,
-                                          model: event.model ?? s.model,
-                                          fallback: event.fallback ?? s.fallback,
-                                      }
-                                    : s
-                            )
-                            updateLastMessageReasoning([...reasoningSteps])
-                            currentEventType = ''
-                            continue
-                        }
-
-                        if (currentEventType === 'entities' || currentEventType === 'new_entities') {
-                            currentEventType = ''
-                            continue
-                        }
-
-                        // Handle regular data events (type-based or content-based)
-                        if (currentEventType === 'progress') {
-                            setProgress(event.status || event.text || '')
-                        } else if (currentEventType === 'answer_context') {
-                            updateLastMessageAnswerContext(event)
-                        } else if (currentEventType === 'done') {
-                            flushStreamBuffer(true)
-                            setLoading(false)
-                            setProgress('')
-                        } else if (currentEventType === 'error') {
-                            flushStreamBuffer(true)
-                            console.error('Stream error:', event.message)
-                            updateLastMessage(event.message || '问答服务暂时不可用，请稍后再试')
-                            setLoading(false)
-                            setProgress('')
-                        } else if (event.content !== undefined) {
-                            streamBufferRef.current += event.content
-                            flushStreamBuffer()
-                        }
-                    } catch (e) {
-                        console.error('Failed to parse SSE event:', e)
-                    }
-
-                    currentEventType = ''
+                    processLine(line)
                 }
+                if (done) break
             }
-            flushStreamBuffer(true)
-            setLoading(false)
-            setProgress('')
+
+            flushStreamBuffer(requestId, true)
+            if (streamError) {
+                showFailure(requestId, streamError, userMessage.content)
+            } else if (parseError) {
+                showFailure(requestId, '问答响应无法解析，请重试，或先改用原文检索。', userMessage.content)
+            } else if (!sawContent && !assistantContentRef.current.trim()) {
+                showFailure(requestId, EMPTY_RESPONSE_MESSAGE, userMessage.content)
+            } else if (!completed) {
+                showFailure(requestId, '回答中断，内容可能不完整，请重新提问。', userMessage.content)
+            }
         } catch (error) {
+            if (!isCurrentRequest(requestId)) return
+            if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
             console.error('Failed to send message:', error)
-            const failedActions: AnswerContextAction[] = [
-                {
-                    id: 'retry-chat',
-                    label: '重新提问',
-                    kind: 'chat',
-                    prompt: userMessage.content,
-                },
-                {
-                    id: 'switch-search',
-                    label: '转到原文检索',
-                    kind: 'search',
-                    query: userMessage.content,
-                },
-            ]
-            updateLastMessageReasoning([])
-            updateLastMessageAnswerContext({
-                trustLabel: '未完成',
-                trustPoints: ['当前问答服务暂时不可用，请稍后重试，或先改用原文检索。'],
-                citationCount: 0,
-                relatedEntityCount: 0,
-                suggestedActions: failedActions,
-            })
-            updateLastMessage('当前问答服务暂时不可用，请稍后重试，或先改用原文检索。')
-            setLoading(false)
-            setProgress('')
+            showFailure(
+                requestId,
+                requestFailureMessage(error, '当前问答服务暂时不可用，请稍后重试，或先改用原文检索。'),
+                userMessage.content
+            )
+        }
+        finally {
+            finishRequest(requestId)
         }
     }
+
+    const cancelRequest = useCallback(() => {
+        const activeRequest = activeRequestRef.current
+        if (!activeRequest) return
+
+        requestSequenceRef.current += 1
+        activeRequestRef.current = null
+        activeRequest.controller.abort()
+        void Promise.resolve(readerRef.current?.cancel()).catch(() => {})
+        readerRef.current = null
+        clearStreamFlushTimer()
+        streamBufferRef.current = ''
+        assistantContentRef.current = ''
+        updateLastMessage('已取消本次回答。')
+        updateLastMessageAnswerContext({
+            trustLabel: '未完成',
+            trustPoints: ['本次回答已取消。你可以重新提问，或先改用原文检索。'],
+            citationCount: 0,
+            relatedEntityCount: 0,
+            suggestedActions: failureActions(activeRequest.prompt),
+        })
+        setLoading(false)
+        setProgress('')
+    }, [setLoading, setProgress, updateLastMessage, updateLastMessageAnswerContext])
+
+    const handleAnswerContextAction = useCallback(
+        (action: AnswerContextAction) => {
+            const target = (action.prompt || action.query || '').trim()
+            if (action.kind === 'search' && target) {
+                queueSearchQuery(target)
+                setActiveTab('search')
+                return
+            }
+
+            if (action.kind === 'reader') {
+                if (target) setPendingAnchorText(target)
+                setActiveTab('reader')
+                return
+            }
+
+            if (action.kind === 'chat' && target) {
+                void sendMessage(target)
+                return
+            }
+
+            if (target) setInputValue(target)
+        },
+        [queueSearchQuery, sendMessage, setActiveTab, setPendingAnchorText]
+    )
 
     return (
         <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
@@ -416,11 +624,16 @@ export function ChatInterface() {
             )}
 
             {/* Messages */}
-            <MessageList messages={messages} loadingLabel={currentProgress} />
+            <MessageList
+                messages={messages}
+                loadingLabel={currentProgress}
+                isLoading={isLoading}
+                onAnswerContextAction={handleAnswerContextAction}
+            />
 
             {/* Voice recognition error message */}
             {voiceError && (
-                <div className="flex items-center justify-center px-4 py-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
+                <div role="alert" className="flex items-center justify-center px-4 py-2 text-sm" style={{ color: 'var(--gf-gugong-red)' }}>
                     {voiceError}
                 </div>
             )}
@@ -431,6 +644,7 @@ export function ChatInterface() {
                 onChange={setInputValue}
                 onSend={sendMessage}
                 disabled={isLoading}
+                onCancel={cancelRequest}
                 onVoiceToggle={handleVoiceToggle}
                 isRecording={isRecording}
                 isTranscribing={isTranscribing}

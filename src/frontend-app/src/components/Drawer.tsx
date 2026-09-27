@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface DrawerProps {
@@ -13,6 +14,8 @@ interface DrawerProps {
 export function Drawer({ side, open, onClose, title, icon, children }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -25,19 +28,38 @@ export function Drawer({ side, open, onClose, title, icon, children }: DrawerPro
 
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
+      }
+      if (e.key === 'Tab') {
+        const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+        ) ?? []).filter((element) => element.getClientRects().length > 0);
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
       }
     };
+    const appRoot = document.getElementById('root');
+    const wasInert = appRoot?.inert ?? false;
+    if (appRoot) appRoot.inert = true;
     window.addEventListener('keydown', handleKey);
 
     return () => {
       window.removeEventListener('keydown', handleKey);
+      if (appRoot) appRoot.inert = wasInert;
       previouslyFocusedRef.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
-  return (
+  return createPortal(
     <>
       {/* 背景遮罩 */}
       <div
@@ -57,10 +79,11 @@ export function Drawer({ side, open, onClose, title, icon, children }: DrawerPro
         aria-modal="true"
         aria-label={title}
         aria-hidden={!open}
+        inert={!open}
         className={`
           fixed top-0 ${side === 'left' ? 'left-0' : 'right-0'}
-          h-full w-[24rem] z-40
-          bg-white/60 backdrop-blur-2xl
+          h-dvh w-[24rem] max-w-[calc(100vw-1rem)] z-40
+          bg-[#faf8f2] backdrop-blur-2xl
           ${side === 'left' ? 'border-r' : 'border-l'} border-white/60
           shadow-[0_8px_32px_rgba(0,0,0,0.12)]
           transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
@@ -95,6 +118,7 @@ export function Drawer({ side, open, onClose, title, icon, children }: DrawerPro
           {children}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

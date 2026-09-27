@@ -8,9 +8,10 @@ export interface FavoriteFolder {
 
 async function loadFavoriteFolders(): Promise<FavoriteFolder[]> {
   const response = await fetch(`${API_BASE}/api/v1/reader/folders`, authFetchOptions())
-  if (!response.ok) return []
-  const data = await response.json().catch(() => [])
-  return Array.isArray(data) ? data : []
+  if (!response.ok) throw new Error('load folders failed')
+  const data = await response.json()
+  if (!Array.isArray(data)) throw new Error('invalid folders response')
+  return data
 }
 
 async function createDefaultFavoriteFolder(): Promise<FavoriteFolder> {

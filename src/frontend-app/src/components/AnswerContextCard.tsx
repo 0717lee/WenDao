@@ -4,9 +4,10 @@ import type { AnswerContext, AnswerContextAction } from '../store/useStore'
 interface AnswerContextCardProps {
   context: AnswerContext
   onAction?: (action: AnswerContextAction) => void
+  chatPending?: boolean
 }
 
-export function AnswerContextCard({ context, onAction }: AnswerContextCardProps) {
+export function AnswerContextCard({ context, onAction, chatPending = false }: AnswerContextCardProps) {
   return (
     <div
       className="mt-3 rounded-[18px] px-3 py-3"
@@ -71,7 +72,8 @@ export function AnswerContextCard({ context, onAction }: AnswerContextCardProps)
             <button
               key={action.id}
               onClick={() => onAction?.(action)}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+              disabled={chatPending && action.kind === 'chat'}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-wait"
               style={{
                 backgroundColor: action.kind === 'chat' ? 'rgba(140,26,17,0.08)' : 'rgba(255,255,255,0.8)',
                 color: action.kind === 'chat' ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.62)',

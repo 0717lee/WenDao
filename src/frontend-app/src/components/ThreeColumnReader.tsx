@@ -1,5 +1,5 @@
 import { startTransition, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, BookPlus, Menu, Network, NotebookPen, Sparkles } from 'lucide-react';
 import { authFetchOptions } from '../store/useAuthStore';
 import { useDocumentStore } from '../store/useDocumentStore';
@@ -12,7 +12,7 @@ import { ReaderTocPanel } from './ReaderTocPanel';
 import { StudyCardsPanel } from './StudyCardsPanel';
 import { WordPopover } from './WordPopover';
 import { API_BASE } from '../lib/api';
-import { countLoadedReaderParagraphs, countTotalReaderParagraphs, mergeReaderSegmentChunk } from '../lib/readerDocument';
+import { buildReaderDocument, countLoadedReaderParagraphs, countTotalReaderParagraphs, mergeReaderSegmentChunk } from '../lib/readerDocument';
 import { computeSyncedScrollTop, shouldLoadMoreReaderContent } from '../lib/readerScroll';
 import {
   buildReaderBlocks,
@@ -64,6 +64,7 @@ function createRangeMap(range: RenderRange): ReaderRangeMap {
 }
 
 export function ThreeColumnReader() {
+  const reduceMotion = useReducedMotion();
   const {
     currentDocument,
     updateDocument,
@@ -87,6 +88,7 @@ export function ThreeColumnReader() {
   const [progressSyncError, setProgressSyncError] = useState(false);
   const [readerNotice, setReaderNotice] = useState<{ tone: 'info' | 'success' | 'error'; message: string } | null>(null);
   const [favoriteSaving, setFavoriteSaving] = useState(false);
+  const [comparisonSaving, setComparisonSaving] = useState(false);
   const [syncScrollEnabled, setSyncScrollEnabled] = useState(true);
   const [segmentLoadError, setSegmentLoadError] = useState(false);
   const [pendingSegmentIndex, setPendingSegmentIndex] = useState<number | null>(null);
@@ -98,6 +100,7 @@ export function ThreeColumnReader() {
   const resumeOriginalParagraphRef = useRef<HTMLDivElement | null>(null);
   const resumePunctuatedParagraphRef = useRef<HTMLDivElement | null>(null);
   const hasMountedProgressRef = useRef<string | null>(null);
+  const initializedDocumentRef = useRef<string | null>(null);
   const segmentLoadingRef = useRef(false);
   const syncLockRef = useRef<ReaderColumn | null>(null);
   const originalScrollerRef = useRef<HTMLDivElement | null>(null);
@@ -143,7 +146,8 @@ export function ThreeColumnReader() {
   }, []);
 
   useEffect(() => {
-    if (!currentDocument) return;
+    if (!currentDocument || initializedDocumentRef.current === currentDocument.id) return;
+    initializedDocumentRef.current = currentDocument.id;
     setSelectedSentence(null);
     setSelectedChapterTitle(null);
     setSidePanel(null);
@@ -373,7 +377,7 @@ export function ThreeColumnReader() {
 
   useEffect(() => {
     if (anchorText && anchorRef.current) {
-      anchorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      anchorRef.current.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
     }
   }, [anchorText, activeReaderTab]);
 
@@ -384,7 +388,7 @@ export function ThreeColumnReader() {
       resumePunctuatedParagraphRef.current,
     ].filter(Boolean);
     if (targets.length === 0) return;
-    targets.forEach((target) => target?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    targets.forEach((target) => target?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' }));
     setResumeParagraph(null);
   }, [anchorText, resumeParagraph, activeReaderTab, readerBlocks.length]);
 
@@ -422,7 +426,7 @@ export function ThreeColumnReader() {
     if (hasMountedProgressRef.current === currentDocument.id) return
     hasMountedProgressRef.current = currentDocument.id
     const paragraphCount = Math.max(1, totalParagraphEstimate)
-    persistProgress(1, { immediate: true, totalParagraphsOverride: paragraphCount })
+    persistProgress(currentParagraphRef.current, { immediate: true, totalParagraphsOverride: paragraphCount })
   }, [currentDocument, totalParagraphEstimate])
 
   if (!currentDocument) return null;
@@ -561,8 +565,8 @@ export function ThreeColumnReader() {
     }
   };
 
-  const handleToggleCompare = () => {
-    if (!currentDocument) return;
+  const handleToggleCompare = async () => {
+    if (!currentDocument || comparisonSaving) return;
     if (isCurrentDocumentCompared) {
       const existing = comparisonDocuments.find((item) => item.id === currentDocument.id);
       if (existing) {
@@ -571,11 +575,24 @@ export function ThreeColumnReader() {
       }
       return;
     }
-    toggleComparisonDocument(currentDocument);
+    setComparisonSaving(true);
+    try {
+      let document = currentDocument;
+      if (currentDocument.readerContent?.hasMore) {
+        const response = await fetch(`${API_BASE}/api/v1/documents/${currentDocument.id}`, authFetchOptions());
+        if (!response.ok) throw new Error('load failed');
+        document = buildReaderDocument(await response.json());
+      }
+      toggleComparisonDocument(document);
     setReaderNotice({
       tone: 'success',
       message: comparisonDocuments.length >= 1 ? '这篇已加入对照，可以直接进入对照阅读。' : '这篇已加入对照，再选一篇就能并排阅读。',
     });
+    } catch {
+      setReaderNotice({ tone: 'error', message: '加入对照没有成功，请稍后再试。' });
+    } finally {
+      setComparisonSaving(false);
+    }
   };
 
   const handleOpenCompare = () => {
@@ -609,7 +626,7 @@ export function ThreeColumnReader() {
   };
 
   const renderInteractiveParagraphs = (column: 'original' | 'punctuated', range: RenderRange) => {
-    if (readerBlocks.length === 0) return <p style={{ color: 'rgba(26,30,35,0.3)' }}>这一栏暂时还没有内容</p>
+    if (readerBlocks.length === 0) return <p style={{ color: 'var(--gf-muted)' }}>这一栏暂时还没有内容</p>
     const resumeIndex = Math.max((resumeParagraph ?? 1) - 1, 0);
     const metrics = getMetricsForColumn(column);
     const topSpacerHeight = range.start < readerBlocks.length ? metrics.offsets[range.start] ?? 0 : 0;
@@ -719,11 +736,11 @@ export function ThreeColumnReader() {
       style={{ backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(26,30,35,0.06)' }}
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] tracking-[0.24em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+        <span className="text-[11px] tracking-[0.24em]" style={{ color: 'var(--gf-muted)' }}>
           阅读导读
         </span>
         {currentDocument.difficulty && (
-          <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}>
+          <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'var(--gf-muted)' }}>
             {currentDocument.difficulty}
           </span>
         )}
@@ -733,7 +750,7 @@ export function ThreeColumnReader() {
           {currentDocument.guideSummary}
         </div>
       ) : (
-        <div className="text-sm leading-7" style={{ color: 'rgba(26,30,35,0.58)' }}>
+        <div className="text-sm leading-7" style={{ color: 'var(--gf-muted)' }}>
           可以先顺着原文往下读，卡住时再点一句细看。
         </div>
       )}
@@ -742,7 +759,7 @@ export function ThreeColumnReader() {
           className="mt-3 rounded-[18px] px-3 py-3"
           style={{ backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(26,30,35,0.05)' }}
         >
-          <div className="mb-1 text-[11px] tracking-[0.22em]" style={{ color: 'rgba(26,30,35,0.42)' }}>
+          <div className="mb-1 text-[11px] tracking-[0.22em]" style={{ color: 'var(--gf-muted)' }}>
             当前选中
           </div>
           <div className="line-clamp-2 text-sm leading-7" style={{ color: 'var(--gf-text)' }}>
@@ -750,11 +767,11 @@ export function ThreeColumnReader() {
           </div>
         </div>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-2 md:flex md:flex-wrap">
         <button
           onClick={openSelectedSentenceExplain}
           disabled={!selectedSentence}
-          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
+          className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(140,26,17,0.08)', color: 'var(--gf-gugong-red)' }}
         >
           <Sparkles className="mr-1 inline h-3.5 w-3.5" />
@@ -762,14 +779,14 @@ export function ThreeColumnReader() {
         </button>
         <button
           onClick={() => setSidePanel((prev) => (prev === 'study' ? null : 'study'))}
-          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
         >
           学习卡片
         </button>
         <button
           onClick={() => setSidePanel((prev) => (prev === 'graph' ? null : 'graph'))}
-          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{
             backgroundColor: sidePanel === 'graph' ? 'rgba(140,26,17,0.10)' : 'rgba(26,30,35,0.06)',
             color: sidePanel === 'graph' ? 'var(--gf-gugong-red)' : 'rgba(26,30,35,0.66)',
@@ -780,7 +797,7 @@ export function ThreeColumnReader() {
         </button>
         <button
           onClick={() => setSidePanel((prev) => (prev === 'notes' ? null : 'notes'))}
-          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
         >
           <NotebookPen className="mr-1 inline h-3.5 w-3.5" />
@@ -789,7 +806,7 @@ export function ThreeColumnReader() {
         <button
           onClick={handleFavoriteDocument}
           disabled={favoriteSaving}
-          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.66)' }}
         >
           <BookPlus className="mr-1 inline h-3.5 w-3.5" />
@@ -797,18 +814,19 @@ export function ThreeColumnReader() {
         </button>
         <button
           onClick={handleToggleCompare}
-          className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+          disabled={comparisonSaving}
+          className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
           style={{
             backgroundColor: isCurrentDocumentCompared ? 'rgba(201,160,99,0.15)' : 'rgba(26,30,35,0.06)',
             color: isCurrentDocumentCompared ? 'var(--gf-gold)' : 'rgba(26,30,35,0.66)',
           }}
         >
-          {isCurrentDocumentCompared ? '已在对照中' : '加入对照'}
+          {comparisonSaving ? '正在加入...' : isCurrentDocumentCompared ? '已在对照中' : '加入对照'}
         </button>
         {comparisonDocuments.length > 0 && (
           <button
             onClick={handleOpenCompare}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(201,160,99,0.12)', color: 'var(--gf-gold)' }}
           >
             去对照阅读
@@ -817,7 +835,7 @@ export function ThreeColumnReader() {
         {!isMobile && (
           <button
             onClick={() => setSyncScrollEnabled((previous) => !previous)}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
+            className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 hover:-translate-y-0.5"
             style={{
               backgroundColor: syncScrollEnabled ? 'rgba(201,160,99,0.12)' : 'rgba(26,30,35,0.06)',
               color: syncScrollEnabled ? 'var(--gf-gold)' : 'rgba(26,30,35,0.66)',
@@ -829,7 +847,7 @@ export function ThreeColumnReader() {
         {selectedSentence && (
           <button
             onClick={clearSentenceSelection}
-            className="inline-flex min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
+            className="inline-flex min-w-0 md:min-w-[8.25rem] justify-center rounded-full px-3 py-1.5 text-xs transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-45 hover:-translate-y-0.5"
             style={{ backgroundColor: 'rgba(255,255,255,0.74)', color: 'rgba(26,30,35,0.66)', border: '1px solid rgba(26,30,35,0.08)' }}
           >
           取消选句
@@ -838,7 +856,7 @@ export function ThreeColumnReader() {
       </div>
       <div
         className="mt-2 rounded-[16px] px-3 py-2 text-xs leading-6"
-          style={{ backgroundColor: 'rgba(255,255,255,0.66)', color: 'rgba(26,30,35,0.46)', border: '1px solid rgba(26,30,35,0.05)' }}
+          style={{ backgroundColor: 'rgba(255,255,255,0.66)', color: 'var(--gf-muted)', border: '1px solid rgba(26,30,35,0.05)' }}
       >
         查词提示：在原文里拖选一个词，系统会弹出查词卡，也能顺手加入字词记录。
       </div>
@@ -877,7 +895,7 @@ export function ThreeColumnReader() {
   // Mobile: Tab interface
   if (isMobile) {
     return (
-      <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
+      <div className="flex min-h-0 flex-col h-full" style={{ backgroundColor: 'var(--gf-bg)' }}>
         <div className="flex items-center justify-between border-b px-4 py-2" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.45)' }}>
           <div className="flex items-center gap-2">
             <button
@@ -928,7 +946,7 @@ export function ThreeColumnReader() {
 
         {/* Tab content */}
         <div
-          className="flex-1 overflow-y-auto p-4"
+          className="min-h-0 flex-1 overflow-y-auto p-4"
           onScroll={(e) => {
             const target = e.currentTarget;
             scheduleRangeUpdate('mobile', activeReaderTab, target.scrollTop, target.clientHeight);
@@ -937,9 +955,11 @@ export function ThreeColumnReader() {
         >
           <div className="mb-4">{renderReaderGuideCard()}</div>
           {activeReaderTab === 'original' && renderColumn('原文', renderInteractiveParagraphs('original', mobileRanges.original))}
-          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated', mobileRanges.punctuated) : <p style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>)}
+          {activeReaderTab === 'punctuated' && renderColumn('标点文', currentDocument.punctuatedText ? renderInteractiveParagraphs('punctuated', mobileRanges.punctuated) : <p style={{ color: 'var(--gf-muted)' }}>这篇内容还没整理出标点文</p>)}
         </div>
 
+        <Drawer side="right" open={sidePanel !== null} onClose={() => setSidePanel(null)}
+          title={sidePanel === 'notes' ? '阅读笔记' : sidePanel === 'study' ? '学习卡片' : sidePanel === 'graph' ? '知识图谱' : '讲解此句'}>
         {sidePanel === 'notes' && (
           <div className="border-t p-4" style={{ borderColor: 'rgba(26,30,35,0.06)', backgroundColor: 'rgba(255,255,255,0.4)' }}>
             <ReaderNotesPanel documentId={currentDocument.id} documentTitle={currentDocument.title} />
@@ -966,6 +986,11 @@ export function ThreeColumnReader() {
             />
           </div>
         )}
+        </Drawer>
+
+        <Drawer side="left" open={tocOpen} onClose={() => setTocOpen(false)} title="章节目录" icon={<Menu className="w-5 h-5" />}>
+          <ReaderTocPanel entries={tocEntries} selectedTitle={selectedChapterTitle} onSelect={handleTocSelect} />
+        </Drawer>
 
         {wordLookup && (
           <WordPopover
@@ -1066,7 +1091,7 @@ export function ThreeColumnReader() {
             '标点文',
             currentDocument.punctuatedText
               ? renderInteractiveParagraphs('punctuated', desktopRanges.punctuated)
-              : <p className="relative z-10" style={{ color: 'rgba(26,30,35,0.3)' }}>这篇内容还没整理出标点文</p>
+              : <p className="relative z-10" style={{ color: 'var(--gf-muted)' }}>这篇内容还没整理出标点文</p>
           )}
         </motion.div>
 

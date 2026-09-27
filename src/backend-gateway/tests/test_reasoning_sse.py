@@ -145,6 +145,20 @@ class TestStreamChatResponse:
         assert "message" in data
 
     @pytest.mark.asyncio
+    async def test_provider_failure_is_not_presented_as_a_completed_answer(self):
+        mock_rag = MagicMock()
+        mock_rag.query_ancient_text.return_value = {
+            "answer": "服务不可用",
+            "error": "问答服务暂时不可用，请稍后重试。",
+        }
+        with patch("routers.chat.get_db") as database:
+            events = "".join([event async for event in stream_chat_response("学而时习之", mock_rag)])
+        assert "event: error" in events
+        assert "event: answer_context" not in events
+        assert "event: done" not in events
+        database.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_empty_query_returns_reasoning_events(self):
         """Even an empty query triggers reasoning events before error or response."""
         mock_rag = MagicMock()

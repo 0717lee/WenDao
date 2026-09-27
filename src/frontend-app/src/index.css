@@ -10,7 +10,8 @@
     --gf-bg: #f7f6f3;       /* 月白/米白 */
     --gf-bg-paper: #f4f1e1; /* 泛黄古纸 */
     --gf-text: #1a1e23;     /* 黛蓝/玄青 */
-    --gf-gold: #c9a063;     /* 秋香 */
+    --gf-gold: #80602e;     /* 纸面上的深金色文字 */
+    --gf-muted: #62645f;
     --gf-glass: rgba(247, 246, 243, 0.6);
   }
 }
@@ -24,12 +25,20 @@ html, body, #root {
   background-color: var(--gf-bg-paper);
   color: var(--gf-text);
   /* 优先使用优雅的国风宋体/楷体系列 */
-  font-family: "Noto Serif SC", "Source Han Serif SC", STZhongsong, "Microsoft YaHei", serif;
+  font-family: "Microsoft YaHei", system-ui, sans-serif;
   /* 移动端优化 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
 }
+
+button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--gf-gugong-red);
+  outline-offset: 3px;
+}
+
+input, textarea, select { min-width: 0; }
+input::placeholder, textarea::placeholder { color: #72746f; opacity: 1; }
 
 /* 程序化生成的宣纸噪点 overlay */
 .bg-xuan-paper {
@@ -216,6 +225,12 @@ html, body, #root {
 
 /* 尊重用户动画偏好 */
 @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   .stagger-fade-up,
   .ink-wash-blob,
   .pulse-glow,
