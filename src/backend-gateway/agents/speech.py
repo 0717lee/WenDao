@@ -71,16 +71,13 @@ def _run_asr(audio_bytes: bytes, app_id: str, api_key: str, api_secret: str) -> 
     """
     url = _create_auth_url(api_key, api_secret, "iat-api.xfyun.cn", "/v2/iat")
     result_text = []
-    finished = False
 
     def on_message(ws, message):
-        nonlocal finished
         try:
             data = json.loads(message)
             code = data.get("code", -1)
             if code != 0:
                 print(f"[ASR] 错误码: {code}, 信息: {data.get('message')}")
-                finished = True
                 ws.close()
                 return
             result = data.get("data", {}).get("result", {})
@@ -89,16 +86,13 @@ def _run_asr(audio_bytes: bytes, app_id: str, api_key: str, api_secret: str) -> 
                 for cw in ws_item.get("cw", []):
                     result_text.append(cw.get("w", ""))
             if result.get("status") == 2:
-                finished = True
                 ws.close()
         except Exception as e:
             print(f"[ASR] on_message 异常: {e}")
-            finished = True
             ws.close()
 
     def on_open(ws):
         """连接成功后分帧发送音频"""
-        import threading
         def send_audio():
             frame_size = 8000  # 每帧 ~250ms (假设 16kHz/16bit)
             status = 0  # 0=第一帧, 1=中间帧, 2=最后一帧
@@ -137,9 +131,7 @@ def _run_asr(audio_bytes: bytes, app_id: str, api_key: str, api_secret: str) -> 
         threading.Thread(target=send_audio, daemon=True).start()
 
     def on_error(ws, error):
-        nonlocal finished
         print(f"[ASR] WebSocket Error: {error}")
-        finished = True
 
     ws = websocket.WebSocketApp(
         url,
@@ -161,16 +153,13 @@ def _run_tts(text: str, app_id: str, api_key: str, api_secret: str) -> bytes:
     """
     url = _create_auth_url(api_key, api_secret, "tts-api.xfyun.cn", "/v2/tts")
     audio_chunks = []
-    finished = False
 
     def on_message(ws, message):
-        nonlocal finished
         try:
             data = json.loads(message)
             code = data.get("code", -1)
             if code != 0:
                 print(f"[TTS] 错误码: {code}, 信息: {data.get('message')}")
-                finished = True
                 ws.close()
                 return
             audio_b64 = data.get("data", {}).get("audio")
@@ -178,11 +167,9 @@ def _run_tts(text: str, app_id: str, api_key: str, api_secret: str) -> bytes:
                 audio_chunks.append(base64.b64decode(audio_b64))
             status = data.get("data", {}).get("status")
             if status == 2:
-                finished = True
                 ws.close()
         except Exception as e:
             print(f"[TTS] on_message 异常: {e}")
-            finished = True
             ws.close()
 
     def on_open(ws):
@@ -205,9 +192,7 @@ def _run_tts(text: str, app_id: str, api_key: str, api_secret: str) -> bytes:
         ws.send(json.dumps(body))
 
     def on_error(ws, error):
-        nonlocal finished
         print(f"[TTS] WebSocket Error: {error}")
-        finished = True
 
     ws = websocket.WebSocketApp(
         url,

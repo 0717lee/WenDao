@@ -7,6 +7,7 @@ import os
 import sys
 import pytest
 import json
+from pydantic import ValidationError
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -20,9 +21,7 @@ class TestChatRouterFunctions:
     """测试聊天路由功能"""
 
     @pytest.mark.asyncio
-    @patch.dict(os.environ, {"MOONSHOT_API_KEY": "test_key"})
-    @patch("agents.rag.OpenAI")
-    async def test_stream_chat_response_generates_events(self, mock_openai):
+    async def test_stream_chat_response_generates_events(self):
         """测试1: stream_chat_response生成SSE事件"""
         from routers.chat import stream_chat_response, rag_agent
 
@@ -46,9 +45,7 @@ class TestChatRouterFunctions:
 
 
     @pytest.mark.asyncio
-    @patch.dict(os.environ, {"MOONSHOT_API_KEY": "test_key"})
-    @patch("agents.rag.OpenAI")
-    async def test_stream_chat_response_error_handling(self, mock_openai):
+    async def test_stream_chat_response_error_handling(self):
         """测试2: 错误处理返回error事件"""
         from routers.chat import stream_chat_response, rag_agent
 
@@ -107,7 +104,7 @@ class TestChatRequestValidation:
     def test_empty_message_fails(self):
         from models.schemas import ChatRequest
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             ChatRequest(message="")
 
 
@@ -129,9 +126,7 @@ class TestSSEEventFormat:
     """测试5: SSE事件格式"""
 
     @pytest.mark.asyncio
-    @patch.dict(os.environ, {"MOONSHOT_API_KEY": "test_key"})
-    @patch("agents.rag.OpenAI")
-    async def test_sse_event_format(self, mock_openai):
+    async def test_sse_event_format(self):
         """验证SSE事件格式符合规范"""
         from routers.chat import stream_chat_response, rag_agent
 
@@ -153,7 +148,7 @@ class TestAnswerContext:
     def test_answer_context_omits_locate_source_when_no_citation(self):
         from routers.chat import _build_answer_context
 
-        payload = _build_answer_context("测试问题", citations=[], related_entities=[])
+        payload = _build_answer_context("测试问题", related_entities=[])
 
         assert all(action["id"] != "open-primary" for action in payload["suggestedActions"])
         assert payload["citationCount"] == 0

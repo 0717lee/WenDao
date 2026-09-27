@@ -41,7 +41,7 @@ def sse_reasoning(step: str, label: str, status: str, duration: float = None, mo
     return f'event: reasoning\ndata: {json.dumps(data, ensure_ascii=False)}\n\n'
 
 
-def _build_answer_context(query: str, citations: list[dict], related_entities: list[str]) -> dict:
+def _build_answer_context(query: str, related_entities: list[str]) -> dict:
     trust_points: list[str] = ["这次回答优先直接解释你的问题，不再额外展示原文引用。"]
 
     follow_prompt = (
@@ -162,7 +162,7 @@ async def stream_chat_response(query: str, rag_agent: RAGAgent) -> AsyncGenerato
 
         yield sse_reasoning("generation", "生成回答", "complete", time.time() - t0, model="Kimi-8k")
 
-        answer_context = _build_answer_context(query=query, citations=[], related_entities=related_entities)
+        answer_context = _build_answer_context(query=query, related_entities=related_entities)
         yield f'event: answer_context\ndata: {json.dumps(answer_context, ensure_ascii=False)}\n\n'
 
         # -- Done --

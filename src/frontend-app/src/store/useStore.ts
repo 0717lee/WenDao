@@ -33,7 +33,6 @@ export interface Message {
     id: string
     role: 'user' | 'assistant'
     content: string
-    citations?: Array<{ title: string; source: string; excerpt?: string }>
     answerContext?: AnswerContext
     entityIds?: string[]
     reasoningSteps?: ReasoningStep[]
@@ -49,7 +48,6 @@ interface AppState {
     draftMessage: string
     addMessage: (message: Message) => void
     updateLastMessage: (content: string) => void
-    updateLastMessageCitations: (citations: NonNullable<Message['citations']>) => void
     updateLastMessageAnswerContext: (answerContext: AnswerContext) => void
     updateLastMessageReasoning: (steps: ReasoningStep[]) => void
     updateLastMessagePoem: (poem: Partial<PoemResult>) => void
@@ -57,10 +55,6 @@ interface AppState {
     setProgress: (progress: string) => void
     setDraftMessage: (message: string) => void
     clearMessages: () => void
-
-    // TTS auto-read AI responses (default: off)
-    ttsAutoRead: boolean
-    setTtsAutoRead: (enabled: boolean) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -79,16 +73,6 @@ export const useStore = create<AppState>((set) => ({
             updatedMessages[updatedMessages.length - 1] = {
                 ...updatedMessages[updatedMessages.length - 1],
                 content,
-            }
-            return { messages: updatedMessages }
-        }),
-    updateLastMessageCitations: (citations) =>
-        set((state) => {
-            if (state.messages.length === 0) return state
-            const updatedMessages = [...state.messages]
-            updatedMessages[updatedMessages.length - 1] = {
-                ...updatedMessages[updatedMessages.length - 1],
-                citations,
             }
             return { messages: updatedMessages }
         }),
@@ -127,12 +111,4 @@ export const useStore = create<AppState>((set) => ({
     setProgress: (progress) => set({ currentProgress: progress }),
     setDraftMessage: (draftMessage) => set({ draftMessage }),
     clearMessages: () => set({ messages: [] }),
-
-    ttsAutoRead: (() => {
-        try { return localStorage.getItem('ttsAutoRead') === 'true' } catch { return false }
-    })(),
-    setTtsAutoRead: (enabled) => {
-        try { localStorage.setItem('ttsAutoRead', String(enabled)) } catch {}
-        set({ ttsAutoRead: enabled })
-    },
 }))

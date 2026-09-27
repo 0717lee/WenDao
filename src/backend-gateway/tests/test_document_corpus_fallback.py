@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -59,8 +61,15 @@ async def test_get_document_by_repo_id_uses_corpus_snapshot_when_databases_miss(
 
     record = _sample_corpus_record()
 
-    with patch("routers.document.iter_corpus_document_batches", return_value=[[record]]), \
-         patch("routers.document._get_sqlite_document_row", new=AsyncMock(return_value=None)), \
+    sqlite_db = AsyncMock()
+    sqlite_db.execute.return_value.fetchone.return_value = None
+
+    @asynccontextmanager
+    async def empty_db():
+        yield sqlite_db
+
+    with patch("routers.document.iter_corpus_document_batches", return_value=[[record]]) as snapshot_batches, \
+         patch("routers.document.get_db", new=empty_db), \
          patch("routers.document.get_connection", side_effect=RuntimeError("pg disabled")):
         document = await document_router._get_document_by_repo_id("KR1h0004")
 
@@ -68,6 +77,33 @@ async def test_get_document_by_repo_id_uses_corpus_snapshot_when_databases_miss(
     assert document["id"] == record["id"]
     assert document["segments"][0]["title"] == "学而"
     assert document["punctuated_text"] == "学而时习之，不亦说乎？"
+    assert snapshot_batches.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_document_by_repo_id_scans_snapshot_once_after_sqlite_miss():
+    from routers import document as document_router
+
+    class EmptyCursor:
+        async def fetchone(self):
+            return None
+
+    class EmptyDatabase:
+        async def execute(self, *args):
+            return EmptyCursor()
+
+    @asynccontextmanager
+    async def empty_db():
+        yield EmptyDatabase()
+
+    with patch("routers.document.iter_corpus_document_batches", return_value=[]) as snapshot_batches, \
+         patch("routers.document.get_db", new=empty_db), \
+         patch("routers.document.get_connection", side_effect=RuntimeError("pg disabled")):
+        document = await document_router._get_document_by_repo_id("KR1h0004")
+
+    assert document is None
+    assert snapshot_batches.call_count == 1
+
 
 @pytest.mark.asyncio
 async def test_list_documents_endpoint_skips_full_snapshot_count_for_lightweight_fallback():
@@ -86,10 +122,64 @@ async def test_list_documents_endpoint_skips_full_snapshot_count_for_lightweight
     }
 
     with patch("routers.document._list_documents", new=AsyncMock(return_value=[document])), \
-         patch("routers.document._count_documents_sqlite", new=AsyncMock(return_value=0)), \
+         patch("routers.document._count_documents_sqlite", new=AsyncMock(return_value=0)) as sqlite_count, \
          patch("routers.document._count_documents", new=AsyncMock(side_effect=AssertionError("full count should not run"))):
         response = await document_router.list_documents(limit=12, source_type="corpus", _user={"sub": "user-1"})
 
     assert response["documents"] == [document]
     assert response["total"] == 1
     assert response["total_estimated"] is True
+    sqlite_count.assert_awaited_once_with(source_type="corpus", user_id="user-1")
+
+
+@pytest.mark.asyncio
+async def test_list_documents_reuses_corpus_count_and_includes_pg_owned_documents():
+    from routers import document as document_router
+
+    document = {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "title": "《论语》",
+        "source_type": "corpus",
+    }
+    pg_connection = SimpleNamespace(fetchval=AsyncMock(return_value=3))
+
+    @asynccontextmanager
+    async def connection():
+        yield pg_connection
+
+    with patch("routers.document._list_documents", new=AsyncMock(return_value=[document])), \
+         patch("routers.document._count_documents_sqlite", new=AsyncMock(return_value=2)) as sqlite_count, \
+         patch("routers.document.get_connection", new=connection):
+        response = await document_router.list_documents(limit=12, _user={"sub": "user-1"})
+
+    assert response["documents"] == [document]
+    assert response["total"] == 5
+    assert response["total_estimated"] is False
+    sqlite_count.assert_awaited_once_with(source_type="corpus", user_id="user-1")
+    pg_connection.fetchval.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_documents_user_count_skips_corpus_count_on_pg_failure():
+    from routers import document as document_router
+
+    document = {
+        "id": "22222222-2222-2222-2222-222222222222",
+        "title": "上传文档",
+        "source_type": "user",
+    }
+
+    with patch("routers.document._list_documents", new=AsyncMock(return_value=[document])), \
+         patch("routers.document.get_connection", side_effect=RuntimeError("pg disabled")), \
+         patch("routers.document.prevent_sqlite_fallback_in_production"), \
+         patch("routers.document._count_documents_sqlite", new=AsyncMock(return_value=1)) as sqlite_count:
+        response = await document_router.list_documents(
+            limit=12,
+            source_type="user",
+            _user={"sub": "user-1"},
+        )
+
+    assert response["documents"] == [document]
+    assert response["total"] == 1
+    assert response["total_estimated"] is False
+    sqlite_count.assert_awaited_once_with(source_type="user", user_id="user-1")

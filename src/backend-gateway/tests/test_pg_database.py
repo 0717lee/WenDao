@@ -40,54 +40,72 @@ async def test_init_pg_database_creates_tables(mock_asyncpg_pool, monkeypatch):
     acm = mock_asyncpg_pool.acquire.return_value
     mock_conn = acm.__aenter__.return_value
 
-    # documents / reading_history / favorite_folders / favorites / wordbook_entries /
-    # document_notes / study_sessions / users plus ALTER statements for entity_ids, image_data,
-    # source_type, repo_id, author, dynasty, category, source_name, source_url,
-    # chapter_titles, chapter_count, featured_excerpt, difficulty, guide_summary,
-    # reading_tip, recommended_chapters, segment_guides, segments, translation_cache,
-    # translation_status, email
-    assert mock_conn.execute.call_count == 39
     assert mock_conn.executemany.call_count >= 1
 
-    # Verify table names are in the SQL
-    calls = [str(c) for c in mock_conn.execute.call_args_list]
-    all_sql = " ".join(calls)
-    assert "documents" in all_sql
-    assert "reading_history" in all_sql
-    assert "user_reading_history" in all_sql
-    assert "favorite_folders" in all_sql
-    assert "user_favorite_folders" in all_sql
-    assert "favorites" in all_sql
-    assert "user_favorites" in all_sql
-    assert "wordbook_entries" in all_sql
-    assert "user_wordbook_entries" in all_sql
-    assert "document_notes" in all_sql
-    assert "user_document_notes" in all_sql
-    assert "study_sessions" in all_sql
-    assert "user_study_sessions" in all_sql
-    assert "users" in all_sql
-    assert "image_data" in all_sql
-    assert "source_type" in all_sql
-    assert "repo_id" in all_sql
-    assert "author" in all_sql
-    assert "dynasty" in all_sql
-    assert "category" in all_sql
-    assert "source_name" in all_sql
-    assert "source_url" in all_sql
-    assert "chapter_titles" in all_sql
-    assert "chapter_count" in all_sql
-    assert "featured_excerpt" in all_sql
-    assert "difficulty" in all_sql
-    assert "guide_summary" in all_sql
-    assert "reading_tip" in all_sql
-    assert "recommended_chapters" in all_sql
-    assert "segment_guides" in all_sql
-    assert "segments" in all_sql
-    assert "translation_cache" in all_sql
-    assert "translation_status" in all_sql
-    assert "owner_user_id" in all_sql
-    assert "email" in all_sql
-    assert all_sql.index("CREATE TABLE IF NOT EXISTS users") < all_sql.index("CREATE TABLE IF NOT EXISTS user_reading_history")
+    statements = [call.args[0] for call in mock_conn.execute.call_args_list]
+    expected_tables = {
+        "users",
+        "documents",
+        "reading_history",
+        "user_reading_history",
+        "favorite_folders",
+        "user_favorite_folders",
+        "favorites",
+        "user_favorites",
+        "wordbook_entries",
+        "user_wordbook_entries",
+        "document_notes",
+        "user_document_notes",
+        "study_sessions",
+        "user_study_sessions",
+    }
+    for table in expected_tables:
+        assert any(f"CREATE TABLE IF NOT EXISTS {table}" in sql for sql in statements)
+
+    users_creates = [
+        index for index, sql in enumerate(statements)
+        if "CREATE TABLE IF NOT EXISTS users" in sql
+    ]
+    assert len(users_creates) == 1
+    documents_create = next(
+        index for index, sql in enumerate(statements)
+        if "CREATE TABLE IF NOT EXISTS documents" in sql
+    )
+    user_history_create = next(
+        index for index, sql in enumerate(statements)
+        if "CREATE TABLE IF NOT EXISTS user_reading_history" in sql
+    )
+    assert users_creates[0] < documents_create < user_history_create
+    assert "owner_user_id UUID REFERENCES users(id)" in statements[documents_create]
+
+    assert any(
+        "ALTER TABLE users" in sql and "ADD COLUMN IF NOT EXISTS email TEXT UNIQUE" in sql
+        for sql in statements
+    )
+    for column in (
+        "entity_ids",
+        "image_data",
+        "source_type",
+        "owner_user_id",
+        "repo_id",
+        "author",
+        "dynasty",
+        "category",
+        "source_name",
+        "source_url",
+        "chapter_titles",
+        "chapter_count",
+        "featured_excerpt",
+        "difficulty",
+        "guide_summary",
+        "reading_tip",
+        "recommended_chapters",
+        "segment_guides",
+        "segments",
+        "translation_cache",
+        "translation_status",
+    ):
+        assert any(f"ADD COLUMN IF NOT EXISTS {column}" in sql for sql in statements)
 
 
 @pytest.mark.asyncio

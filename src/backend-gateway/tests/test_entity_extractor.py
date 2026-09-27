@@ -30,6 +30,13 @@ SAMPLE_GRAPH = {
 }
 
 
+@pytest.fixture(autouse=True)
+def isolate_provider_credentials(monkeypatch):
+    """Keep fast-path tests offline; enhanced tests opt in with mocked SDK keys."""
+    monkeypatch.setenv("ZHIPUAI_API_KEY", "")
+    monkeypatch.setenv("ZHIPU_API_KEY", "")
+
+
 @pytest.fixture
 def tmp_graph_file(tmp_path):
     """Create a temporary graph JSON file."""
@@ -81,26 +88,33 @@ class TestExtractEntitiesFastPath:
 class TestExtractEntitiesEnhancedPath:
     """Test GLM-4 enhanced extraction."""
 
-    @patch.dict(os.environ, {"ZHIPU_API_KEY": "test_key"})
-    @patch("core.entity_extractor.ZhipuAI", create=True)
+    @patch.dict(
+        os.environ,
+        {"ZHIPUAI_API_KEY": "test_key", "ZHIPU_API_KEY": ""},
+        clear=False,
+    )
+    @patch("zhipuai.ZhipuAI")
     def test_enhanced_path_returns_valid_ids(self, mock_zhipu_cls, extractor):
         """When API key set and call succeeds, use LLM result."""
-        # Patch the import inside the method
         mock_client = Mock()
         mock_zhipu_cls.return_value = mock_client
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = '["kongzi", "lunyu"]'
+        mock_response.choices[0].message.content = '["mengzi"]'
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("core.entity_extractor.ZhipuAI", mock_zhipu_cls):
-            result = extractor.extract_entities("孔子编撰了论语")
+        result = extractor.extract_entities("孔子")
 
-        assert "kongzi" in result
-        assert "lunyu" in result
+        assert result == ["mengzi"]
+        mock_zhipu_cls.assert_called_once_with(api_key="test_key")
+        mock_client.chat.completions.create.assert_called_once()
 
-    @patch.dict(os.environ, {"ZHIPU_API_KEY": "test_key"})
-    @patch("core.entity_extractor.ZhipuAI", create=True)
+    @patch.dict(
+        os.environ,
+        {"ZHIPUAI_API_KEY": "test_key", "ZHIPU_API_KEY": ""},
+        clear=False,
+    )
+    @patch("zhipuai.ZhipuAI")
     def test_enhanced_path_filters_unknown_ids(self, mock_zhipu_cls, extractor):
         """LLM returns hallucinated IDs, only known ones kept."""
         mock_client = Mock()
@@ -110,33 +124,37 @@ class TestExtractEntitiesEnhancedPath:
         mock_response.choices[0].message.content = '["kongzi", "fake_id", "unknown"]'
         mock_client.chat.completions.create.return_value = mock_response
 
-        with patch("core.entity_extractor.ZhipuAI", mock_zhipu_cls):
-            result = extractor.extract_entities("孔子")
+        result = extractor.extract_entities("孔子")
 
-        assert "kongzi" in result
-        assert "fake_id" not in result
-        assert "unknown" not in result
+        assert result == ["kongzi"]
+        mock_zhipu_cls.assert_called_once_with(api_key="test_key")
+        mock_client.chat.completions.create.assert_called_once()
 
-    @patch.dict(os.environ, {"ZHIPU_API_KEY": "test_key"})
-    @patch("core.entity_extractor.ZhipuAI", create=True)
+    @patch.dict(
+        os.environ,
+        {"ZHIPUAI_API_KEY": "test_key", "ZHIPU_API_KEY": ""},
+        clear=False,
+    )
+    @patch("zhipuai.ZhipuAI")
     def test_enhanced_path_fallback_on_api_error(self, mock_zhipu_cls, extractor):
         """When API fails, fall back to fast path."""
         mock_client = Mock()
         mock_zhipu_cls.return_value = mock_client
         mock_client.chat.completions.create.side_effect = Exception("API Error")
 
-        with patch("core.entity_extractor.ZhipuAI", mock_zhipu_cls):
-            result = extractor.extract_entities("孔子编撰了论语")
+        result = extractor.extract_entities("孔子编撰了论语")
 
-        # Should still find entities via fast path
-        assert "kongzi" in result
-        assert "lunyu" in result
+        assert result == ["kongzi", "lunyu"]
+        mock_zhipu_cls.assert_called_once_with(api_key="test_key")
+        mock_client.chat.completions.create.assert_called_once()
 
-    @patch.dict(os.environ, {}, clear=False)
+    @patch.dict(
+        os.environ,
+        {"ZHIPUAI_API_KEY": "", "ZHIPU_API_KEY": ""},
+        clear=False,
+    )
     def test_no_api_key_uses_fast_path(self, extractor):
         """Without ZHIPU_API_KEY, fast path is used."""
-        # Remove key if present
-        os.environ.pop("ZHIPU_API_KEY", None)
         result = extractor.extract_entities("孔子编撰了论语")
         assert "kongzi" in result
         assert "lunyu" in result

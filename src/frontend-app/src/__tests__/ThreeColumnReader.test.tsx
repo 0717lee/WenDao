@@ -16,12 +16,6 @@ vi.mock('../store/useGraphStore', () => ({
   useGraphStore: vi.fn((selector: any) => selector(mockGraphStoreState)),
 }))
 
-// Mock react-scroll-sync since it requires actual DOM scroll behavior
-vi.mock('react-scroll-sync', () => ({
-  ScrollSync: ({ children }: { children: React.ReactNode }) => <div data-testid="scroll-sync">{children}</div>,
-  ScrollSyncPane: ({ children }: { children: React.ReactNode }) => <div data-testid="scroll-sync-pane">{children}</div>,
-}))
-
 describe('ThreeColumnReader', () => {
   let originalInnerWidth: number
 

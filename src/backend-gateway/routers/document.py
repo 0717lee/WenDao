@@ -664,9 +664,7 @@ async def _get_document_by_repo_id(repo_id: str) -> dict[str, Any] | None:
         pass
 
     sqlite_row = await _get_sqlite_document_row(repo_id=repo_id)
-    if sqlite_row:
-        return await _hydrate_public_document(sqlite_row)
-    return _get_corpus_snapshot_document(repo_id=repo_id)
+    return await _hydrate_public_document(sqlite_row)
 
 
 async def _list_documents_sqlite(limit: int = 50, source_type: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
@@ -838,15 +836,30 @@ async def _list_documents(limit: int = 50, source_type: str | None = None, user_
     return await _list_documents_sqlite(limit=limit, source_type=source_type, user_id=user_id)
 
 
-async def _count_documents(source_type: str | None = None, user_id: str | None = None) -> int:
+async def _count_documents(
+    source_type: str | None = None,
+    user_id: str | None = None,
+    sqlite_corpus_count: int | None = None,
+) -> int:
     """Return total count of documents ignoring limit and offset."""
     if source_type == "corpus":
-        sqlite_count = await _count_documents_sqlite(source_type=source_type, user_id=user_id)
+        sqlite_count = (
+            sqlite_corpus_count
+            if sqlite_corpus_count is not None
+            else await _count_documents_sqlite(source_type=source_type, user_id=user_id)
+        )
         return sqlite_count or _count_corpus_snapshot_documents()
 
-    sqlite_corpus_count = await _count_documents_sqlite(source_type="corpus", user_id=user_id) if source_type is None else 0
-    if source_type is None and sqlite_corpus_count == 0:
-        sqlite_corpus_count = _count_corpus_snapshot_documents()
+    if source_type is None:
+        corpus_count = (
+            sqlite_corpus_count
+            if sqlite_corpus_count is not None
+            else await _count_documents_sqlite(source_type="corpus", user_id=user_id)
+        )
+    else:
+        corpus_count = 0
+    if source_type is None and corpus_count == 0:
+        corpus_count = _count_corpus_snapshot_documents()
     where_clause = (
         "WHERE ($1::uuid IS NOT NULL AND owner_user_id = $1::uuid)"
     )
@@ -857,7 +870,7 @@ async def _count_documents(source_type: str | None = None, user_id: str | None =
         async with get_connection() as conn:
             sql = f"SELECT COUNT(*) FROM documents {where_clause}"
             val = await conn.fetchval(sql, user_id, source_type) if source_type else await conn.fetchval(sql, user_id)
-            return sqlite_corpus_count + int(val)
+            return corpus_count + int(val)
     except Exception:
         prevent_sqlite_fallback_in_production()
         pass
@@ -1028,7 +1041,6 @@ async def _list_catalog_entries(
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
-    entries = _build_curated_catalog_entries({}) if primary_only else load_kanripo_catalog()
     query_text = query.strip().lower()
 
     imported_rows = await _list_documents(limit=5000)
@@ -1038,8 +1050,11 @@ async def _list_catalog_entries(
         if item.get("repo_id")
     }
 
-    if primary_only:
-        entries = _build_curated_catalog_entries(imported_by_repo_id)
+    entries = (
+        _build_curated_catalog_entries(imported_by_repo_id)
+        if primary_only
+        else load_kanripo_catalog()
+    )
 
     def matches(entry: dict[str, Any]) -> bool:
         if primary_only and not entry.get("is_primary_text"):
@@ -1527,7 +1542,11 @@ async def list_documents(
             total_estimated = True
             total = len(documents)
         else:
-            total = await _count_documents(source_type=source_type, user_id=user_id)
+            total = await _count_documents(
+                source_type=source_type,
+                user_id=user_id,
+                sqlite_corpus_count=sqlite_corpus_count,
+            )
     else:
         total = await _count_documents(source_type=source_type, user_id=user_id)
 

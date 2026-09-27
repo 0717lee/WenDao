@@ -524,17 +524,6 @@ async def init_pg_database(seed_mode: str | None = None) -> None:
             ADD COLUMN IF NOT EXISTS translation_status TEXT DEFAULT 'none'
         """)
 
-        # Users table for JWT auth
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                username TEXT UNIQUE NOT NULL,
-                email TEXT UNIQUE,
-                hashed_password TEXT NOT NULL,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            )
-        """)
-
         await conn.execute("""
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS email TEXT UNIQUE

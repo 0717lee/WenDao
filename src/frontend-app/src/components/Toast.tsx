@@ -3,24 +3,21 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
 import { useToastStore, type ToastItem, type ToastKind } from '../store/useToastStore'
 
-const KIND_META: Record<ToastKind, { color: string; soft: string; Icon: typeof CheckCircle2; label: string }> = {
+const KIND_META: Record<ToastKind, { color: string; soft: string; Icon: typeof CheckCircle2 }> = {
   success: {
     color: 'var(--gf-gold)',
     soft: 'rgba(201,160,99,0.14)',
     Icon: CheckCircle2,
-    label: '成功',
   },
   error: {
     color: 'var(--gf-gugong-red)',
     soft: 'rgba(140,26,17,0.10)',
     Icon: AlertCircle,
-    label: '出错',
   },
   info: {
     color: 'rgba(26,30,35,0.7)',
     soft: 'rgba(26,30,35,0.06)',
     Icon: Info,
-    label: '提示',
   },
 }
 

@@ -11,7 +11,6 @@ vi.mock('../components/AudioRecorder', () => ({
     isTranscribing: false,
     toggleRecording: vi.fn(),
   }),
-  playTTSAudio: vi.fn(),
 }))
 
 describe('ChatInterface', () => {
@@ -21,12 +20,10 @@ describe('ChatInterface', () => {
       isLoading: false,
       currentProgress: '',
       draftMessage: '',
-      ttsAutoRead: false,
     })
     useDocumentStore.getState().reset()
     useGraphStore.setState({
       activeTab: 'chat',
-      pendingReaderDocId: null,
       pendingSearchQuery: '',
       readerReturnTab: null,
     })

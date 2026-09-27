@@ -462,112 +462,103 @@ async def fulltext_search(query: str, limit: int = 10, user_id: str | None = Non
     for row in rows:
         if not _can_access_candidate(row, user_id):
             continue
-        # Backward-compatible parsing for existing tests that still mock the old
-        # (id, title, content, source, score) shape.
-        if isinstance(row, (list, tuple)) and len(row) >= 5 and isinstance(row[4], (int, float)):
-            title = row[1] or ""
-            preview = row[2] or ""
-            source = row[3] or ""
-            match_score = float(row[4] or 0)
-            anchor_text = query.strip() or None
-        else:
-            title = row.get("title") or ""
-            author = row.get("author", "")
-            dynasty = row.get("dynasty", "")
-            category = row.get("category", "")
-            source_name = row.get("source_name", "")
-            original_text = row.get("original_text") or ""
-            punctuated_text = row.get("punctuated_text") or ""
-            translated_text = row.get("translated_text") or ""
-            source_type = row.get("source_type") or ""
-            searchable_text = "\n".join([title, author or "", dynasty or "", category or "", source_name or "", original_text, punctuated_text, translated_text])
-            normalized_searchable = _normalize_search_text(searchable_text)
-            normalized_title = _normalize_search_text(title)
-            normalized_author = _normalize_search_text(author)
-            normalized_category = _normalize_search_text(category)
-            normalized_source = _normalize_search_text(source_name)
-            normalized_punctuated = _normalize_search_text(punctuated_text)
-            normalized_original = _normalize_search_text(original_text)
-            normalized_translated = _normalize_search_text(translated_text)
-            segment_match = _match_segment_location(row, query) if exact_quote_mode else None
-            document_match = _match_document_location(row, query)
+        title = row.get("title") or ""
+        author = row.get("author", "")
+        dynasty = row.get("dynasty", "")
+        category = row.get("category", "")
+        source_name = row.get("source_name", "")
+        original_text = row.get("original_text") or ""
+        punctuated_text = row.get("punctuated_text") or ""
+        translated_text = row.get("translated_text") or ""
+        source_type = row.get("source_type") or ""
+        searchable_text = "\n".join([title, author or "", dynasty or "", category or "", source_name or "", original_text, punctuated_text, translated_text])
+        normalized_searchable = _normalize_search_text(searchable_text)
+        normalized_title = _normalize_search_text(title)
+        normalized_author = _normalize_search_text(author)
+        normalized_category = _normalize_search_text(category)
+        normalized_source = _normalize_search_text(source_name)
+        normalized_punctuated = _normalize_search_text(punctuated_text)
+        normalized_original = _normalize_search_text(original_text)
+        normalized_translated = _normalize_search_text(translated_text)
+        segment_match = _match_segment_location(row, query) if exact_quote_mode else None
+        document_match = _match_document_location(row, query)
 
-            match_score = 0.0
-            matched_terms: set[str] = set()
-            normalized_query = _normalize_search_text(query)
-            if normalized_query and normalized_query == normalized_title:
-                match_score += 50.0
-            elif normalized_query and normalized_query in normalized_title:
-                match_score += 24.0
-            if normalized_query and normalized_query in normalized_author:
-                match_score += 18.0
+        match_score = 0.0
+        matched_terms: set[str] = set()
+        normalized_query = _normalize_search_text(query)
+        if normalized_query and normalized_query == normalized_title:
+            match_score += 50.0
+        elif normalized_query and normalized_query in normalized_title:
+            match_score += 24.0
+        if normalized_query and normalized_query in normalized_author:
+            match_score += 18.0
 
-            for term in search_terms:
-                normalized_term = _normalize_search_text(term)
-                if not normalized_term:
-                    continue
-                term_matched = False
-                if normalized_term == normalized_title:
-                    match_score += 28.0
-                    term_matched = True
-                elif normalized_term in normalized_title:
-                    match_score += 16.0
-                    term_matched = True
-                if normalized_author and normalized_term in normalized_author:
-                    match_score += 18.0
-                    term_matched = True
-                if normalized_category and normalized_term in normalized_category:
-                    match_score += 12.0
-                    term_matched = True
-                if normalized_source and normalized_term in normalized_source:
-                    match_score += 6.0
-                    term_matched = True
-
-                occurrences = normalized_punctuated.count(normalized_term) + normalized_original.count(normalized_term)
-                if occurrences:
-                    match_score += min(occurrences, 5) * 3.2
-                    term_matched = True
-
-                translated_occurrences = normalized_translated.count(normalized_term)
-                if translated_occurrences:
-                    match_score += min(translated_occurrences, 3) * 1.0
-                    term_matched = True
-
-                if term_matched:
-                    matched_terms.add(normalized_term)
-
-            if segment_match:
-                match_score += float(segment_match["score_boost"])
-            elif document_match:
-                match_score += float(document_match["score_boost"])
-
-            if matched_terms:
-                coverage = len(matched_terms) / max(len(search_terms), 1)
-                match_score += coverage * 20.0
-
-            if source_type == "corpus" and matched_terms:
-                match_score += 3.0
-
-            if match_score <= 0 or (search_terms and not exact_quote_mode and not matched_terms and not document_match):
+        for term in search_terms:
+            normalized_term = _normalize_search_text(term)
+            if not normalized_term:
                 continue
+            term_matched = False
+            if normalized_term == normalized_title:
+                match_score += 28.0
+                term_matched = True
+            elif normalized_term in normalized_title:
+                match_score += 16.0
+                term_matched = True
+            if normalized_author and normalized_term in normalized_author:
+                match_score += 18.0
+                term_matched = True
+            if normalized_category and normalized_term in normalized_category:
+                match_score += 12.0
+                term_matched = True
+            if normalized_source and normalized_term in normalized_source:
+                match_score += 6.0
+                term_matched = True
 
-            preview = (
-                (segment_match or document_match or {}).get("content")
-                or translated_text
-                or punctuated_text
-                or original_text
-            )
-            source = (
-                (segment_match or document_match or {}).get("source")
-                or _default_source_label(row)
-            )
-            if source_type == "corpus" and exact_quote_mode and not segment_match and row.get("source_name"):
-                source = f"古籍库 · {row.get('source_name')}"
-            anchor_text = (
-                (segment_match or document_match or {}).get("anchor_text")
-                or query.strip()
-                or None
-            )
+            occurrences = normalized_punctuated.count(normalized_term) + normalized_original.count(normalized_term)
+            if occurrences:
+                match_score += min(occurrences, 5) * 3.2
+                term_matched = True
+
+            translated_occurrences = normalized_translated.count(normalized_term)
+            if translated_occurrences:
+                match_score += min(translated_occurrences, 3) * 1.0
+                term_matched = True
+
+            if term_matched:
+                matched_terms.add(normalized_term)
+
+        if segment_match:
+            match_score += float(segment_match["score_boost"])
+        elif document_match:
+            match_score += float(document_match["score_boost"])
+
+        if matched_terms:
+            coverage = len(matched_terms) / max(len(search_terms), 1)
+            match_score += coverage * 20.0
+
+        if source_type == "corpus" and matched_terms:
+            match_score += 3.0
+
+        if match_score <= 0 or (search_terms and not exact_quote_mode and not matched_terms and not document_match):
+            continue
+
+        preview = (
+            (segment_match or document_match or {}).get("content")
+            or translated_text
+            or punctuated_text
+            or original_text
+        )
+        source = (
+            (segment_match or document_match or {}).get("source")
+            or _default_source_label(row)
+        )
+        if source_type == "corpus" and exact_quote_mode and not segment_match and row.get("source_name"):
+            source = f"古籍库 · {row.get('source_name')}"
+        anchor_text = (
+            (segment_match or document_match or {}).get("anchor_text")
+            or query.strip()
+            or None
+        )
 
         results.append(SearchResult(
             id=str(row["id"]),

@@ -368,14 +368,3 @@ class RAGAgent:
         except Exception as e:
             logger.warning("[RAGAgent] 向量库加载失败，将使用纯 LLM 模式: %s", e)
             self.vectorstore = None
-
-    def _retrieve_context(self, query: str, k: int = 3) -> str:
-        """从 FAISS 检索最相关的文档片段"""
-        if getattr(self, "vectorstore", None) is None:
-            return ""
-        try:
-            docs = self.vectorstore.similarity_search(query, k=k)
-            return "\n---\n".join([doc.page_content for doc in docs]) if docs else ""
-        except Exception as e:
-            logger.warning("[RAGAgent] 检索失败: %s", e)
-            return ""

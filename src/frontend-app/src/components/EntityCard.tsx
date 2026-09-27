@@ -25,14 +25,6 @@ interface EntityCardProps {
   onClose?: () => void
 }
 
-const GROUP_LABELS: Record<string, string> = {
-  '人物': '人物',
-  '典籍': '典籍',
-  '概念': '概念',
-  '篇章': '篇章',
-  '典故': '典故',
-}
-
 const GROUP_COLORS: Record<string, string> = {
   '人物': 'var(--gf-gugong-red)',
   '典籍': 'var(--gf-gold)',
@@ -80,7 +72,7 @@ export function EntityCard({ entity, relations, neighbors, onSelectNeighbor, onC
               className="rounded-full px-2 py-0.5 text-[11px]"
               style={{ backgroundColor: 'rgba(26,30,35,0.06)', color: 'rgba(26,30,35,0.58)' }}
             >
-              {GROUP_LABELS[entity.group] || entity.group}
+              {entity.group}
             </span>
             {entity.era && (
               <span

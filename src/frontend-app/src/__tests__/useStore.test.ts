@@ -8,7 +8,6 @@ describe('useStore', () => {
       isLoading: false,
       currentProgress: '',
       draftMessage: '',
-      ttsAutoRead: false,
     })
   })
 

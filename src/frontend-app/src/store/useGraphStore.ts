@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type TabType = 'home' | 'chat' | 'search' | 'reader' | 'bookshelf' | 'compare' | 'history' | 'favorites' | 'wordbook';
+type TabType = 'home' | 'chat' | 'search' | 'reader' | 'compare' | 'favorites' | 'wordbook';
 type ReaderHubSection = 'upload'
 
 interface GraphStore {
@@ -9,14 +9,11 @@ interface GraphStore {
     setActiveTab: (tab: TabType) => void;
 
     // Cross-Tab navigation state
-    pendingReaderDocId: string | null;
     pendingSearchQuery: string;
     pendingReaderHubSection: ReaderHubSection | null;
     readerReturnTab: TabType | null;
 
     // Actions
-    navigateToReader: (docId: string) => void;
-    clearReaderNavigation: () => void;
     setReaderReturnTab: (tab: TabType | null) => void;
     queueSearchQuery: (query: string) => void;
     consumeSearchQuery: () => string;
@@ -26,14 +23,11 @@ interface GraphStore {
 
 export const useGraphStore = create<GraphStore>((set, get) => ({
     activeTab: 'home',
-    pendingReaderDocId: null,
     pendingSearchQuery: '',
     pendingReaderHubSection: null,
     readerReturnTab: null,
 
     setActiveTab: (tab) => set({ activeTab: tab }),
-    navigateToReader: (docId) => set({ pendingReaderDocId: docId }),
-    clearReaderNavigation: () => set({ pendingReaderDocId: null }),
     setReaderReturnTab: (readerReturnTab) => set({ readerReturnTab }),
     queueSearchQuery: (query) => set({ pendingSearchQuery: query }),
     consumeSearchQuery: () => {

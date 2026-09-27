@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { BookMarked, NotebookText, Save, Star } from 'lucide-react'
 import { API_BASE } from '../lib/api'
 import { authFetchOptions } from '../store/useAuthStore'
-import { addDocumentToFavorites, ensureDefaultFavoriteFolder, type FavoriteFolder } from '../lib/favorites'
+import { addDocumentToFavorites, type FavoriteFolder } from '../lib/favorites'
 
 interface ReaderNotesPanelProps {
   documentId: string
@@ -71,8 +71,7 @@ export function ReaderNotesPanel({ documentId, documentTitle }: ReaderNotesPanel
   const handleFavorite = async () => {
     try {
       const folder = await addDocumentToFavorites(documentId, folders)
-      const nextPrimaryFolder = await ensureDefaultFavoriteFolder([folder, ...folders])
-      setFolders((prev) => (prev.some((item) => item.id === nextPrimaryFolder.id) ? prev : [nextPrimaryFolder, ...prev]))
+      setFolders((prev) => (prev.some((item) => item.id === folder.id) ? prev : [folder, ...prev]))
       showMessage(`已经收藏到 ${folder.name}`)
     } catch {
       showMessage('收藏没有成功，请稍后再试一次')

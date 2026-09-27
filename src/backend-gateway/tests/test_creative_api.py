@@ -3,7 +3,7 @@
 import json
 import base64
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 
 
@@ -42,49 +42,22 @@ def _parse_sse_events(response_text: str) -> list[dict]:
 
 @pytest.fixture
 def client():
-    """Create test client with mocked GLM-4, ImageGenAgent, and SpeechAgent."""
-    # Mock GLM-4 (ZhipuAI)
-    mock_zhipuai_cls = MagicMock()
-    mock_client_instance = MagicMock()
-    mock_response = MagicMock()
-    mock_choice = MagicMock()
-    mock_choice.message.content = SAMPLE_POEM
-    mock_response.choices = [mock_choice]
-    mock_client_instance.chat.completions.create.return_value = mock_response
-    mock_zhipuai_cls.return_value = mock_client_instance
-
-    # Mock ImageGenAgent
-    mock_image_agent_cls = MagicMock()
-    mock_image_instance = MagicMock()
-    mock_image_instance.generate.return_value = SAMPLE_IMAGE_URL
-    mock_image_agent_cls.return_value = mock_image_instance
-
-    # Mock SpeechAgent
-    mock_speech_agent_cls = MagicMock()
-    mock_speech_instance = MagicMock()
-    # SpeechAgent.tts is async, mock it properly
-    mock_speech_instance.tts = AsyncMock(return_value=SAMPLE_AUDIO_BYTES)
-    mock_speech_agent_cls.return_value = mock_speech_instance
-
-    with patch("routers.creative.ZhipuAI", mock_zhipuai_cls, create=True), \
-         patch("routers.creative.ImageGenAgent", mock_image_agent_cls, create=True), \
-         patch("routers.creative.SpeechAgent", mock_speech_agent_cls, create=True):
-
-        # Patch the lazy imports inside the helper functions
-        with patch("routers.creative._generate_poem") as mock_gen_poem, \
-             patch("routers.creative._safe_generate_image") as mock_gen_image, \
-             patch("routers.creative._safe_generate_audio") as mock_gen_audio:
-
-            mock_gen_poem.return_value = SAMPLE_POEM
-            mock_gen_image.return_value = SAMPLE_IMAGE_URL
-            mock_gen_audio.return_value = SAMPLE_AUDIO_BYTES
-
-            # Make them proper coroutines
-            mock_gen_poem.side_effect = None
-            mock_gen_poem.return_value = SAMPLE_POEM
-
-            from main import app
-            yield TestClient(app)
+    """Create test client with mocked poem and media generation helpers."""
+    with patch(
+        "routers.creative._generate_poem",
+        new_callable=AsyncMock,
+        return_value=SAMPLE_POEM,
+    ), patch(
+        "routers.creative._safe_generate_image",
+        new_callable=AsyncMock,
+        return_value=SAMPLE_IMAGE_URL,
+    ), patch(
+        "routers.creative._safe_generate_audio",
+        new_callable=AsyncMock,
+        return_value=SAMPLE_AUDIO_BYTES,
+    ):
+        from main import app
+        yield TestClient(app)
 
 
 @pytest.fixture

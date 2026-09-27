@@ -75,9 +75,9 @@ class TestExplainWordWithContext:
         assert "meaning" in result
         # Verify context was passed to the prompt
         call_args = mock_client.chat.completions.create.call_args
-        prompt = call_args[1]["messages"][0]["content"] if "messages" in call_args[1] else call_args[0][0]
-        # Check context appears somewhere in the call
-        assert mock_client.chat.completions.create.called
+        messages = call_args.kwargs["messages"]
+        user_message = next(message for message in messages if message["role"] == "user")
+        assert "孔子说仁者爱人" in user_message["content"]
 
 
 class TestExplainWordZhipuFails:

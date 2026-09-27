@@ -125,16 +125,8 @@ class TestPaddleFallback:
         agent.secret_key = "test_secret"
 
         # Mock百度OCR抛异常
-        with patch.object(agent, "_baidu_ocr", side_effect=RuntimeError("API错误")):
-            # Mock PaddleOCR
-            mock_paddle = Mock()
-            mock_paddle.ocr.return_value = [
-                [
-                    [[[0, 0], [100, 0], [100, 30], [0, 30]], ("测试文字", 0.92)],
-                    [[[0, 40], [100, 40], [100, 70], [0, 70]], ("第二行", 0.88)],
-                ]
-            ]
-
+        with patch.object(agent, "_baidu_ocr", side_effect=RuntimeError("API错误")), \
+             patch.object(agent, "_zhipu_ocr", new=AsyncMock(side_effect=RuntimeError("vision unavailable"))):
             with patch.object(agent, "_paddle_ocr") as mock_paddle_method:
                 mock_paddle_method.return_value = {
                     "text": "测试文字\n第二行",
@@ -144,6 +136,7 @@ class TestPaddleFallback:
 
         assert "测试文字" in result["text"]
         assert result["confidence"] > 0
+        mock_paddle_method.assert_awaited_once_with(b"fake_image_bytes")
 
 
 class TestZhipuVisionFallback:
@@ -227,12 +220,14 @@ class TestOCRTimeout:
         agent.secret_key = "test_secret"
 
         import httpx
-        with patch.object(agent, "_baidu_ocr", side_effect=httpx.TimeoutException("timeout")):
+        with patch.object(agent, "_baidu_ocr", side_effect=httpx.TimeoutException("timeout")), \
+             patch.object(agent, "_zhipu_ocr", new=AsyncMock(side_effect=RuntimeError("vision unavailable"))):
             with patch.object(agent, "_paddle_ocr") as mock_paddle:
                 mock_paddle.return_value = {"text": "降级结果", "confidence": 0.85}
                 result = await agent.recognize(b"fake_image_bytes")
 
         assert result["text"] == "降级结果"
+        mock_paddle.assert_awaited_once_with(b"fake_image_bytes")
 
 
 if __name__ == "__main__":

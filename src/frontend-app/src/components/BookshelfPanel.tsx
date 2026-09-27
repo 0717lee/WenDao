@@ -255,9 +255,7 @@ export default function BookshelfPanel({
   const [moreOptionsLoaded, setMoreOptionsLoaded] = useState(false)
   const { setDocument, setUploadStatus, uploadStatus } = useDocumentStore()
   const consumeReaderHubSection = useGraphStore((state) => state.consumeReaderHubSection)
-  const continueReadingRef = useRef<HTMLDivElement | null>(null)
   const corpusSectionRef = useRef<HTMLDivElement | null>(null)
-  const userDocumentsRef = useRef<HTMLDivElement | null>(null)
   const uploadSectionRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -673,7 +671,6 @@ export default function BookshelfPanel({
         <section className={`grid items-stretch gap-5 ${shouldShowRecentHistory ? 'xl:grid-cols-[0.82fr_1.18fr]' : ''}`}>
           {shouldShowRecentHistory && (
             <div
-              ref={continueReadingRef}
               className="h-full rounded-[28px] p-5"
               style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
             >
@@ -930,7 +927,6 @@ export default function BookshelfPanel({
 
             <section className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
               <div
-            ref={userDocumentsRef}
             className="rounded-[28px] p-5"
             style={{ backgroundColor: 'rgba(255,255,255,0.7)', border: '1px solid rgba(26,30,35,0.06)' }}
           >
